@@ -65,20 +65,43 @@ Option to review answers with explanations
 5. Technical Implementation Guide
 Directory Structure
 /interac/
-├── public/              # Static assets
-│   ├── css/             # Stylesheets
-│   ├── js/              # Client-side JavaScript
-│   │   ├── modules/     # Modular JavaScript components
-│   │   ├── components/  # UI components
-│   │   └── main.js      # Main application entry point
-│   └── assets/          # Images, fonts, etc.
-├── views/               # Server-side templates (if applicable)
-├── routes/              # API routes
-├── services/            # Business logic
-├── utils/               # Utility functions
-├── app.js               # Application entry point
-├── package.json         # Dependencies and scripts
-└── Passengerfile.json   # Passenger configuration
+/interac/
+├── AI-MANIFEST.md          # AI-focused documentation
+│
+├── server-side/            # Explicitly server-side code
+│   ├── server-main.js      # Main server entry point
+│   ├── server-socket/      # Socket.io server implementation
+│   │   ├── socket-events.js
+│   │   └── socket-handlers.js
+│   ├── server-api/         # REST API endpoints
+│   │   ├── api-auth.js
+│   │   └── api-quiz.js
+│   └── server-services/    # Business logic services
+│       ├── auth-service.js
+│       └── quiz-service.js
+│
+├── client-side/            # Explicitly client-side code
+│   ├── client-main.js      # Client entry point
+│   ├── client-socket/      # Socket.io client implementation
+│   │   └── socket-client.js
+│   ├── client-components/  # UI components
+│   │   ├── quiz-question.js
+│   │   └── quiz-results.js
+│   ├── client-styles/      # CSS styles
+│   │   └── client-styles.css
+│   └── client-utils/       # Client utilities
+│       └── client-helpers.js
+│
+├── shared/                 # Shared between client and server
+│   ├── shared-constants.js # Constants used everywhere
+│   ├── shared-types.js     # Type definitions
+│   └── shared-utils.js     # Shared utility functions
+│
+├── config/                 # Configuration
+│   └── app-config.js
+│
+└── server.js               # Application entry point
+
 Key Implementation Patterns
 WebSocket Communication Pattern
 javascript// Create protocol for message types

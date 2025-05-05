@@ -1,0 +1,63 @@
+InterServer typically follows a standard Linux hosting directory structure. Based on your previous terminal output, your path follows this pattern:
+/home/touthaol/domains/touthaolee.com/public_html/interac
+
+Breakdown:
+- /home/touthaol/ — user home directory (username: touthaol)
+- /domains/ — contains all domains for your hosting account
+- /touthaolee.com/ — specific to your domain
+- /public_html/ — web root directory for your domain (publicly accessible)
+- /interac/ — subdirectory for your Socket.io project
+
+When configuring your application in cPanel's Node.js manager, use this full path as the application root. The URL path for this directory is:
+https://touthaolee.com/interac/
+
+For Passenger configuration on InterServer:
+- Place Passengerfile.json in your application directory
+- Use tmp/restart.txt to trigger application restarts
+
+These paths are standard for most cPanel hosting environments, though some providers may have slight variations. Let me know if you need more details about InterServer's path structure.
+
+
+Notes: Do not delete any function that is not working. Fix the function. Always ask and discuss what the funtion that is not working is for.
+Ensure the generated HTML code is responsive and optimized for mobile devices.
+
+/interac/
+├── AI-MANIFEST.md          # AI-focused documentation
+│
+├── server-side/            # Explicitly server-side code
+│   ├── server-main.js      # Main server entry point
+│   ├── server-socket/      # Socket.io server implementation
+│   │   ├── socket-events.js
+│   │   └── socket-handlers.js
+│   ├── server-api/         # REST API endpoints
+│   │   ├── api-auth.js
+│   │   └── api-quiz.js
+│   └── server-services/    # Business logic services
+│       ├── auth-service.js
+│       └── quiz-service.js
+│
+├── client-side/            # Explicitly client-side code
+│   ├── client-main.js      # Client entry point
+│   ├── client-socket/      # Socket.io client implementation
+│   │   └── socket-client.js
+│   ├── client-components/  # UI components
+│   │   ├── quiz-question.js
+│   │   └── quiz-results.js
+│   ├── client-styles/      # CSS styles
+│   │   └── client-styles.css
+│   └── client-utils/       # Client utilities
+│       └── client-helpers.js
+│
+├── shared/                 # Shared between client and server
+│   ├── shared-constants.js # Constants used everywhere
+│   ├── shared-types.js     # Type definitions
+│   └── shared-utils.js     # Shared utility functions
+│
+├── config/                 # Configuration
+│   └── app-config.js
+├── public/                 # Configuration
+│   └── admin.html
+│   └── index.html
+│   └── style.css
+│
+└── server.js               # Application entry point
