@@ -1,5 +1,5 @@
 // client-side/client-components/quiz-results.js
-import { initQuizComponents } from './quiz-question.js';
+import { initQuizComponents } from './quiz-questions.js';
 
 // Elements
 const resultsModal = document.getElementById('results-modal');
@@ -129,6 +129,3 @@ function reviewAnswers() {
   // This would show the questions again with correct/incorrect indicators
   alert('Review functionality would show your answers with explanations');
 }
-
-// Export show results function for use in other modules
-export { showResults };
