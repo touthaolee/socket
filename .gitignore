@@ -1,0 +1,55 @@
+# Environment variables
+.env
+
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# User data (to prevent overwriting on different environments)
+data/users.json
+data/quizzes.json
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+tmp/
+*.tmp
+
+# Passenger restart file (should be created locally)
+tmp/restart.txt
+
+# Context files
+context/*.txt
+context/context.txt
+
+# Operating system files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-*
+
+# Build and distribution directories
+dist/
+build/
+
+# Local configuration that might differ between environments
+config/local.js
+
+# Debug files
+.node-debug*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
