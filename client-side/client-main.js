@@ -3,7 +3,7 @@ import socketClient from './client-socket/socket-client.js';
 import { setupAuthUI, setupChatUI } from './client-components/auth-components.js';
 import { setupChatHandlers } from './client-components/chat-components.js';
 import { setTokenInStorage, getTokenFromStorage, removeTokenFromStorage } from './client-utils/client-helpers.js';
-import { initQuizComponents } from './client-components/quiz-question.js';
+import { initQuizComponents } from './client-components/quiz-questions.js';
 import { initResultsComponents } from './client-components/quiz-results.js';
 
 // Initialize the application
