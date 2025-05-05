@@ -1,0 +1,186 @@
+AI Agent Web Page Creation Instructions
+1. Project Overview
+
+Project Name: Interactive Quiz Application
+Purpose: Real-time Socket.io-based quiz application for creating and participating in interactive quizzes
+Target Audience: Quiz participants and administrators on touthaolee.com
+Key Functions:
+
+Real-time communication using Socket.io
+Quiz creation and management
+Waiting room functionality for participants
+Live quiz participation with interactive question answering
+
+
+
+2. Technical Specifications
+
+Frontend Framework: Node.js with Express and Socket.io
+Responsive Design: Mobile-first approach with clean UI
+Performance Goals: Fast loading times, responsive WebSocket connections
+Browser Compatibility: Modern browsers with WebSocket support
+Hosting Environment: InterServer Linux hosting
+
+Server Directory Structure
+/home/touthaol/domains/touthaolee.com/public_html/interac/
+Directory Structure Breakdown
+
+/home/touthaol/ — User home directory (username: touthaol)
+/domains/ — Contains all domains for the hosting account
+/touthaolee.com/ — Specific to the domain
+/public_html/ — Web root directory for the domain (publicly accessible)
+/interac/ — Subdirectory for the Socket.io project
+
+Access URL
+https://touthaolee.com/interac/
+3. Content Structure
+Application Sections
+
+Login View: User authentication screen
+Quiz List View: Available quizzes for participants
+Waiting Room View: Pre-quiz waiting area for participants
+Active Quiz View: Interactive quiz participation area
+Quiz Results View: End-of-quiz results and leaderboard
+Admin Dashboard: Quiz creation and management (separate interface)
+
+Navigation System
+
+Simple, intuitive navigation between views
+Clear section transitions with proper focus management
+Mobile-friendly navigation with back buttons
+
+4. Technical Implementation
+Package Configuration (package.json)
+json{
+  "name": "interac",
+  "version": "1.0.0",
+  "description": "Real-time interaction application using Socket.io",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
+Passenger Configuration (Passengerfile.json)
+json{
+  "app_type": "node",
+  "startup_file": "app.js",
+  "environment": "production",
+  "websocket": true
+}
+5. User Interface Components
+HTML Structure
+The application follows a standard HTML5 structure with:
+
+Proper semantic elements
+Accessibility attributes
+Responsive design elements
+
+Key HTML file: index.html with the following sections:
+
+Toast notification container
+Login container
+Main app container with headers, sections, and footers
+Modal dialogs for confirmations and reviews
+
+CSS Implementation
+The application uses a modern CSS approach with:
+
+CSS variables for theming
+Responsive grid layouts
+Animation and transition effects
+Accessibility features (contrast, focus states)
+
+JavaScript Implementation
+The application uses modular JavaScript with:
+
+ES modules for code organization
+Event-driven architecture
+WebSocket connection management
+State management
+
+Core JavaScript files:
+
+main.js: Core application logic
+admin.js: Admin dashboard functionality
+Various modules in js/modules/ directory
+
+6. WebSocket Integration
+Connection Handling
+
+Robust connection management
+Automatic reconnection with exponential backoff
+Token-based authentication
+Error handling and logging
+
+Message Types
+
+Quiz state management
+Participant updates
+Answer submissions and results
+Admin control messages
+
+7. Authentication System
+Login Flow
+
+Username/password authentication
+JWT token generation and storage
+Session persistence
+Secure logout process
+
+Token Management
+
+Token validation
+Token refresh mechanism
+Token synchronization across storage locations
+
+8. Deployment Instructions
+cPanel Configuration
+When configuring the application in cPanel's Node.js manager, use the full path:
+/home/touthaol/domains/touthaolee.com/public_html/interac/
+Passenger Configuration
+
+Place Passengerfile.json in the application directory
+Use tmp/restart.txt to trigger application restarts
+
+9. Testing and Validation
+Functional Testing
+
+Test WebSocket connections
+Verify quiz creation and participation
+Test waiting room functionality
+Verify scoring and results
+
+Error Handling
+
+Implement robust error handling
+Provide clear error messages
+Log errors for debugging
+Graceful degradation on connection issues
+
+10. Additional Features
+Real-time Participant Management
+
+Dynamic participant list updates
+Status indicators for participants
+Waiting room participant management
+Quiz progress synchronization
+
+Quiz Features
+
+Timer for questions
+Score tracking
+Rationale for answers
+Leaderboard functionality
+
+This comprehensive guide provides all the necessary information for an AI agent to understand and implement the Interactive Quiz Application. The instructions cover the technical structure, deployment needs, and feature requirements in an organized manner that ensures successful implementation.
+
+END

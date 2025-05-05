@@ -1,0 +1,7 @@
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION BEGIN
+PassengerAppRoot "/home/touthaol/domains/touthaolee.com/public_html/interac"
+PassengerBaseURI "/interac"
+PassengerNodejs "/home/touthaol/nodevenv/domains/touthaolee.com/public_html/interac/22/bin/node"
+PassengerAppType node
+PassengerStartupFile app.js
+# DO NOT REMOVE. CLOUDLINUX PASSENGER CONFIGURATION END
