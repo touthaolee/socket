@@ -1,15 +1,13 @@
 // client-side/client-components/chat-components.js
 
-/**
- * Setup handlers for chat-related socket events
- * @param {Object} socket - Socket.io client instance
- */
+// Setup chat handlers
 export function setupChatHandlers(socket) {
-    const messagesContainer = document.getElementById('chat-messages');
+    const chatMessages = document.getElementById('chat-messages');
+    const userList = document.getElementById('user-list');
     
     // Handle incoming chat messages
     socket.on('chat_message', (data) => {
-      addMessageToChat(data);
+      addChatMessage(data);
     });
     
     // Handle user list updates
@@ -17,36 +15,40 @@ export function setupChatHandlers(socket) {
       updateUserList(users);
     });
     
-    /**
-     * Add a message to the chat display
-     * @param {Object} data - Message data
-     */
-    function addMessageToChat(data) {
+    // Add a chat message
+    function addChatMessage(data) {
       const messageElement = document.createElement('div');
-      messageElement.classList.add('message');
+      messageElement.className = `message ${data.user === socket.user.username ? 'message-mine' : 'message-other'}`;
+      
+      // Format time
+      const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      
       messageElement.innerHTML = `
-        <span class="user">${data.user}:</span>
-        <span class="text">${data.message}</span>
-        <span class="time">${new Date(data.timestamp).toLocaleTimeString()}</span>
+        <div class="user">${data.user}</div>
+        <div class="content">${data.message}</div>
+        <div class="time">${time}</div>
       `;
-      messagesContainer.appendChild(messageElement);
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      
+      chatMessages.appendChild(messageElement);
+      
+      // Scroll to bottom
+      chatMessages.scrollTop = chatMessages.scrollHeight;
     }
     
-    /**
-     * Update the displayed user list
-     * @param {Array} users - List of active users
-     */
+    // Update the user list
     function updateUserList(users) {
-      const userListContainer = document.getElementById('user-list');
-      if (userListContainer) {
-        userListContainer.innerHTML = '';
-        users.forEach(user => {
-          const userElement = document.createElement('div');
-          userElement.classList.add('user-item');
-          userElement.textContent = user.username;
-          userListContainer.appendChild(userElement);
-        });
-      }
+      userList.innerHTML = '';
+      
+      users.forEach(user => {
+        const userElement = document.createElement('div');
+        userElement.className = 'user-item';
+        
+        userElement.innerHTML = `
+          <div class="user-status"></div>
+          <div class="user-name">${user.username}</div>
+        `;
+        
+        userList.appendChild(userElement);
+      });
     }
   }

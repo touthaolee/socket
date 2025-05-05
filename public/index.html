@@ -3,71 +3,244 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Socket.io Chat with JWT Auth</title>
+  <title>InterAc - Interactive Quiz Platform</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/interac/client-side/client-styles/client-styles.css">
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
 </head>
 <body>
-  <div class="container">
-    <!-- Auth Forms -->
-    <div id="auth-container">
-      <div class="tabs">
-        <button class="tab-btn active" data-tab="login">Login</button>
-        <button class="tab-btn" data-tab="register">Register</button>
+  <div class="app-container">
+    <nav class="app-nav">
+      <div class="nav-logo">InterAc</div>
+      <div class="nav-menu" id="nav-menu">
+        <span class="menu-item active" data-view="quizzes">Quizzes</span>
+        <span class="menu-item" data-view="chat">Chat</span>
+        <span class="menu-item" data-view="profile">Profile</span>
       </div>
-      
-      <!-- Login Form -->
-      <div id="login-form" class="auth-form active">
-        <h2>Login</h2>
-        <div class="form-group">
-          <label for="login-username">Username</label>
-          <input type="text" id="login-username" required>
+      <button class="nav-toggle" id="nav-toggle">
+        <i class="fas fa-bars"></i>
+      </button>
+    </nav>
+
+    <!-- Auth Container -->
+    <div id="auth-container" class="container">
+      <div class="auth-card">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="login">Login</button>
+          <button class="tab-btn" data-tab="register">Register</button>
         </div>
-        <div class="form-group">
-          <label for="login-password">Password</label>
-          <input type="password" id="login-password" required>
+        
+        <!-- Login Form -->
+        <div id="login-form" class="auth-form active">
+          <h2>Welcome Back</h2>
+          <p class="form-subtitle">Login to access your quizzes and chat</p>
+          <div class="form-group">
+            <label for="login-username">Username</label>
+            <input type="text" id="login-username" required>
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" required>
+          </div>
+          <button id="login-btn" class="btn">Login</button>
+          <div id="login-error" class="error-message"></div>
         </div>
-        <button id="login-btn" class="btn">Login</button>
-        <div id="login-error" class="error-message"></div>
-      </div>
-      
-      <!-- Register Form -->
-      <div id="register-form" class="auth-form">
-        <h2>Register</h2>
-        <div class="form-group">
-          <label for="register-username">Username</label>
-          <input type="text" id="register-username" required>
+        
+        <!-- Register Form -->
+        <div id="register-form" class="auth-form">
+          <h2>Create Account</h2>
+          <p class="form-subtitle">Join our interactive learning platform</p>
+          <div class="form-group">
+            <label for="register-username">Username</label>
+            <input type="text" id="register-username" required>
+          </div>
+          <div class="form-group">
+            <label for="register-email">Email</label>
+            <input type="email" id="register-email" required>
+          </div>
+          <div class="form-group">
+            <label for="register-password">Password</label>
+            <input type="password" id="register-password" required>
+          </div>
+          <div class="form-group">
+            <label for="register-confirm-password">Confirm Password</label>
+            <input type="password" id="register-confirm-password" required>
+          </div>
+          <button id="register-btn" class="btn">Register</button>
+          <div id="register-error" class="error-message"></div>
         </div>
-        <div class="form-group">
-          <label for="register-email">Email</label>
-          <input type="email" id="register-email" required>
-        </div>
-        <div class="form-group">
-          <label for="register-password">Password</label>
-          <input type="password" id="register-password" required>
-        </div>
-        <div class="form-group">
-          <label for="register-confirm-password">Confirm Password</label>
-          <input type="password" id="register-confirm-password" required>
-        </div>
-        <button id="register-btn" class="btn">Register</button>
-        <div id="register-error" class="error-message"></div>
       </div>
     </div>
     
-    <!-- Chat Interface (Hidden until authenticated) -->
-    <div id="chat-container" class="hidden">
-      <h2>Socket.io Chat</h2>
-      <div id="user-info"></div>
-      <div id="user-list"></div>
-      <div id="chat-messages"></div>
-      <div class="message-input">
-        <input type="text" id="message-input" placeholder="Type your message...">
-        <button id="send-btn">Send</button>
+    <!-- Main App Container (Hidden until authenticated) -->
+    <div id="main-app" class="container hidden">
+      <!-- Quiz View -->
+      <div id="quizzes-view" class="app-view active">
+        <div class="section-header">
+          <h2>Available Quizzes</h2>
+          <div class="search-container">
+            <input type="text" id="quiz-search" placeholder="Search quizzes...">
+            <i class="fas fa-search"></i>
+          </div>
+        </div>
+        
+        <div id="quiz-list" class="card-grid">
+          <!-- Quiz cards will be generated here -->
+        </div>
+        
+        <div class="empty-state hidden" id="no-quizzes">
+          <i class="fas fa-question-circle"></i>
+          <p>No quizzes available. Check back later!</p>
+        </div>
+      </div>
+      
+      <!-- Chat View -->
+      <div id="chat-view" class="app-view">
+        <div class="section-header">
+          <h2>Live Chat</h2>
+        </div>
+        
+        <div class="chat-container">
+          <div class="chat-sidebar">
+            <div class="user-info" id="user-info"></div>
+            <h3>Online Users</h3>
+            <div id="user-list" class="user-list"></div>
+          </div>
+          
+          <div class="chat-main">
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="message-input">
+              <input type="text" id="message-input" placeholder="Type your message...">
+              <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Profile View -->
+      <div id="profile-view" class="app-view">
+        <div class="section-header">
+          <h2>My Profile</h2>
+        </div>
+        
+        <div class="profile-container">
+          <div class="profile-card">
+            <div class="profile-header">
+              <div class="profile-avatar">
+                <i class="fas fa-user"></i>
+              </div>
+              <h3 id="profile-username">Username</h3>
+            </div>
+            
+            <div class="profile-stats">
+              <div class="stat-item">
+                <span class="stat-value" id="quizzes-completed">0</span>
+                <span class="stat-label">Quizzes Completed</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value" id="avg-score">0%</span>
+                <span class="stat-label">Average Score</span>
+              </div>
+            </div>
+            
+            <button id="logout-btn" class="btn btn-outline">Logout</button>
+          </div>
+          
+          <div class="recent-activity">
+            <h3>Recent Activity</h3>
+            <div id="activity-list" class="activity-list">
+              <div class="empty-state">
+                <p>No recent activity</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quiz Taking Modal -->
+    <div id="quiz-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="quiz-title">Quiz Title</h2>
+          <span class="close-modal">&times;</span>
+        </div>
+        
+        <div class="quiz-progress">
+          <div class="progress-text">
+            <span id="current-question">1</span>/<span id="total-questions">10</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="timer" id="question-timer">
+            <i class="fas fa-clock"></i>
+            <span id="timer-value">30</span>
+          </div>
+        </div>
+        
+        <div id="question-container" class="question-container">
+          <p id="question-text" class="question-text">Question text will appear here</p>
+          
+          <div id="answer-options" class="answer-options">
+            <!-- Answer options will be generated here -->
+          </div>
+        </div>
+        
+        <div id="explanation-container" class="explanation-container hidden">
+          <h3>Explanation</h3>
+          <p id="explanation-text"></p>
+        </div>
+        
+        <div class="modal-footer">
+          <button id="next-question" class="btn">Next Question</button>
+          <button id="submit-quiz" class="btn hidden">Submit Quiz</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quiz Results Modal -->
+    <div id="results-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Quiz Results</h2>
+          <span class="close-results">&times;</span>
+        </div>
+        
+        <div class="results-summary">
+          <div class="result-score">
+            <div class="score-circle">
+              <span id="final-score">85%</span>
+            </div>
+          </div>
+          
+          <div class="result-details">
+            <div class="result-item">
+              <span class="result-label">Correct Answers:</span>
+              <span id="correct-answers">8/10</span>
+            </div>
+            <div class="result-item">
+              <span class="result-label">Time Taken:</span>
+              <span id="time-taken">3:24</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="results-feedback" id="results-feedback">
+          Great job! You've demonstrated a good understanding of this topic.
+        </div>
+        
+        <div class="modal-footer">
+          <button id="review-answers" class="btn btn-outline">Review Answers</button>
+          <button id="back-to-quizzes" class="btn">Back to Quizzes</button>
+        </div>
       </div>
     </div>
   </div>
   
   <script src="/interac/socket.io/socket.io.js"></script>
   <script type="module" src="/interac/client-side/client-main.js"></script>
+  <script type="module" src="/interac/client-side/client-components/quiz-question.js"></script>
+  <script type="module" src="/interac/client-side/client-components/quiz-results.js"></script>
 </body>
 </html>
