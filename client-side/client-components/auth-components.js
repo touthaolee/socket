@@ -1,176 +1,145 @@
-// client-side/client-main.js
-import socketClient from './client-socket/socket-client.js';
-import { setupAuthUI, setupChatUI } from './client-components/auth-components.js';
-import { setupChatHandlers } from './client-components/chat-components.js';
-import { setTokenInStorage, getTokenFromStorage, removeTokenFromStorage } from './client-utils/client-helpers.js';
-import { initQuizComponents } from './client-components/quiz-question.js';
-import { initResultsComponents } from './client-components/quiz-results.js';
+// client-side/client-components/auth-components.js
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Socket.io client
-  const socket = socketClient.init();
+// Export auth-related UI setup functions
+export function setupAuthUI(callbacks) {
+  const { onLogin, onRegister } = callbacks;
   
-  // Initialize UI components
-  setupAuthUI({
-    onLogin: handleLogin,
-    onRegister: handleRegister
+  // Get form elements
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+  const loginBtn = document.getElementById('login-btn');
+  const registerBtn = document.getElementById('register-btn');
+  const loginError = document.getElementById('login-error');
+  const registerError = document.getElementById('register-error');
+  
+  // Handle tab switching
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const authForms = document.querySelectorAll('.auth-form');
+  
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      
+      // Update active tab button
+      tabBtns.forEach(tb => tb.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Show correct form
+      authForms.forEach(form => {
+        if (form.id === `${tabName}-form`) {
+          form.classList.add('active');
+        } else {
+          form.classList.remove('active');
+        }
+      });
+    });
   });
-  
-  setupChatUI({
-    onSendMessage: (message) => {
-      socket.emit('chat_message', { message });
-    }
-  });
-  
-  // Initialize quiz components
-  initQuizComponents();
-  initResultsComponents();
-  
-  // Setup navigation
-  setupNavigation();
-  
-  // Check if user is already logged in
-  const token = getTokenFromStorage();
-  if (token) {
-    // Try to connect with stored token
-    socketClient.connectWithToken(token);
-  }
-  
-  // Setup socket event handlers
-  setupSocketEventHandlers(socket);
   
   // Handle login form submission
-  async function handleLogin(credentials) {
-    try {
-      const response = await fetch('/interac/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Login failed' };
-      }
-      
-      // Store token and connect
-      setTokenInStorage(data.token);
-      socketClient.connectWithToken(data.token);
-      
-      return { success: true, user: data.user };
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Server error, please try again' };
+  loginBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    // Get form values
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    
+    // Basic validation
+    if (!username || !password) {
+      loginError.textContent = 'Please enter both username and password';
+      return;
     }
-  }
+    
+    // Show loading state
+    loginBtn.textContent = 'Logging in...';
+    loginBtn.disabled = true;
+    loginError.textContent = '';
+    
+    // Call the provided login callback
+    const result = await onLogin({ username, password });
+    
+    // Reset button state
+    loginBtn.textContent = 'Login';
+    loginBtn.disabled = false;
+    
+    // Handle result
+    if (!result.success) {
+      loginError.textContent = result.error;
+    }
+  });
   
   // Handle register form submission
-  async function handleRegister(userData) {
-    try {
-      const response = await fetch('/interac/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Registration failed' };
-      }
-      
-      // Store token and connect
-      setTokenInStorage(data.token);
-      socketClient.connectWithToken(data.token);
-      
-      return { success: true, user: data.user };
-    } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, error: 'Server error, please try again' };
+  registerBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    
+    // Get form values
+    const username = document.getElementById('register-username').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value;
+    const confirmPassword = document.getElementById('register-confirm-password').value;
+    
+    // Basic validation
+    if (!username || !email || !password) {
+      registerError.textContent = 'Please fill out all fields';
+      return;
+    }
+    
+    if (password !== confirmPassword) {
+      registerError.textContent = 'Passwords do not match';
+      return;
+    }
+    
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      registerError.textContent = 'Please enter a valid email address';
+      return;
+    }
+    
+    // Show loading state
+    registerBtn.textContent = 'Creating account...';
+    registerBtn.disabled = true;
+    registerError.textContent = '';
+    
+    // Call the provided register callback
+    const result = await onRegister({ username, email, password });
+    
+    // Reset button state
+    registerBtn.textContent = 'Register';
+    registerBtn.disabled = false;
+    
+    // Handle result
+    if (!result.success) {
+      registerError.textContent = result.error;
+    }
+  });
+}
+
+// Export chat UI setup function
+export function setupChatUI(callbacks) {
+  const { onSendMessage } = callbacks;
+  
+  const messageInput = document.getElementById('message-input');
+  const sendBtn = document.getElementById('send-btn');
+  
+  // Send message on button click
+  sendBtn.addEventListener('click', () => {
+    sendMessage();
+  });
+  
+  // Send message on Enter key
+  messageInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      sendMessage();
+    }
+  });
+  
+  // Send message function
+  function sendMessage() {
+    const message = messageInput.value.trim();
+    
+    if (message) {
+      onSendMessage(message);
+      messageInput.value = '';
     }
   }
-  
-  // Setup navigation
-  function setupNavigation() {
-    const menuItems = document.querySelectorAll('.menu-item');
-    const views = document.querySelectorAll('.app-view');
-    const navToggle = document.getElementById('nav-toggle');
-    const navMenu = document.getElementById('nav-menu');
-    
-    // Handle menu item clicks
-    menuItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const viewName = item.dataset.view;
-        
-        // Update active menu item
-        menuItems.forEach(mi => mi.classList.remove('active'));
-        item.classList.add('active');
-        
-        // Show corresponding view
-        views.forEach(view => {
-          if (view.id === `${viewName}-view`) {
-            view.classList.add('active');
-          } else {
-            view.classList.remove('active');
-          }
-        });
-        
-        // Close mobile menu if open
-        navMenu.classList.remove('active');
-      });
-    });
-    
-    // Toggle mobile menu
-    navToggle.addEventListener('click', () => {
-      navMenu.classList.toggle('active');
-    });
-    
-    // Logout button
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      removeTokenFromStorage();
-      document.getElementById('main-app').classList.add('hidden');
-      document.getElementById('auth-container').classList.remove('hidden');
-    });
-  }
-  
-  // Setup socket event handlers
-  function setupSocketEventHandlers(socket) {
-    setupChatHandlers(socket);
-    
-    socket.on('connect', () => {
-      console.log('Connected to server');
-      document.getElementById('auth-container').classList.add('hidden');
-      document.getElementById('main-app').classList.remove('hidden');
-      
-      // Setup user info
-      setupUserInfo(socket.user);
-      
-      // Join as a user
-      socket.emit('user_join');
-    });
-    
-    socket.on('connect_error', (err) => {
-      console.error('Connection error:', err.message);
-      // If token is invalid, clear it
-      if (err.message === 'Authentication error' || 
-          err.message === 'Invalid authentication token') {
-        removeTokenFromStorage();
-      }
-      document.getElementById('auth-container').classList.remove('hidden');
-      document.getElementById('main-app').classList.add('hidden');
-    });
-  }
-  
-  // Setup user info
-  function setupUserInfo(user) {
-    if (!user) return;
-    
-    // Set username in profile
-    document.getElementById('profile-username').textContent = user.username;
-    
-    // Set user info in chat
-    document.getElementById('user-info').textContent = `Logged in as ${user.username}`;
-  }
-});
+}
