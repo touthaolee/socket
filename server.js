@@ -38,6 +38,8 @@ console.error = (...args) => logger.error(args.join(' '));
 
 // Serve static files under /interac
 app.use('/interac', express.static(path.join(__dirname, 'public')));
+// Add this to your existing server.js
+app.use('/interac/client-side', express.static(path.join(__dirname, 'client-side')));
 
 // Serve the main page for /interac
 app.get('/interac', (req, res) => {
@@ -181,4 +183,114 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
   console.log(`Socket.io server running on port ${PORT}`);
+  // Add this to your existing server.js file
+
+// Import required modules
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const cookieParser = require('cookie-parser');
+const authRoutes = require('./server-side/server-api/api-auth');
+const authService = require('./server-side/server-services/auth-service');
+
+// Create Express app and HTTP server
+const app = express();
+const server = http.createServer(app);
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// API routes
+app.use('/interac/api/auth', authRoutes);
+
+// Initialize Socket.io
+const io = new Server(server, {
+  path: '/interac/socket.io',
+  cors: {
+    origin: "*", // Allow connections from any origin (adjust for production)
+    methods: ["GET", "POST"]
+  }
+});
+
+// Socket.io JWT Authentication Middleware
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+    
+    if (!token) {
+      return next(new Error('Authentication token required'));
+    }
+    
+    // Verify token
+    const decoded = authService.verifyToken(token);
+    if (!decoded) {
+      return next(new Error('Invalid authentication token'));
+    }
+    
+    // Find user
+    const user = await authService.findUserById(decoded.id);
+    if (!user) {
+      return next(new Error('User not found'));
+    }
+    
+    // Store user data in socket
+    socket.user = {
+      id: user.id,
+      username: user.username
+    };
+    
+    next();
+  } catch (error) {
+    console.error('Socket authentication error:', error);
+    next(new Error('Authentication error'));
+  }
+});
+
+// Socket.io event handlers
+io.on('connection', (socket) => {
+  console.log(`User connected: ${socket.user.username} (${socket.id})`);
+  
+  // Handle user joining
+  socket.on('user_join', () => {
+    console.log(`${socket.user.username} joined the chat`);
+    io.emit('user_list', getActiveUsers());
+  });
+  
+  // Handle chat messages
+  socket.on('chat_message', (data) => {
+    io.emit('chat_message', {
+      user: socket.user.username,
+      message: data.message,
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log(`${socket.user.username} disconnected`);
+    io.emit('user_list', getActiveUsers());
+  });
+});
+
+// Helper function to get active users
+function getActiveUsers() {
+  const users = [];
+  for (const [id, socket] of io.sockets.sockets) {
+    users.push({
+      id: socket.user.id,
+      username: socket.user.username
+    });
+  }
+  return users;
+}
+
+// Start the server
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
 });

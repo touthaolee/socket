@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.IO Modern Test Suite</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --primary-hover: #3a56d4;
+      --success: #4cc9f0;
+      --warning: #f8961e;
+      --danger: #f94144;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --gray: #6c757d;
+      --border-radius: 8px;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --transition: all 0.3s ease;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #f6f8ff 0%, #eef1f8 100%);
+      color: var(--dark);
+      line-height: 1.6;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: #fff;
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .header {
+      background: linear-gradient(90deg, #4361ee 0%, #4cc9f0 100%);
+      color: white;
+      padding: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-indicator {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--gray);
+      transition: var(--transition);
+    }
+
+    .status-text {
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+
+    .connected .status-indicator {
+      background: var(--success);
+      box-shadow: 0 0 0 2px rgba(76, 201, 240, 0.3);
+    }
+
+    .connecting .status-indicator {
+      background: var(--warning);
+      box-shadow: 0 0 0 2px rgba(248, 150, 30, 0.3);
+    }
+
+    .disconnected .status-indicator {
+      background: var(--danger);
+      box-shadow: 0 0 0 2px rgba(249, 65, 68, 0.3);
+    }
+
+    .connected .status-text {
+      color: var(--success);
+    }
+
+    .connecting .status-text {
+      color: var(--warning);
+    }
+
+    .disconnected .status-text {
+      color: var(--danger);
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    .panel {
+      background: var(--light);
+      border-radius: var(--border-radius);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .panel-header {
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--gray);
+    }
+
+    .panel-icon {
+      color: var(--primary);
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .input-group {
+      display: flex;
+      flex: 1;
+      min-width: 200px;
+      position: relative;
+    }
+
+    input {
+      padding: 10px 12px;
+      border: 1px solid #ddd;
+      border-radius: var(--border-radius);
+      width: 100%;
+      transition: var(--transition);
+      font-size: 0.9rem;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+    }
+
+    input::placeholder {
+      color: #aaa;
+    }
+
+    .btn {
+      padding: 10px 16px;
+      border: none;
+      border-radius: var(--border-radius);
+      background: var(--light);
+      color: var(--dark);
+      cursor: pointer;
+      transition: var(--transition);
+      font-weight: 500;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: #e9ecef;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: white;
+    }
+
+    .btn-success:hover {
+      background: #41b9e2;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: white;
+    }
+
+    .btn-warning:hover {
+      background: #e58519;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #e53c3e;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: var(--border-radius);
+      padding: 12px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    .stat-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--gray);
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #log {
+      background: var(--dark);
+      color: #f8f9fa;
+      padding: 16px;
+      border-radius: var(--border-radius);
+      height: 300px;
+      overflow-y: auto;
+      font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    #log div {
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    #log .info {
+      color: #f8f9fa;
+    }
+
+    #log .warn {
+      color: #ffd166;
+    }
+
+    #log .error {
+      color: #ef476f;
+    }
+
+    .user-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .user-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .user-item:last-child {
+      border-bottom: none;
+    }
+
+    .user-avatar {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+    }
+
+    .user-name {
+      font-size: 0.9rem;
+    }
+
+    .user-item.current .user-name {
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .user-item.current .user-avatar {
+      background: var(--primary);
+    }
+
+    .tab-container {
+      margin-bottom: 16px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      cursor: pointer;
+      background: var(--light);
+      border-radius: var(--border-radius) var(--border-radius) 0 0;
+      font-weight: 500;
+      font-size: 0.9rem;
+      color: var(--gray);
+      transition: var(--transition);
+    }
+
+    .tab:hover {
+      background: #e9ecef;
+    }
+
+    .tab.active {
+      background: white;
+      color: var(--primary);
+      box-shadow: 0 -2px 0 var(--primary);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        max-width: 100%;
+        margin: 0;
+      }
+
+      .header {
+        padding: 16px;
+      }
+
+      .content {
+        padding: 16px;
+      }
+
+      #log {
+        height: 200px;
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+        padding: 0;
+      }
+      .header, .content {
+        padding: 10px;
+      }
+      .panel {
+        padding: 8px;
+      }
+      .row {
+        flex-direction: column;
+        gap: 8px;
+        align-items: stretch;
+      }
+      .input-group, .btn {
+        width: 100%;
+        min-width: 0;
+      }
+      .stats {
+        grid-template-columns: 1fr;
+      }
+      #log {
+        height: 120px;
+        font-size: 0.85em;
+      }
+      .tab {
+        font-size: 0.95em;
+        padding: 10px 8px;
+      }
+      .panel-header h3 {
+        font-size: 1em;
+      }
+      .user-avatar {
+        width: 20px;
+        height: 20px;
+        font-size: 0.8em;
+      }
+    }
+    /* Add these to your CSS */
+.log-time {
+  color: #adb5bd;
+  margin-right: 6px;
+  font-size: 0.8em;
+}
+
+.log-category {
+  color: #6c757d;
+  margin-right: 6px;
+  font-weight: 600;
+  font-size: 0.85em;
+}
+
+.filter-select {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 0.8rem;
+  background: white;
+}
+
+.filter-input {
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  font-size: 0.8rem;
+  width: 150px;
+}
+
+/* Log types */
+#log .info .log-message {
+  color: #f8f9fa;
+}
+
+#log .warn .log-message {
+  color: #ffd166;
+}
+
+#log .error .log-message {
+  color: #ef476f;
+}
+
+/* Stat badges */
+.stat-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: #eee;
+  color: #555;
+}
+
+.stat-badge.green {
+  background: rgba(76, 201, 240, 0.2);
+  color: #4cc9f0;
+}
+
+.stat-badge.yellow {
+  background: rgba(248, 150, 30, 0.2);
+  color: #f8961e;
+}
+
+.stat-badge.red {
+  background: rgba(249, 65, 68, 0.2);
+  color: #f94144;
+}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-plug"></i> Socket.IO Test Suite</h1>
+      <div id="connectionStatus" class="connection-status">
+        <div class="status-indicator"></div>
+        <span class="status-text">NOT INITIALIZED</span>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="tab-container">
+        <div class="tabs">
+          <div class="tab active" data-tab="connection">Connection</div>
+          <div class="tab" data-tab="testing">Testing</div>
+          <div class="tab" data-tab="rooms">Rooms</div>
+          <div class="tab" data-tab="stats">Statistics</div>
+        </div>
+
+        <!-- Connection Tab -->
+        <div id="connection" class="tab-content active">
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-network-wired panel-icon"></i>
+              <h3 class="panel-title">Connection Controls</h3>
+            </div>
+            <div class="row">
+              <div class="input-group">
+                <input id="username" placeholder="Username for auth middleware" />
+              </div>
+              <button class="btn btn-primary" onclick="connectSocket()">
+                <i class="fas fa-plug"></i> Connect
+              </button>
+              <button class="btn btn-danger" onclick="disconnectSocket()">
+                <i class="fas fa-times-circle"></i> Disconnect
+              </button>
+            </div>
+            <div class="row">
+              <button class="btn btn-warning" onclick="forceReconnect()">
+                <i class="fas fa-sync"></i> Force Reconnect
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-users panel-icon"></i>
+              <h3 class="panel-title">Online Users</h3>
+            </div>
+            <ul id="onlineUsers" class="user-list">
+              <!-- Users will be added here dynamically -->
+            </ul>
+          </div>
+        </div>
+
+        <!-- Testing Tab -->
+        <div id="testing" class="tab-content">
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-vial panel-icon"></i>
+              <h3 class="panel-title">Test Events</h3>
+            </div>
+            <div class="row">
+              <button class="btn btn-primary" onclick="emitTestEvent()">
+                <i class="fas fa-paper-plane"></i> Test Event
+              </button>
+              <button class="btn btn-primary" onclick="emitAckTest()">
+                <i class="fas fa-check-circle"></i> Ack Test
+              </button>
+              <button class="btn btn-primary" onclick="emitCustomPing()">
+                <i class="fas fa-heartbeat"></i> Custom Ping
+              </button>
+            </div>
+            <div class="row">
+              <button class="btn btn-danger" onclick="emitErrorEvent()">
+                <i class="fas fa-exclamation-triangle"></i> Emit Error
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-broadcast-tower panel-icon"></i>
+              <h3 class="panel-title">Broadcast Message</h3>
+            </div>
+            <div class="row">
+              <div class="input-group">
+                <input id="broadcastMsg" placeholder="Broadcast message" />
+              </div>
+              <button class="btn btn-primary" onclick="sendBroadcast()">
+                <i class="fas fa-bullhorn"></i> Broadcast
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rooms Tab -->
+        <div id="rooms" class="tab-content">
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-door-open panel-icon"></i>
+              <h3 class="panel-title">Room Management</h3>
+            </div>
+            <div class="row">
+              <div class="input-group">
+                <input id="roomName" placeholder="Room name" />
+              </div>
+              <button class="btn btn-success" onclick="joinRoom()">
+                <i class="fas fa-sign-in-alt"></i> Join
+              </button>
+              <button class="btn btn-danger" onclick="leaveRoom()">
+                <i class="fas fa-sign-out-alt"></i> Leave
+              </button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-comment-alt panel-icon"></i>
+              <h3 class="panel-title">Room Message</h3>
+            </div>
+            <div class="row">
+              <div class="input-group">
+                <input id="roomMsg" placeholder="Message to room" />
+              </div>
+              <button class="btn btn-primary" onclick="sendRoomMessage()">
+                <i class="fas fa-paper-plane"></i> Send
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statistics Tab -->
+        <div id="stats" class="tab-content">
+          <div class="panel">
+            <div class="panel-header">
+              <i class="fas fa-chart-line panel-icon"></i>
+              <h3 class="panel-title">Connection Statistics</h3>
+            </div>
+            <div class="stats">
+              <div class="stat-card">
+                <div class="stat-label">Connection Time</div>
+                <div id="connTime" class="stat-value">-</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Uptime</div>
+                <div id="uptime" class="stat-value">-</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Last Disconnect</div>
+                <div id="lastDisconnect" class="stat-value">-</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Reconnect Count</div>
+                <div id="reconnectCount" class="stat-value">0</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Status</div>
+                <div id="wsStatus" class="stat-value">NOT INITIALIZED</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+<!-- Add this to your tab navigation in the existing HTML -->
+<div class="tab" data-tab="loadtest">Load Testing</div>
+<div class="tab" data-tab="latency">Latency Analysis</div>
+
+<!-- Add these tab content sections -->
+<div id="loadtest" class="tab-content">
+  <div class="panel">
+    <div class="panel-header">
+      <i class="fas fa-tachometer-alt panel-icon"></i>
+      <h3 class="panel-title">Load Test Configuration</h3>
+    </div>
+    <div class="row">
+      <div class="input-group">
+        <label for="clientCount">Virtual Clients:</label>
+        <input id="clientCount" type="number" min="1" max="500" value="10" />
+      </div>
+      <div class="input-group">
+        <label for="messageFrequency">Message Interval (ms):</label>
+        <input id="messageFrequency" type="number" min="100" max="10000" value="1000" />
+      </div>
+    </div>
+    <div class="row">
+      <div class="input-group">
+        <label for="testDuration">Test Duration (seconds):</label>
+        <input id="testDuration" type="number" min="5" max="300" value="30" />
+      </div>
+      <button class="btn btn-primary" onclick="startLoadTest()">
+        <i class="fas fa-play"></i> Start Load Test
+      </button>
+    </div>
+  </div>
+  
+  <div class="panel">
+    <div class="panel-header">
+      <i class="fas fa-chart-bar panel-icon"></i>
+      <h3 class="panel-title">Load Test Metrics</h3>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Messages Sent</div>
+        <div id="messagesSent" class="stat-value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Messages Received</div>
+        <div id="messagesReceived" class="stat-value">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Message Rate</div>
+        <div id="messageRate" class="stat-value">0/s</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Failure Rate</div>
+        <div id="failureRate" class="stat-value">0%</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="latency" class="tab-content">
+  <div class="panel">
+    <div class="panel-header">
+      <i class="fas fa-stopwatch panel-icon"></i>
+      <h3 class="panel-title">Latency Metrics</h3>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-label">Current Latency</div>
+        <div id="currentLatency" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Average Latency</div>
+        <div id="avgLatency" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Min Latency</div>
+        <div id="minLatency" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Max Latency</div>
+        <div id="maxLatency" class="stat-value">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Connection Quality</div>
+        <div id="connectionQuality" class="stat-value">-</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="panel">
+    <div class="panel-header">
+      <i class="fas fa-chart-line panel-icon"></i>
+      <h3 class="panel-title">Latency Graph</h3>
+    </div>
+    <div id="latencyChart" style="width:100%; height:200px; background:#f8f9fa; border-radius:var(--border-radius); display:flex; align-items:center; justify-content:center;">
+      <span style="color:var(--gray);">Connect to see latency metrics</span>
+    </div>
+  </div>
+</div>
+      <!-- Log Panel (Always visible) -->
+      <div class="panel">
+        <div class="panel-header">
+          <i class="fas fa-terminal panel-icon"></i>
+          <h3 class="panel-title">Event Log</h3>
+        </div>
+        <div id="log"></div>
+      </div>
+    </div>
+  </div>
+<!-- Add to the log panel at the bottom of your page -->
+<div class="panel-header">
+  <i class="fas fa-terminal panel-icon"></i>
+  <h3 class="panel-title">Event Log</h3>
+  <div style="margin-left: auto; display: flex; gap: 8px;">
+    <select id="logTypeFilter" class="filter-select">
+      <option value="all">All Types</option>
+      <option value="info">Info</option>
+      <option value="warn">Warning</option>
+      <option value="error">Error</option>
+    </select>
+    <select id="logCategoryFilter" class="filter-select">
+      <option value="all">All Categories</option>
+      <option value="connection">Connection</option>
+      <option value="event">Events</option>
+      <option value="room">Rooms</option>
+      <option value="load">Load Test</option>
+    </select>
+    <input id="logSearch" placeholder="Search logs..." class="filter-input" />
+    <button class="btn btn-icon" onclick="clearLogs()">
+      <i class="fas fa-trash-alt"></i>
+    </button>
+    <button class="btn btn-icon" onclick="exportLogs()">
+      <i class="fas fa-download"></i>
+    </button>
+  </div>
+</div>
+  <script src="./socket.io/socket.io.js"></script>
+  <script>
+    let socket = null;
+    let lastPingTime = null;
+    let pingInterval = null;
+    let connectTimestamp = null;
+    let lastDisconnectTime = null;
+    let reconnectCount = 0;
+    let uptimeInterval = null;
+    
+    // Tab Management
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs and content
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Add active class to clicked tab and corresponding content
+        tab.classList.add('active');
+        const tabId = tab.getAttribute('data-tab');
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+
+    function log(msg, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const el = document.createElement('div');
+      el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+      el.classList.add(type);
+      logDiv.appendChild(el);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function updateDashboard() {
+      document.getElementById('connTime').textContent = connectTimestamp ? new Date(connectTimestamp).toLocaleTimeString() : '-';
+      document.getElementById('lastDisconnect').textContent = lastDisconnectTime ? new Date(lastDisconnectTime).toLocaleTimeString() : '-';
+      document.getElementById('reconnectCount').textContent = reconnectCount;
+      
+      if (connectTimestamp) {
+        const diff = Math.floor((Date.now() - connectTimestamp) / 1000);
+        const min = Math.floor(diff / 60);
+        const sec = diff % 60;
+        document.getElementById('uptime').textContent = `${min}m ${sec}s`;
+      } else {
+        document.getElementById('uptime').textContent = '-';
+      }
+    }
+
+    function startUptime() {
+      if (uptimeInterval) clearInterval(uptimeInterval);
+      uptimeInterval = setInterval(updateDashboard, 1000);
+    }
+
+    function stopUptime() {
+      if (uptimeInterval) clearInterval(uptimeInterval);
+      uptimeInterval = null;
+    }
+
+    function setStatusIndicator(status) {
+      const statusEl = document.getElementById('connectionStatus');
+      const statusText = statusEl.querySelector('.status-text');
+      
+      // Remove all status classes
+      statusEl.classList.remove('connected', 'connecting', 'disconnected');
+      
+      if (status === 'CONNECTED') {
+        statusEl.classList.add('connected');
+        statusText.textContent = 'CONNECTED';
+      } else if (status === 'CONNECTING') {
+        statusEl.classList.add('connecting');
+        statusText.textContent = 'CONNECTING';
+      } else if (status === 'DISCONNECTED') {
+        statusEl.classList.add('disconnected');
+        statusText.textContent = 'DISCONNECTED';
+      } else {
+        statusText.textContent = 'NOT INITIALIZED';
+      }
+      
+      // Also update the wsStatus element
+      updateWebSocketStatus();
+    }
+
+    function updateWebSocketStatus() {
+      const wsStatusEl = document.getElementById('wsStatus');
+      
+      if (socket && socket.connected) {
+        wsStatusEl.textContent = 'CONNECTED';
+        wsStatusEl.style.color = '#4cc9f0';
+      } else if (socket && socket.disconnected) {
+        wsStatusEl.textContent = 'DISCONNECTED';
+        wsStatusEl.style.color = '#f94144';
+      } else {
+        wsStatusEl.textContent = 'NOT INITIALIZED';
+        wsStatusEl.style.color = '#6c757d';
+      }
+    }
+
+    function updateOnlineUsers(users) {
+      const ul = document.getElementById('onlineUsers');
+      ul.innerHTML = '';
+      
+      if (!Array.isArray(users) || users.length === 0) {
+        const emptyMessage = document.createElement('div');
+        emptyMessage.textContent = 'No users online';
+        emptyMessage.style.color = '#6c757d';
+        emptyMessage.style.padding = '12px 0';
+        emptyMessage.style.textAlign = 'center';
+        ul.appendChild(emptyMessage);
+        return;
+      }
+      
+      users.forEach(user => {
+        const li = document.createElement('li');
+        li.className = 'user-item';
+        if (user === (window.currentUsername || '')) {
+          li.classList.add('current');
+        }
+        
+        // Create avatar with first letter
+        const avatar = document.createElement('div');
+        avatar.className = 'user-avatar';
+        avatar.textContent = (user && user.charAt(0).toUpperCase()) || '?';
+        
+        const name = document.createElement('div');
+        name.className = 'user-name';
+        name.textContent = user || 'Anonymous';
+        if (user === (window.currentUsername || '')) {
+          name.textContent += ' (You)';
+        }
+        
+        li.appendChild(avatar);
+        li.appendChild(name);
+        ul.appendChild(li);
+      });
+    }
+
+    function connectSocket() {
+      setStatusIndicator('CONNECTING');
+      if (socket && socket.connected) {
+        log('Already connected.');
+        return;
+      }
+      
+      window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
+      const username = window.currentUsername;
+      
+      socket = io({
+        path: '/interac/socket.io',
+        auth: { username }
+      });
+      
+      // Connection events
+      socket.on('connect', () => {
+        log('Connected: ' + socket.id);
+        connectTimestamp = Date.now();
+        updateDashboard();
+        startUptime();
+        setStatusIndicator('CONNECTED');
+        socket.emit('user_join', window.currentUsername);
+      });
+      
+      socket.on('disconnect', reason => {
+        log('Disconnected: ' + reason, 'warn');
+        lastDisconnectTime = Date.now();
+        updateDashboard();
+        stopUptime();
+        setStatusIndicator('DISCONNECTED');
+      });
+      
+      socket.on('connect_error', err => {
+        log('Connect error: ' + err.message, 'error');
+        setStatusIndicator('DISCONNECTED');
+      });
+      
+      socket.on('error', err => log('General error: ' + err, 'error'));
+      
+      // Reconnection events
+      socket.on('reconnect_attempt', attempt => {
+        log('Reconnect attempt: ' + attempt, 'warn');
+        setStatusIndicator('CONNECTING');
+      });
+      
+      socket.on('reconnect', attempt => {
+        log('Reconnected after ' + attempt + ' attempt(s)', 'info');
+        reconnectCount++;
+        updateDashboard();
+        setStatusIndicator('CONNECTED');
+      });
+      
+      socket.on('reconnect_error', err => log('Reconnect error: ' + err, 'error'));
+      socket.on('reconnect_failed', () => log('Reconnect failed', 'error'));
+      
+      // Test event
+      socket.on('test_response', data => log('Test response: ' + JSON.stringify(data)));
+      
+      // Ack test
+      socket.on('ack_test', data => log('Ack test event received: ' + JSON.stringify(data)));
+      
+      // Custom ping-pong
+      socket.on('custom_pong', data => {
+        const rtt = Date.now() - lastPingTime;
+        log('Custom pong received. RTT: ' + rtt + ' ms, serverTime: ' + data.serverTime);
+      });
+      
+      // Room events
+      socket.on('room_joined', room => log('Joined room: ' + room));
+      socket.on('room_left', room => log('Left room: ' + room));
+      socket.on('room_announcement', msg => log('Room announcement: ' + msg));
+      socket.on('room_message', data => log(`[Room ${data.room}] ${data.user}: ${data.message}`));
+      socket.on('rate_limited', data => log('Rate limited on event: ' + data.event, 'warn'));
+      
+      // Broadcast
+      socket.on('broadcast_message', data => log(`[Broadcast] ${data.from}: ${data.message}`));
+      
+      // User list
+      socket.on('user_list', users => {
+        updateOnlineUsers(users);
+      });
+      
+      // Engine.IO heartbeat logging
+      if (socket && socket.io && socket.io.engine) {
+        socket.io.engine.on('ping', () => log('Engine.IO ping sent'));
+        socket.io.engine.on('pong', () => log('Engine.IO pong received'));
+      }
+    }
+
+    function disconnectSocket() {
+      if (socket) {
+        socket.disconnect();
+        log('Socket disconnected by user.');
+        setStatusIndicator('DISCONNECTED');
+      }
+    }
+
+    function emitTestEvent() {
+      if (socket && socket.connected) {
+        socket.emit('test_event', { time: new Date().toISOString() });
+        log('Test event emitted.');
+      } else {
+        log('Socket not connected. Cannot emit test event.', 'error');
+      }
+    }
+
+    function emitAckTest() {
+      if (socket && socket.connected) {
+        socket.emit('ack_test', { time: new Date().toISOString() }, response => {
+          log('Ack test callback: ' + JSON.stringify(response));
+        });
+        log('Ack test emitted.');
+      } else {
+        log('Socket not connected. Cannot emit ack test.', 'error');
+      }
+    }
+
+    function emitCustomPing() {
+      if (socket && socket.connected) {
+        lastPingTime = Date.now();
+        socket.emit('custom_ping', { clientTime: new Date().toISOString() });
+        log('Custom ping emitted.');
+      } else {
+        log('Socket not connected. Cannot emit custom ping.', 'error');
+      }
+    }
+
+    function startPingInterval() {
+      stopPingInterval();
+      pingInterval = setInterval(() => {
+        emitCustomPing();
+      }, 5000);
+    }
+
+    function stopPingInterval() {
+      if (pingInterval) clearInterval(pingInterval);
+      pingInterval = null;
+    }
+
+    function forceReconnect() {
+      if (socket) {
+        socket.io.engine.close();
+        log('Engine forcibly closed. Should trigger reconnect.');
+      } else {
+        log('Socket not initialized. Cannot force reconnect.', 'error');
+      }
+    }
+
+    function emitErrorEvent() {
+      if (socket && socket.connected) {
+        socket.emit('error', 'Manual error event for test');
+        log('Manual error event emitted.');
+      } else {
+        log('Socket not connected. Cannot emit error event.', 'error');
+      }
+    }
+
+    function joinRoom() {
+      const room = document.getElementById('roomName').value.trim();
+      if (socket && socket.connected && room) {
+        socket.emit('join_room', room);
+        log('Join room emitted: ' + room);
+      } else if (!room) {
+        log('Please enter a room name.', 'warn');
+      } else {
+        log('Socket not connected. Cannot join room.', 'error');
+      }
+    }
+
+    function leaveRoom() {
+      const room = document.getElementById('roomName').value.trim();
+      if (socket && socket.connected && room) {
+        socket.emit('leave_room', room);
+        log('Leave room emitted: ' + room);
+      } else if (!room) {
+        log('Please enter a room name.', 'warn');
+      } else {
+        log('Socket not connected. Cannot leave room.', 'error');
+      }
+    }
+
+    function sendRoomMessage() {
+      const room = document.getElementById('roomName').value.trim();
+      const msg = document.getElementById('roomMsg').value.trim();
+      if (socket && socket.connected && room && msg) {
+        socket.emit('room_message', { room, message: msg });
+        log(`Room message emitted to ${room}: ${msg}`);
+        document.getElementById('roomMsg').value = '';
+      } else if (!room) {
+        log('Please enter a room name.', 'warn');
+      } else if (!msg) {
+        log('Please enter a message.', 'warn');
+      } else {
+        log('Socket not connected. Cannot send room message.', 'error');
+      }
+    }
+
+    function sendBroadcast() {
+      const msg = document.getElementById('broadcastMsg').value.trim();
+      if (socket && socket.connected && msg) {
+        socket.emit('broadcast_message', { message: msg });
+        log('Broadcast message emitted: ' + msg);
+        document.getElementById('broadcastMsg').value = '';
+      } else if (!msg) {
+        log('Please enter a message.', 'warn');
+      } else {
+        log('Socket not connected. Cannot send broadcast message.', 'error');
+      }
+    }
+
+    // Initialize UI
+    setStatusIndicator('NOT INITIALIZED');
+    updateWebSocketStatus();
+    
+    // Add event listeners for input fields to allow pressing Enter
+    document.getElementById('username').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        connectSocket();
+      }
+    });
+    
+    document.getElementById('roomName').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        joinRoom();
+      }
+    });
+    
+    document.getElementById('roomMsg').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        sendRoomMessage();
+      }
+    });
+    
+document.getElementById('broadcastMsg').addEventListener('keypress', function(e) {
+  if (e.key === 'Enter') {
+    sendBroadcast();
+  }
+});
+
+// Add these variables with your other variables
+let latencyHistory = [];
+const MAX_HISTORY_LENGTH = 100;
+const logHistory = [];
+let loadTestActive = false;
+let virtualClients = [];
+
+// Update your emitCustomPing function to track latency
+// (Replace the original emitCustomPing with this version)
+function emitCustomPing() {
+  if (socket && socket.connected) {
+    lastPingTime = Date.now();
+    socket.emit('custom_ping', { clientTime: new Date().toISOString() });
+    enhancedLog('Custom ping emitted.', 'info', 'event');
+  } else {
+    enhancedLog('Socket not connected. Cannot emit custom ping.', 'error', 'connection');
+  }
+}
+
+// Enhanced logging function
+function enhancedLog(msg, type = 'info', category = 'general') {
+  const logDiv = document.getElementById('log');
+  const el = document.createElement('div');
+  // Add timestamp and formatting
+  const timestamp = new Date().toLocaleTimeString();
+  el.innerHTML = `<span class="log-time">${timestamp}</span> <span class="log-category">[${category}]</span> <span class="log-message">${msg}</span>`;
+  el.classList.add(type, `category-${category}`);
+  logDiv.appendChild(el);
+  logDiv.scrollTop = logDiv.scrollHeight;
+  // Also add to persistent log history
+  logHistory.push({
+    timestamp: new Date().toISOString(),
+    message: msg,
+    type,
+    category
+  });
+  // If we have log filtering active, check visibility
+  applyLogFilters();
+}
+
+// Replace your existing log function with this to use the enhanced logging
+function log(msg, type = 'info') {
+  enhancedLog(msg, type, 'general');
+}
+
+// Apply filters to logs
+function applyLogFilters() {
+  const typeFilter = document.getElementById('logTypeFilter').value;
+  const categoryFilter = document.getElementById('logCategoryFilter').value;
+  const searchText = document.getElementById('logSearch')?.value?.toLowerCase() || '';
+  // Apply filters to log entries
+  document.querySelectorAll('#log > div').forEach(entry => {
+    // Get type and category from the entry's class list
+    const type = Array.from(entry.classList).find(c => ['info', 'warn', 'error'].includes(c));
+    const categoryClass = Array.from(entry.classList).find(c => c.startsWith('category-'));
+    const category = categoryClass ? categoryClass.replace('category-', '') : 'general';
+    // Get message text
+    const text = entry.querySelector('.log-message')?.textContent?.toLowerCase() || '';
+    // Determine visibility
+    let visible = true;
+    if (typeFilter !== 'all' && type !== typeFilter) {
+      visible = false;
+    }
+    if (categoryFilter !== 'all' && category !== categoryFilter) {
+      visible = false;
+    }
+    if (searchText && !text.includes(searchText)) {
+      visible = false;
+    }
+    // Apply visibility
+    entry.style.display = visible ? '' : 'none';
+  });
+}
+
+// Clear logs
+function clearLogs() {
+  document.getElementById('log').innerHTML = '';
+  enhancedLog('Logs cleared', 'info', 'general');
+}
+
+// Export logs as JSON
+function exportLogs() {
+  const dataStr = JSON.stringify(logHistory, null, 2);
+  const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+  const exportFileDefaultName = 'socket_logs_' + new Date().toISOString() + '.json';
+  const linkElement = document.createElement('a');
+  linkElement.setAttribute('href', dataUri);
+  linkElement.setAttribute('download', exportFileDefaultName);
+  linkElement.click();
+  enhancedLog('Logs exported to file', 'info', 'general');
+}
+
+// Load testing function
+function startLoadTest() {
+  const clientCount = parseInt(document.getElementById('clientCount').value, 10) || 10;
+  const messageInterval = parseInt(document.getElementById('messageFrequency').value, 10) || 1000;
+  const testDuration = parseInt(document.getElementById('testDuration').value, 10) || 30;
+  let messagesSent = 0;
+  let messagesReceived = 0;
+  let failures = 0;
+  let rttSum = 0;
+  let rttCount = 0;
+  let virtualClients = [];
+  let testActive = true;
+
+  // Clean up any previous test
+  if (window._virtualClients) {
+    window._virtualClients.forEach(vc => vc && vc.disconnect && vc.disconnect());
+  }
+  window._virtualClients = [];
+
+  function updateMetrics() {
+    document.getElementById('messagesSent').textContent = messagesSent;
+    document.getElementById('messagesReceived').textContent = messagesReceived;
+    document.getElementById('failureRate').textContent = messagesSent ? ((failures / messagesSent) * 100).toFixed(2) + '%' : '0%';
+    document.getElementById('messageRate').textContent = (messagesSent / testDuration).toFixed(2) + '/s';
+    document.getElementById('avgLatency').textContent = rttCount ? (rttSum / rttCount).toFixed(2) + ' ms' : '-';
+  }
+
+  for (let i = 0; i < clientCount; i++) {
+    const vc = io({
+      path: '/interac/socket.io',
+      auth: { username: `loadtest_${i}_${Date.now()}` }
+    });
+    let interval;
+    vc.on('connect', () => {
+      interval = setInterval(() => {
+        if (!testActive) return;
+        const start = Date.now();
+        vc.emit('test_event', { time: new Date().toISOString() });
+        messagesSent++;
+        updateMetrics();
+        // Listen for response to measure RTT
+        const onResponse = (data) => {
+          const rtt = Date.now() - start;
+          rttSum += rtt;
+          rttCount++;
+          messagesReceived++;
+          updateMetrics();
+          vc.off('test_response', onResponse);
+        };
+        vc.on('test_response', onResponse);
+      }, messageInterval);
+    });
+    vc.on('connect_error', () => {
+      failures++;
+      updateMetrics();
+    });
+    vc.on('disconnect', () => {
+      clearInterval(interval);
+    });
+    window._virtualClients.push(vc);
+  }
+
+  // Stop test after duration
+  setTimeout(() => {
+    testActive = false;
+    window._virtualClients.forEach(vc => vc && vc.disconnect && vc.disconnect());
+    window._virtualClients = [];
+    updateMetrics();
+    alert('Load test completed!');
+  }, testDuration * 1000);
+}
+// Latency tracking
+function trackLatency(latency) {
+  latencyHistory.push(latency);
+  if (latencyHistory.length > MAX_HISTORY_LENGTH) {
+    latencyHistory.shift();
+  }
+  // Calculate statistics
+  const avg = latencyHistory.reduce((sum, val) => sum + val, 0) / latencyHistory.length;
+  const min = Math.min(...latencyHistory);
+  const max = Math.max(...latencyHistory);
+  // Update display
+  document.getElementById('currentLatency').textContent = latency + 'ms';
+  document.getElementById('avgLatency').textContent = avg.toFixed(2) + 'ms';
+  document.getElementById('minLatency').textContent = min + 'ms';
+  document.getElementById('maxLatency').textContent = max + 'ms';
+  // Update connection quality indicator
+  updateConnectionQualityIndicator(latencyHistory);
+  // Update chart if available
+  if (typeof updateLatencyChart === 'function') {
+    updateLatencyChart(latencyHistory);
+  }
+}
+
+function updateConnectionQualityIndicator(latencyHistory) {
+  if (latencyHistory.length < 5) return;
+  // Get recent latencies
+  const recent = latencyHistory.slice(-5);
+  const avg = recent.reduce((sum, val) => sum + val, 0) / recent.length;
+  const indicator = document.getElementById('connectionQuality');
+  if (avg < 50) {
+    indicator.textContent = 'Excellent';
+    indicator.style.color = '#4caf50';
+  } else if (avg < 100) {
+    indicator.textContent = 'Good';
+    indicator.style.color = '#8bc34a';
+  } else if (avg < 200) {
+    indicator.textContent = 'Fair';
+    indicator.style.color = '#ffc107';
+  } else {
+    indicator.textContent = 'Poor';
+    indicator.style.color = '#f44336';
+  }
+}
+
+// Add event listeners for log filters
+document.addEventListener('DOMContentLoaded', function() {
+  const typeFilter = document.getElementById('logTypeFilter');
+  const categoryFilter = document.getElementById('logCategoryFilter');
+  const searchFilter = document.getElementById('logSearch');
+  if (typeFilter) typeFilter.addEventListener('change', applyLogFilters);
+  if (categoryFilter) categoryFilter.addEventListener('change', applyLogFilters);
+  if (searchFilter) searchFilter.addEventListener('input', applyLogFilters);
+});
+
+// Simple latency chart visualization
+function setupLatencyChart() {
+  const chartContainer = document.getElementById('latencyChart');
+  if (!chartContainer) return;
+  // Clear previous content
+  chartContainer.innerHTML = '';
+  // Create canvas element for the chart
+  const canvas = document.createElement('canvas');
+  canvas.width = chartContainer.clientWidth;
+  canvas.height = chartContainer.clientHeight;
+  chartContainer.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  function updateLatencyChart(latencies) {
+    if (!ctx || !canvas || latencies.length === 0) return;
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Draw background
+    ctx.fillStyle = '#f8f9fa';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Calculate scale
+    const maxLatency = Math.max(...latencies, 200); // At least 200ms for scale
+    const padding = 20;
+    const chartWidth = canvas.width - padding * 2;
+    const chartHeight = canvas.height - padding * 2;
+    // Draw axes
+    ctx.strokeStyle = '#adb5bd';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, canvas.height - padding);
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.stroke();
+    // Draw latency line
+    ctx.strokeStyle = '#4361ee';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    const pointCount = Math.min(latencies.length, 50); // Show last 50 points max
+    const startIdx = Math.max(0, latencies.length - pointCount);
+    for (let i = 0; i < pointCount; i++) {
+      const latency = latencies[startIdx + i];
+      const x = padding + (i / (pointCount - 1)) * chartWidth;
+      const y = canvas.height - padding - (latency / maxLatency) * chartHeight;
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+    // Draw threshold lines
+    const thresholds = [
+      { value: 50, color: '#4caf50', label: 'Excellent (50ms)' },
+      { value: 100, color: '#8bc34a', label: 'Good (100ms)' },
+      { value: 200, color: '#ffc107', label: 'Fair (200ms)' }
+    ];
+    thresholds.forEach(threshold => {
+      const y = canvas.height - padding - (threshold.value / maxLatency) * chartHeight;
+      // Draw dashed line
+      ctx.strokeStyle = threshold.color;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 2]);
+      ctx.beginPath();
+      ctx.moveTo(padding, y);
+      ctx.lineTo(canvas.width - padding, y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Draw label
+      ctx.fillStyle = threshold.color;
+      ctx.font = '10px Arial';
+      ctx.fillText(threshold.label, padding + 4, y - 2);
+    });
+  }
+  // Expose the updateLatencyChart function globally
+  window.updateLatencyChart = updateLatencyChart;
+}
+
+// Call this when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+  setupLatencyChart();
+});
+
+// Attach custom_pong handler to socket after connection
+function attachCustomPongHandler() {
+  if (!socket) return;
+  socket.on('custom_pong', data => {
+    const rtt = Date.now() - lastPingTime;
+    enhancedLog('Custom pong received. RTT: ' + rtt + ' ms, serverTime: ' + data.serverTime, 'info', 'event');
+    // Track latency for metrics
+    trackLatency(rtt);
+  });
+}
+
+// Patch connectSocket to attach custom_pong handler
+const originalConnectSocket = connectSocket;
+connectSocket = function() {
+  originalConnectSocket.apply(this, arguments);
+  attachCustomPongHandler();
+};
+  </script>
+</body>
+</html>
