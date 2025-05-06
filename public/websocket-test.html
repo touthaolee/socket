@@ -956,13 +956,23 @@
         log('Already connected.');
         return;
       }
-      
+      // --- JWT AUTH PATCH START ---
+      // Try to get JWT token from localStorage (or prompt user)
+      let token = localStorage.getItem('auth_token');
+      if (!token) {
+        token = prompt('Enter your JWT token (from login):');
+        if (token) localStorage.setItem('auth_token', token);
+      }
+      if (!token) {
+        log('No JWT token provided. Please login via the main app and copy your token.', 'error');
+        setStatusIndicator('DISCONNECTED');
+        return;
+      }
       window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
       const username = window.currentUsername;
-      
       socket = io({
         path: '/interac/socket.io',
-        auth: { username }
+        auth: { token, username }
       });
       
       // Connection events
