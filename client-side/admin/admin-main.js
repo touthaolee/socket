@@ -88,8 +88,8 @@ if (loginBtn) {
       return;
     }
     try {
-      // Fix API path by removing /interac/ prefix
-      const res = await fetch('/api/auth/login', {
+      // Restore /interac/ prefix for API calls
+      const res = await fetch('/interac/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -325,8 +325,8 @@ async function loadQuizzes() {
       return;
     }
     
-    // Fix API path by removing /interac/ prefix
-    const response = await fetch('/api/quizzes?page=' + currentPage, {
+    // Restore /interac/ prefix for API calls
+    const response = await fetch('/interac/api/quizzes?page=' + currentPage, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -474,8 +474,8 @@ async function handleCreateQuizSubmit() {
     addGenerationLog('Creating quiz structure...');
     
     const token = getTokenFromStorage();
-    // Fix API path by removing /interac/ prefix
-    const response = await fetch('/api/quizzes', {
+    // Restore /interac/ prefix for API calls
+    const response = await fetch('/interac/api/quizzes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -608,8 +608,8 @@ async function generateQuizQuestionsInBackground(quizId, numQuestions, aiConfig,
       // Save batch to the server
       addGenerationLog(`Saving batch ${i + 1} to the server...`);
       
-      // Fix API path by removing /interac/ prefix
-      const response = await fetch(`/api/quizzes/${quizId}/questions/batch`, {
+      // Restore /interac/ prefix for API calls
+      const response = await fetch(`/interac/api/quizzes/${quizId}/questions/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -682,7 +682,7 @@ async function previewQuiz(quizId) {
   try {
     const token = getTokenFromStorage();
     // Fix API path by removing /interac/ prefix
-    const response = await fetch(`/api/quizzes/${quizId}`, {
+    const response = await fetch(`/interac/api/quizzes/${quizId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
