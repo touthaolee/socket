@@ -15,7 +15,7 @@ export class AdminChatService {
     this.onlineUsers = 0;
     this.eventHandlers = {};
     this.isConnected = false;
-    this.rooms = ['admin-chat', 'global']; // Join both admin-chat and global rooms
+    this.rooms = ['global']; // Join only the global room by default
     this.selectedUser = null; // Track currently selected user for direct messaging
   }
 
@@ -119,8 +119,8 @@ export class AdminChatService {
     this.socket.on('room_message', data => {
       const { message, user, room } = data;
       
-      // Accept messages from both admin-chat and global rooms
-      if (this.rooms.includes(room)) {
+      // Accept messages only from the global room
+      if (room === 'global') {
         this.messages.push({
           id: Date.now().toString(),
           text: message,
@@ -129,7 +129,6 @@ export class AdminChatService {
           timestamp: new Date().toISOString(),
           isSystem: false
         });
-        
         // Trigger event for UI update
         this.triggerEvent('messageReceived', { messages: this.messages });
       }
@@ -168,7 +167,7 @@ export class AdminChatService {
       this.addSystemMessage('Connected to chat server');
       this.triggerEvent('connectionUpdated', { connected: true });
       
-      // Rejoin rooms on reconnection
+      // Rejoin only the global room on reconnection
       this.rooms.forEach(room => {
         this.socket.emit('join_room', room);
       });
