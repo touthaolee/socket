@@ -25,6 +25,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Robust session persistence ---
     const token = localStorage.getItem('auth_token');
     const username = localStorage.getItem('username');
+    console.log('[DEBUG] Session restore: token', token);
+    console.log('[DEBUG] Session restore: username', username);
     if (token && username) {
       // Restore authenticated state and UI
       window.showAuthenticatedUI();
