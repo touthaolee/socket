@@ -35,9 +35,10 @@
       font-size: 0.9rem;
     }
 
-    /* Chat Styles */
+    /* Updated Simplified Chat Styles */
     .chat-container {
       display: flex;
+      flex-direction: column;
       height: calc(100vh - 180px);
       border-radius: 8px;
       overflow: hidden;
@@ -45,26 +46,16 @@
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     }
 
-    .chat-sidebar {
-      width: 280px;
-      background-color: #f8f9fa;
-      border-right: 1px solid #e2e8f0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .chat-main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .sidebar-header {
+    .chat-header {
       padding: 15px;
       border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8f9fa;
     }
 
-    .sidebar-header h3 {
+    .chat-header h3 {
       margin: 0;
       font-size: 16px;
       color: #333;
@@ -74,7 +65,6 @@
       display: flex;
       align-items: center;
       font-size: 12px;
-      margin-top: 5px;
       color: #666;
     }
 
@@ -84,71 +74,6 @@
       background-color: #10b981;
       border-radius: 50%;
       margin-right: 5px;
-    }
-
-    .user-list, .channel-list {
-      overflow-y: auto;
-      flex: 1;
-    }
-
-    .user-item, .channel-item {
-      padding: 10px 15px;
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-
-    .user-item:hover, .channel-item:hover {
-      background-color: #e9ecef;
-    }
-
-    .channel-item.active {
-      background-color: #e9ecef;
-      font-weight: 500;
-    }
-
-    .user-status {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      margin-right: 10px;
-    }
-
-    .user-status.online {
-      background-color: #10b981;
-    }
-
-    .user-status.offline {
-      background-color: #9ca3af;
-    }
-
-    .user-status.away {
-      background-color: #f59e0b;
-    }
-
-    .user-name, .channel-name {
-      font-size: 14px;
-      color: #333;
-    }
-
-    .chat-header {
-      padding: 15px;
-      border-bottom: 1px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .chat-header h3 {
-      margin: 0;
-      font-size: 16px;
-      color: #333;
-    }
-
-    .chat-actions {
-      display: flex;
-      gap: 10px;
     }
 
     .chat-messages {
@@ -162,26 +87,6 @@
       margin-bottom: 15px;
       display: flex;
       align-items: flex-start;
-    }
-
-    .message-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background-color: #e2e8f0;
-      margin-right: 10px;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      color: #64748b;
-    }
-
-    .message-avatar img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
     }
 
     .message-content-wrapper {
@@ -216,6 +121,12 @@
       max-width: 80%;
     }
 
+    .message.self .message-content {
+      background-color: #3b82f6;
+      color: white;
+      margin-left: auto;
+    }
+
     .system-message {
       text-align: center;
       margin: 15px 0;
@@ -235,14 +146,15 @@
       padding: 15px;
       border-top: 1px solid #e2e8f0;
       background-color: #fff;
+      display: flex;
+      gap: 10px;
     }
 
     #chat-input {
-      width: 100%;
+      flex: 1;
       border: 1px solid #e2e8f0;
       border-radius: 4px;
       padding: 10px;
-      resize: none;
       outline: none;
       font-family: inherit;
       font-size: 14px;
@@ -252,40 +164,45 @@
       border-color: #3b82f6;
     }
 
-    .chat-input-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 10px;
-    }
-
     #send-message-btn {
       padding: 6px 15px;
-    }
-
-    #attach-file-btn {
-      background: none;
+      background-color: #3b82f6;
+      color: white;
       border: none;
-      color: #64748b;
-      cursor: pointer;
-      font-size: 18px;
-    }
-
-    #attach-file-btn:hover {
-      color: #3b82f6;
-    }
-
-    .btn-sm {
-      padding: 4px 8px;
-      font-size: 12px;
       border-radius: 4px;
-      background-color: #f8f9fa;
-      border: 1px solid #e2e8f0;
       cursor: pointer;
     }
 
-    .btn-sm:hover {
+    #send-message-btn:hover {
+      background-color: #2563eb;
+    }
+
+    .users-online-list {
+      padding: 10px 15px;
+      border-bottom: 1px solid #e2e8f0;
+      background-color: #f8f9fa;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+
+    .users-online-list-title {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+
+    .users-online-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+
+    .user-pill {
       background-color: #e9ecef;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #4b5563;
     }
 
     .mt-4 {
@@ -383,64 +300,40 @@
         <!-- Statistics content here -->
       </div>
       
-      <!-- Chat View -->
+      <!-- Chat View - Updated to simplified chat interface -->
       <div id="chat-view" class="admin-view">
         <div class="admin-header">
           <h2>Chat Management</h2>
         </div>
         <div class="admin-card">
           <div class="chat-container">
-            <div class="chat-sidebar">
-              <div class="sidebar-header">
-                <h3>Active Users</h3>
-                <div class="online-indicator">
-                  <span class="dot"></span>
-                  <span id="online-count">0</span> online
-                </div>
+            <div class="chat-header">
+              <h3>Admin Chat</h3>
+              <div class="online-indicator">
+                <span class="dot"></span>
+                <span id="online-count">0</span> users online
               </div>
-              <div class="user-list" id="chat-user-list">
-                <!-- User list will be populated here -->
-                <div class="user-item">
-                  <span class="user-status online"></span>
-                  <span class="user-name">Loading users...</span>
-                </div>
+            </div>
+            
+            <div class="users-online-list">
+              <div class="users-online-list-title">Online Users:</div>
+              <div class="users-online-pills" id="online-users-list">
+                <!-- User pills will be added here dynamically -->
               </div>
-              <div class="sidebar-header mt-4">
-                <h3>Chat Channels</h3>
-                <button id="create-channel-btn" class="btn-sm"><i class="fas fa-plus"></i></button>
-              </div>
-              <div class="channel-list" id="chat-channel-list">
-                <!-- Channel list will be populated here -->
-                <div class="channel-item active">
-                  <span class="channel-name"># general</span>
-                </div>
-                <div class="channel-item">
-                  <span class="channel-name"># support</span>
+            </div>
+            
+            <div class="chat-messages" id="chat-messages">
+              <!-- Messages will be populated here -->
+              <div class="system-message">
+                <div class="message-content">
+                  Welcome to the admin chat. This is the beginning of the conversation.
                 </div>
               </div>
             </div>
-            <div class="chat-main">
-              <div class="chat-header">
-                <h3><span id="current-channel"># general</span></h3>
-                <div class="chat-actions">
-                  <button id="chat-settings-btn" title="Chat Settings"><i class="fas fa-cog"></i></button>
-                </div>
-              </div>
-              <div class="chat-messages" id="chat-messages">
-                <!-- Messages will be populated here -->
-                <div class="system-message">
-                  <div class="message-content">
-                    Welcome to the admin chat. This is the beginning of the conversation.
-                  </div>
-                </div>
-              </div>
-              <div class="chat-input-container">
-                <textarea id="chat-input" placeholder="Type your message here..." rows="2"></textarea>
-                <div class="chat-input-actions">
-                  <button id="attach-file-btn" title="Attach File"><i class="fas fa-paperclip"></i></button>
-                  <button id="send-message-btn" class="btn">Send</button>
-                </div>
-              </div>
+            
+            <div class="chat-input-container">
+              <input type="text" id="chat-input" placeholder="Type your message here...">
+              <button id="send-message-btn">Send</button>
             </div>
           </div>
         </div>
