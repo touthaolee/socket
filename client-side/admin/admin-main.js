@@ -106,6 +106,13 @@ function setupNavigation() {
     });
   });
   
+  // --- ADDED: Activate the first view and menu item by default ---
+  if (menuItems.length > 0 && views.length > 0) {
+    menuItems[0].classList.add('active');
+    views[0].classList.add('active');
+  }
+  // --- END ADDED ---
+  
   // Logout button
   document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('auth_token');
