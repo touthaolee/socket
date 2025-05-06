@@ -50,6 +50,10 @@ export class AdminChatService {
    */
   connectSocket() {
     // Use the existing socket connection from socket-client.js
+    if (this.isConnected && this.socket) {
+      // Already connected, do not reconnect or rejoin rooms
+      return;
+    }
     try {
       import('/interac/client-side/client-socket/socket-client.js')
         .then(module => {
@@ -59,10 +63,10 @@ export class AdminChatService {
             console.error('Failed to get socket instance');
             return;
           }
-          // Connect with admin username
-          socketClient.connectWithUsername(this.username);
-          this.isConnected = true;
-          console.log('Connected to socket server for admin chat');
+          // Only connect if not already connected
+          if (!this.socket.connected) {
+            socketClient.connectWithUsername(this.username);
+          }
           // Register socket events
           this.registerSocketEvents();
           // Join admin room and global room for communication with all clients
@@ -73,6 +77,7 @@ export class AdminChatService {
               console.log(`Joining room: ${room}`);
             }
           });
+          this.isConnected = true;
         })
         .catch(err => {
           console.error('Error importing socket client:', err);
