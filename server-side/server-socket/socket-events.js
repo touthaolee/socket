@@ -1,6 +1,6 @@
 // server-side/server-socket/socket-events.js
 const { Server } = require('socket.io');
-const { setupAuthMiddleware, handleConnection, handleDisconnect, registerChatHandlers, registerQuizHandlers } = require('./socket-handlers');
+const { setupAuthMiddleware, handleDisconnect, registerChatHandlers, registerQuizHandlers } = require('./socket-handlers');
 
 let io;
 
@@ -32,7 +32,7 @@ function initSocketServer(server) {
   
   // Connection handling
   io.on('connection', (socket) => {
-    handleConnection(io, socket);
+    // handleConnection(io, socket); // Removed: this function does not exist or is not needed
     
     // Register event handlers
     registerChatHandlers(io, socket);

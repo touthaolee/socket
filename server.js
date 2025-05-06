@@ -3,7 +3,26 @@
 
 // Load environment variables
 require('dotenv').config();
+// Add at the top with other requires
+const jwt = require('jsonwebtoken');
+const config = require('./config/app-config');
 
+// Add before your Socket.IO setup
+app.use(express.json());
+
+app.post('/login', (req, res) => {
+    const { username } = req.body;
+    if (!username) {
+        return res.status(400).json({ error: 'Username required' });
+    }
+    // For demo: everyone is 'user' role. Adjust as needed.
+    const token = jwt.sign(
+        { username, role: 'user' },
+        config.jwt.secret,
+        { expiresIn: '1h' }
+    );
+    res.json({ token });
+});
 // Simply require and start the main server module
 const server = require('./server-side/server-main');
 const logger = require('./logger');
