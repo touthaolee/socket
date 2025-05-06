@@ -126,20 +126,28 @@ function handleLogout() {
   // Remove authentication token
   removeTokenFromStorage();
   localStorage.removeItem('username');
-  
+
   // Update app state
   setState('isAuthenticated', false);
   setState('user', null);
-  
+
   // Disconnect socket
   const socket = getState('socket');
   if (socket && socket.connected) {
     socket.disconnect();
   }
-  
-  // Show login UI
-  window.showLoginUI();
-  
+
+  // Show login UI (robust fallback)
+  if (typeof window.showLoginUI === 'function') {
+    window.showLoginUI();
+  } else {
+    // Fallback: show auth container, hide app container
+    const authContainer = document.getElementById('auth-container');
+    const appContainer = document.getElementById('app-container');
+    if (authContainer) authContainer.style.display = '';
+    if (appContainer) appContainer.style.display = 'none';
+  }
+
   showToast('You have been logged out', 'info');
 }
 
