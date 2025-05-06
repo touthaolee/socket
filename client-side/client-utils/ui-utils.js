@@ -196,17 +196,6 @@ export function showToast(message, type = 'info', duration = 5000) {
   }
   
   /**
-   * Sanitize HTML string
-   * @param {string} html - HTML to sanitize
-   * @returns {string} Sanitized HTML
-   */
-  export function sanitizeHtml(html) {
-    const element = document.createElement('div');
-    element.textContent = html;
-    return element.innerHTML;
-  }
-  
-  /**
    * Create element with properties
    * @param {string} tag - Element tag
    * @param {object} props - Element properties
@@ -269,6 +258,5 @@ export function showToast(message, type = 'info', duration = 5000) {
     fadeOutToast,
     formatDate,
     formatTime,
-    formatSeconds,
-    sanitizeHtml
+    formatSeconds
   };
