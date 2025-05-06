@@ -156,32 +156,6 @@ export function showToast(message, type = 'info', duration = 5000) {
   }
   
   /**
-   * Format time to readable string
-   * @param {Date|string} time - Time to format
-   * @param {object} options - Format options
-   * @returns {string} Formatted time
-   */
-  export function formatTime(time, options = {}) {
-    if (!time) return '';
-    
-    const d = new Date(time);
-    
-    // Check if valid date
-    if (isNaN(d.getTime())) return '';
-    
-    // Default options
-    const defaultOptions = {
-      hour: '2-digit',
-      minute: '2-digit'
-    };
-    
-    // Merge options
-    const formatOptions = { ...defaultOptions, ...options };
-    
-    return d.toLocaleTimeString(undefined, formatOptions);
-  }
-  
-  /**
    * Create element with properties
    * @param {string} tag - Element tag
    * @param {object} props - Element properties
@@ -242,6 +216,5 @@ export function showToast(message, type = 'info', duration = 5000) {
   // Export additional utility functions
   export {
     fadeOutToast,
-    formatDate,
-    formatTime
+    formatDate
   };
