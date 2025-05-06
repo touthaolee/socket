@@ -48,29 +48,32 @@ async function handleLogin(e) {
   }
   
   try {
-    // Try full authentication first if password is provided
-    if (password) {
-      const success = await authenticateWithCredentials(username, password);
-      // Always save token to localStorage if present after login
-      const token = getAuthToken();
-      if (token) {
-        localStorage.setItem('auth_token', token);
-      }
-      if (success) {
-        showToast(`Welcome back, ${username}!`, 'success');
-        window.showAuthenticatedUI();
-        return;
-      }
+    // Always attempt login, even if password is blank
+    const response = await fetch('/interac/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await response.json();
+    if (response.ok && data.token) {
+      localStorage.setItem('auth_token', data.token); // Always save the token
+      localStorage.setItem('username', username); // Save username for session restore
+      setState('user', data.user || { username });
+      setState('isAuthenticated', true);
+      showToast(`Welcome, ${username}!`, 'success');
+      window.showAuthenticatedUI();
+      return;
+    } else if (data.error) {
+      if (errorElem) errorElem.textContent = data.error;
+      showToast(data.error, 'error');
+      return;
     }
-    
-    // Fall back to simple username-only auth for compatibility
+    // Fallback for legacy/guest mode
     localStorage.setItem('username', username);
     setState('user', { username });
     setState('isAuthenticated', true);
-    
     showToast(`Welcome, ${username}!`, 'success');
     window.showAuthenticatedUI();
-    
   } catch (error) {
     console.error('Login error:', error);
     if (errorElem) errorElem.textContent = error.message || 'Login failed. Please try again.';
