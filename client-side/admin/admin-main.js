@@ -400,12 +400,10 @@ function updateChatMessages(messages) {
     } else {
       // User message
       const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      const firstInitial = message.username ? message.username.charAt(0).toUpperCase() : '?';
       const isSelf = message.isSelf;
       
       chatMessages.innerHTML += `
         <div class="message ${isSelf ? 'message-self' : ''}" data-message-id="${message.id}">
-          <div class="message-avatar">${firstInitial}</div>
           <div class="message-content-wrapper">
             <div class="message-header">
               <span class="message-sender">${message.username}</span>
