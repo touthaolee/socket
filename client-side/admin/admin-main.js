@@ -241,10 +241,9 @@ function initAdminChat() {
     const token = getTokenFromStorage();
     if (!token) return;
     
-    // For simplicity, we'll use a fixed admin user ID
-    // In a real application, you would decode the JWT to get user details
-    const adminUsername = 'admin';
-    const adminUserId = '1';
+    // For simplicity, we'll use a fixed admin username
+    const adminUsername = 'Admin';
+    const adminUserId = 'admin_' + Date.now();
     
     // Initialize the chat service
     adminChatService.init(adminUsername, adminUserId);
@@ -279,40 +278,6 @@ function setupChatUIEventListeners() {
       }
     });
   }
-  
-  // Channel selection
-  const channelList = document.getElementById('chat-channel-list');
-  if (channelList) {
-    channelList.addEventListener('click', (e) => {
-      const channelItem = e.target.closest('.channel-item');
-      if (channelItem) {
-        const channelName = channelItem.querySelector('.channel-name').textContent.substring(2); // Remove '# ' prefix
-        
-        // Update active channel in UI
-        document.querySelectorAll('.channel-item').forEach(item => {
-          item.classList.remove('active');
-        });
-        channelItem.classList.add('active');
-        
-        // Update current channel display
-        document.getElementById('current-channel').textContent = `# ${channelName}`;
-        
-        // Switch channel in service
-        adminChatService.switchChannel(channelName);
-      }
-    });
-  }
-  
-  // Create new channel button
-  const createChannelBtn = document.getElementById('create-channel-btn');
-  if (createChannelBtn) {
-    createChannelBtn.addEventListener('click', () => {
-      const channelName = prompt('Enter new channel name:');
-      if (channelName) {
-        adminChatService.createChannel(channelName);
-      }
-    });
-  }
 }
 
 // Send a chat message
@@ -339,22 +304,30 @@ function setupChatEventHandlers() {
   });
   
   // When messages are received
-  adminChatService.on('messageReceived', ({ channelId, messages }) => {
-    // Only update UI if this is the current channel
-    if (channelId === adminChatService.currentChannel) {
-      updateChatMessages(messages);
-    }
-  });
-  
-  // When channels are updated
-  adminChatService.on('channelsUpdated', ({ channels }) => {
-    updateChannelsList(channels);
-  });
-  
-  // When channel is switched
-  adminChatService.on('channelSwitched', ({ channelId, messages }) => {
+  adminChatService.on('messageReceived', ({ messages }) => {
     updateChatMessages(messages);
   });
+  
+  // When connection status changes
+  adminChatService.on('connectionUpdated', ({ connected }) => {
+    updateConnectionStatus(connected);
+  });
+}
+
+// Update the connection status in the UI
+function updateConnectionStatus(connected) {
+  const statusIndicator = document.getElementById('connection-status');
+  if (statusIndicator) {
+    if (connected) {
+      statusIndicator.classList.remove('offline');
+      statusIndicator.classList.add('online');
+      statusIndicator.title = 'Connected to chat server';
+    } else {
+      statusIndicator.classList.remove('online');
+      statusIndicator.classList.add('offline');
+      statusIndicator.title = 'Disconnected from chat server';
+    }
+  }
 }
 
 // Update the users list in the UI
@@ -365,7 +338,7 @@ function updateUsersList(users, onlineCount) {
   if (userList) {
     userList.innerHTML = '';
     
-    if (users.length === 0) {
+    if (!Array.isArray(users) || users.length === 0) {
       userList.innerHTML = `
         <div class="user-item">
           <span class="user-status offline"></span>
@@ -374,11 +347,16 @@ function updateUsersList(users, onlineCount) {
       `;
     } else {
       users.forEach(user => {
-        const userStatus = user.status || 'online';
+        // Handle different user object formats from the server
+        // Server sends objects with userId and username properties
+        const userId = typeof user === 'string' ? user : (user.userId || user.id || 'unknown');
+        const username = typeof user === 'string' ? user : (user.username || 'Anonymous');
+        const userStatus = typeof user === 'string' ? 'online' : (user.status || 'online');
+        
         userList.innerHTML += `
-          <div class="user-item" data-user-id="${user.userId}">
+          <div class="user-item" data-user-id="${userId}">
             <span class="user-status ${userStatus}"></span>
-            <span class="user-name">${user.username}</span>
+            <span class="user-name">${username}</span>
           </div>
         `;
       });
@@ -386,7 +364,7 @@ function updateUsersList(users, onlineCount) {
   }
   
   if (onlineCountElement) {
-    onlineCountElement.textContent = onlineCount || 0;
+    onlineCountElement.textContent = Array.isArray(users) ? users.length : (onlineCount || 0);
   }
 }
 
@@ -401,7 +379,7 @@ function updateChatMessages(messages) {
     chatMessages.innerHTML = `
       <div class="system-message">
         <div class="message-content">
-          No messages in this channel yet. Be the first to say hello!
+          No messages yet. Be the first to say hello!
         </div>
       </div>
     `;
@@ -422,9 +400,10 @@ function updateChatMessages(messages) {
       // User message
       const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       const firstInitial = message.username ? message.username.charAt(0).toUpperCase() : '?';
+      const isSelf = message.isSelf;
       
       chatMessages.innerHTML += `
-        <div class="message" data-message-id="${message.id}">
+        <div class="message ${isSelf ? 'message-self' : ''}" data-message-id="${message.id}">
           <div class="message-avatar">${firstInitial}</div>
           <div class="message-content-wrapper">
             <div class="message-header">
@@ -442,23 +421,6 @@ function updateChatMessages(messages) {
   
   // Scroll to bottom
   chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-// Update the channels list in the UI
-function updateChannelsList(channels) {
-  const channelList = document.getElementById('chat-channel-list');
-  if (!channelList) return;
-  
-  channelList.innerHTML = '';
-  
-  channels.forEach(channel => {
-    const isActive = channel.id === adminChatService.currentChannel;
-    channelList.innerHTML += `
-      <div class="channel-item ${isActive ? 'active' : ''}" data-channel-id="${channel.id}">
-        <span class="channel-name"># ${channel.name}</span>
-      </div>
-    `;
-  });
 }
 
 // Setup modal handlers

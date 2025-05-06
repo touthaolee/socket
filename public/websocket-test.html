@@ -924,8 +924,9 @@
         li.className = 'user-item';
         
         // Handle both string usernames and user objects
-        const username = typeof user === 'string' ? user : (user?.username || 'Anonymous');
-        const userId = typeof user === 'string' ? user : (user?.id || 'unknown');
+        // Updated to properly handle the server's user object format
+        const username = typeof user === 'string' ? user : (user.username || 'Anonymous');
+        const userId = typeof user === 'string' ? user : (user.userId || user.id || 'unknown');
         
         if (username === (window.currentUsername || '')) {
           li.classList.add('current');

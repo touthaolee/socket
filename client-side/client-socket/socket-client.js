@@ -3,6 +3,8 @@ const socketClient = {
     socket: null,
     username: '',
     userId: '',
+    activeUsers: [],
+    updateUserListCallback: null,
     
     // Initialize the socket client
     init() {
@@ -67,12 +69,21 @@ const socketClient = {
       
       // When server sends updated user list
       this.socket.on('users_online', (users) => {
-        if (typeof window.updateUserList === 'function') {
-          window.updateUserList(users);
-        }
         // Store the updated user list
         this.activeUsers = users;
+        
+        // Use the callback if it's registered
+        if (typeof this.updateUserListCallback === 'function') {
+          this.updateUserListCallback(users);
+        }
       });
+    },
+    
+    // Register the update user list callback
+    registerUpdateUserListCallback(callback) {
+      if (typeof callback === 'function') {
+        this.updateUserListCallback = callback;
+      }
     },
     
     // Get the socket instance

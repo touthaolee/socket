@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Setup navigation
   setupNavigation();
   
+  // Register updateUserList callback with socket client
+  socketClient.registerUpdateUserListCallback(updateUserList);
+  
   // Check if user is already logged in
   const username = localStorage.getItem('username');
   if (username) {
@@ -51,18 +54,60 @@ document.addEventListener('DOMContentLoaded', () => {
       // Store username in local storage
       localStorage.setItem('username', username);
       
-      // Connect to socket with username
+      // Connect to socket server with username
       const connected = socketClient.connectWithUsername(username);
       
       if (connected) {
-        return { success: true, user: { username } };
+        // Show main app container, hide auth container
+        document.getElementById('auth-container').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        
+        // Set username in profile
+        document.getElementById('profile-username').textContent = username;
+        document.getElementById('user-info').textContent = `Logged in as: ${username}`;
+        
+        return { success: true };
       } else {
         return { success: false, error: 'Could not connect to the server' };
       }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Server error, please try again' };
+      return { success: false, error: 'An unexpected error occurred' };
     }
+  }
+  
+  // Update the user list in the UI when users change
+  function updateUserList(users) {
+    const userListElement = document.getElementById('user-list');
+    
+    // Clear existing user list
+    userListElement.innerHTML = '';
+    
+    // If no users, show a message
+    if (!users || users.length === 0) {
+      const noUsersElement = document.createElement('div');
+      noUsersElement.className = 'user-item';
+      noUsersElement.textContent = 'No users online';
+      userListElement.appendChild(noUsersElement);
+      return;
+    }
+    
+    // Add each user to the list
+    users.forEach(user => {
+      const userElement = document.createElement('div');
+      userElement.className = 'user-item';
+      
+      const userStatus = document.createElement('span');
+      userStatus.className = 'user-status online';
+      
+      const userName = document.createElement('span');
+      userName.className = 'user-name';
+      userName.textContent = user.username;
+      
+      userElement.appendChild(userStatus);
+      userElement.appendChild(userName);
+      userListElement.appendChild(userElement);
+    });
   }
   
   // Setup navigation
@@ -139,43 +184,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('auth-container').classList.remove('hidden');
       document.getElementById('main-app').classList.add('hidden');
     });
-    
-    // Listen for user list updates
-    socket.on('users_online', (users) => {
-      updateUserList(users);
-      
-      // Also share updated user status with admins
-      const username = localStorage.getItem('username');
-      socketClient.shareUserWithAdmins({
-        userId: socket.id,
-        username: username,
-        status: 'online',
-        isRegularUser: true
-      });
-    });
-  }
-  
-  // Update user list in the UI
-  function updateUserList(users) {
-    const userList = document.getElementById('user-list');
-    if (!userList) return;
-    
-    userList.innerHTML = '';
-    
-    if (users.length === 0) {
-      userList.innerHTML = '<div class="empty-state">No users online</div>';
-      return;
-    }
-    
-    users.forEach(user => {
-      const userStatus = user.status || 'online';
-      userList.innerHTML += `
-        <div class="user-item" data-user-id="${user.userId || user.socketId}">
-          <span class="user-status ${userStatus}"></span>
-          <span class="user-name">${user.username}</span>
-        </div>
-      `;
-    });
   }
   
   // Setup user info
@@ -183,9 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!user) return;
     
     // Set username in profile
-    document.getElementById('profile-username').textContent = user.username;
+    const profileUsername = document.getElementById('profile-username');
+    if (profileUsername) {
+      profileUsername.textContent = user.username;
+    }
     
     // Set user info in chat
-    document.getElementById('user-info').textContent = `Logged in as ${user.username}`;
+    const userInfo = document.getElementById('user-info');
+    if (userInfo) {
+      userInfo.textContent = `Logged in as ${user.username}`;
+    }
   }
 });

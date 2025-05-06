@@ -3,21 +3,18 @@
 /**
  * Admin Chat Service Module
  * Handles chat functionality for the admin interface
+ * Simplified version that connects to the main websocket chat
  */
 export class AdminChatService {
   constructor() {
     this.socket = null;
-    this.currentChannel = 'general';
-    this.username = '';
+    this.username = 'Admin';
     this.userId = '';
     this.users = [];
-    this.channels = [
-      { id: 'general', name: 'general', isDefault: true },
-      { id: 'support', name: 'support', isDefault: false }
-    ];
-    this.messages = {};
+    this.messages = [];
     this.onlineUsers = 0;
     this.eventHandlers = {};
+    this.isConnected = false;
   }
 
   /**
@@ -26,28 +23,16 @@ export class AdminChatService {
    * @param {string} userId - The user ID of the current admin
    */
   init(username, userId) {
-    this.username = username;
-    this.userId = userId;
-    
-    // Initialize messages containers for each channel
-    this.channels.forEach(channel => {
-      if (!this.messages[channel.id]) {
-        this.messages[channel.id] = [];
-      }
-    });
+    this.username = username || 'Admin';
+    this.userId = userId || 'admin_' + Date.now();
     
     // Connect to socket server
     this.connectSocket();
     
-    // Set up default event handlers
-    this.setUpEventListeners();
+    console.log('Admin Chat Service initialized for user:', this.username);
     
-    console.log('Admin Chat Service initialized for user:', username);
-    
-    // Add system message to all channels
-    this.channels.forEach(channel => {
-      this.addSystemMessage(channel.id, `Welcome to the #${channel.name} channel`);
-    });
+    // Add welcome message
+    this.addSystemMessage(`Welcome to the chat, ${this.username}!`);
     
     return this;
   }
@@ -58,7 +43,7 @@ export class AdminChatService {
   connectSocket() {
     // Use the existing socket connection from socket-client.js
     try {
-      import('/interac/client-side/client-socket/socket-client.js')
+      import('/client-side/client-socket/socket-client.js')
         .then(module => {
           const socketClient = module.default;
           this.socket = socketClient.getSocket();
@@ -68,16 +53,14 @@ export class AdminChatService {
             return;
           }
           
+          // Connect with admin username
+          socketClient.connectWithUsername(this.username);
+          this.isConnected = true;
+          
           console.log('Connected to socket server for admin chat');
           
           // Register socket events
           this.registerSocketEvents();
-          
-          // Join admin chat room
-          this.socket.emit('admin:join', {
-            userId: this.userId,
-            username: this.username
-          });
         })
         .catch(err => {
           console.error('Error importing socket client:', err);
@@ -93,191 +76,81 @@ export class AdminChatService {
   registerSocketEvents() {
     if (!this.socket) return;
     
-    // When a new user joins
-    this.socket.on('admin:user-joined', data => {
-      this.onlineUsers = data.onlineUsers;
-      this.users = data.users;
+    // When receiving the user list
+    this.socket.on('users_online', (users) => {
+      this.users = users;
+      this.onlineUsers = users.length;
       this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
-      
-      // Add system message
-      this.addSystemMessage(this.currentChannel, `${data.username} joined the chat`);
-    });
-    
-    // When a regular user shares their information with admin
-    this.socket.on('user:share-with-admin', userData => {
-      // Check if the user is already in our list
-      const existingUserIndex = this.users.findIndex(u => u.userId === userData.userId);
-      
-      if (existingUserIndex >= 0) {
-        // Update existing user
-        this.users[existingUserIndex] = {
-          ...this.users[existingUserIndex],
-          ...userData
-        };
-      } else {
-        // Add new user
-        this.users.push(userData);
-      }
-      
-      this.onlineUsers = this.users.length;
-      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
-      
-      // Add system message for new users
-      if (existingUserIndex < 0) {
-        this.addSystemMessage(this.currentChannel, `${userData.username} is now online`);
-      }
-    });
-    
-    // When receiving the full user list (including regular users)
-    this.socket.on('admin:user-list', userList => {
-      // Update our user list with regular users
-      userList.forEach(regularUser => {
-        // Only add if not already in the list
-        if (!this.users.some(u => u.userId === regularUser.userId)) {
-          this.users.push({
-            ...regularUser,
-            isRegularUser: true
-          });
-        }
-      });
-      
-      this.onlineUsers = this.users.length;
-      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
-    });
-    
-    // When a user leaves
-    this.socket.on('admin:user-left', data => {
-      this.onlineUsers = data.onlineUsers;
-      this.users = data.users;
-      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
-      
-      // Add system message
-      this.addSystemMessage(this.currentChannel, `${data.username} left the chat`);
-    });
-    
-    // When a regular user disconnects
-    this.socket.on('user:disconnect', userId => {
-      // Remove the user from our list
-      const userIndex = this.users.findIndex(u => u.userId === userId);
-      
-      if (userIndex >= 0) {
-        const username = this.users[userIndex].username;
-        this.users.splice(userIndex, 1);
-        this.onlineUsers = this.users.length;
-        this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
-        
-        // Add system message
-        this.addSystemMessage(this.currentChannel, `${username} went offline`);
-      }
     });
     
     // When receiving a new message
-    this.socket.on('admin:message', message => {
-      const { channelId, text, username, timestamp, userId } = message;
-      
-      // Store message in appropriate channel
-      if (!this.messages[channelId]) {
-        this.messages[channelId] = [];
-      }
-      
-      this.messages[channelId].push({
-        id: Date.now().toString(),
-        text,
-        username,
-        userId,
-        timestamp,
-        isSystem: false
-      });
-      
-      // Trigger event for UI update
-      this.triggerEvent('messageReceived', { 
-        channelId, 
-        messages: this.messages[channelId] 
-      });
-    });
-    
-    // Listen for regular user messages too
     this.socket.on('chat_message', data => {
       const { message, username, userId } = data;
       
-      // Store message in general channel
-      if (!this.messages['general']) {
-        this.messages['general'] = [];
-      }
-      
-      this.messages['general'].push({
+      this.messages.push({
         id: Date.now().toString(),
         text: message,
         username,
         userId,
         timestamp: new Date().toISOString(),
-        isSystem: false,
-        isRegularUser: true
+        isSystem: false
       });
       
       // Trigger event for UI update
-      this.triggerEvent('messageReceived', { 
-        channelId: 'general', 
-        messages: this.messages['general'] 
-      });
+      this.triggerEvent('messageReceived', { messages: this.messages });
     });
     
-    // When receiving channel list update
-    this.socket.on('admin:channels-updated', data => {
-      this.channels = data.channels;
-      this.triggerEvent('channelsUpdated', { channels: this.channels });
+    // Handle connection/reconnection
+    this.socket.on('connect', () => {
+      this.isConnected = true;
+      this.addSystemMessage('Connected to chat server');
+      this.triggerEvent('connectionUpdated', { connected: true });
+    });
+    
+    // Handle disconnection
+    this.socket.on('disconnect', () => {
+      this.isConnected = false;
+      this.addSystemMessage('Disconnected from chat server');
+      this.triggerEvent('connectionUpdated', { connected: false });
     });
   }
   
   /**
-   * Send a message to a channel
+   * Send a message to the chat
    * @param {string} text - Message text
-   * @param {string} channelId - Channel ID
    */
-  sendMessage(text, channelId = this.currentChannel) {
+  sendMessage(text) {
     if (!text.trim() || !this.socket) return;
     
-    const message = {
-      text,
-      channelId,
-      username: this.username,
-      userId: this.userId,
-      timestamp: new Date().toISOString()
-    };
-    
-    this.socket.emit('admin:send-message', message);
+    // Send message via socket
+    this.socket.emit('chat_message', {
+      message: text,
+      username: this.username
+    });
     
     // Optimistically add to local messages
-    if (!this.messages[channelId]) {
-      this.messages[channelId] = [];
-    }
-    
-    this.messages[channelId].push({
+    this.messages.push({
       id: Date.now().toString(),
-      ...message,
-      isSystem: false
+      text,
+      username: this.username,
+      userId: this.userId,
+      timestamp: new Date().toISOString(),
+      isSystem: false,
+      isSelf: true
     });
     
     // Trigger event for UI update
-    this.triggerEvent('messageReceived', { 
-      channelId, 
-      messages: this.messages[channelId] 
-    });
+    this.triggerEvent('messageReceived', { messages: this.messages });
     
     return true;
   }
   
   /**
-   * Add a system message to a channel
-   * @param {string} channelId - Channel ID
+   * Add a system message to the chat
    * @param {string} text - System message text
    */
-  addSystemMessage(channelId, text) {
-    if (!this.messages[channelId]) {
-      this.messages[channelId] = [];
-    }
-    
-    this.messages[channelId].push({
+  addSystemMessage(text) {
+    this.messages.push({
       id: Date.now().toString(),
       text,
       timestamp: new Date().toISOString(),
@@ -285,86 +158,15 @@ export class AdminChatService {
     });
     
     // Trigger event for UI update
-    this.triggerEvent('messageReceived', { 
-      channelId, 
-      messages: this.messages[channelId] 
-    });
+    this.triggerEvent('messageReceived', { messages: this.messages });
   }
   
   /**
-   * Switch to a different channel
-   * @param {string} channelId - Channel ID to switch to
-   */
-  switchChannel(channelId) {
-    if (channelId === this.currentChannel) return;
-    
-    this.currentChannel = channelId;
-    
-    // Initialize messages array if it doesn't exist
-    if (!this.messages[channelId]) {
-      this.messages[channelId] = [];
-    }
-    
-    // Trigger event for UI update
-    this.triggerEvent('channelSwitched', { 
-      channelId, 
-      messages: this.messages[channelId] 
-    });
-    
-    return true;
-  }
-  
-  /**
-   * Create a new channel
-   * @param {string} channelName - Name of the new channel
-   */
-  createChannel(channelName) {
-    if (!channelName.trim() || !this.socket) return false;
-    
-    // Sanitize channel name (lowercase, no spaces)
-    const sanitizedName = channelName.toLowerCase().replace(/\s+/g, '-');
-    
-    // Check if channel already exists
-    if (this.channels.some(c => c.id === sanitizedName)) {
-      return false;
-    }
-    
-    const newChannel = {
-      id: sanitizedName,
-      name: channelName,
-      isDefault: false
-    };
-    
-    this.socket.emit('admin:create-channel', newChannel);
-    
-    // Optimistically add to local channels
-    this.channels.push(newChannel);
-    this.messages[sanitizedName] = [];
-    
-    // Trigger event for UI update
-    this.triggerEvent('channelsUpdated', { channels: this.channels });
-    
-    // Add system message
-    this.addSystemMessage(sanitizedName, `Channel #${channelName} created`);
-    
-    return true;
-  }
-  
-  /**
-   * Get messages for a specific channel
-   * @param {string} channelId - Channel ID
+   * Get all messages
    * @returns {Array} - Array of messages
    */
-  getMessages(channelId = this.currentChannel) {
-    return this.messages[channelId] || [];
-  }
-  
-  /**
-   * Get all channels
-   * @returns {Array} - Array of channels
-   */
-  getChannels() {
-    return this.channels;
+  getMessages() {
+    return this.messages;
   }
   
   /**
@@ -410,21 +212,12 @@ export class AdminChatService {
   }
   
   /**
-   * Set up event listeners for HTML elements
-   */
-  setUpEventListeners() {
-    // These will be set up in the admin-main.js file
-  }
-  
-  /**
    * Clean up resources when chat is closed
    */
   cleanup() {
     if (this.socket) {
-      this.socket.off('admin:user-joined');
-      this.socket.off('admin:user-left');
-      this.socket.off('admin:message');
-      this.socket.off('admin:channels-updated');
+      this.socket.off('users_online');
+      this.socket.off('chat_message');
     }
     
     this.eventHandlers = {};
