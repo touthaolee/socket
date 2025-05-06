@@ -17,7 +17,9 @@ document.addEventListener('DOMContentLoaded', () => {
   
   setupChatUI({
     onSendMessage: (message) => {
-      socket.emit('chat_message', { message });
+      const username = localStorage.getItem('username') || 'User';
+      const userId = socket.id;
+      socket.emit('chat_message', { message, username, userId });
     }
   });
   

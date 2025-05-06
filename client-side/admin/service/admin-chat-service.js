@@ -276,7 +276,6 @@ export class AdminChatService {
         from: this.userId,
         fromUsername: this.username
       });
-      
       // Add message to our local messages array
       this.messages.push({
         id: Date.now().toString(),
@@ -288,30 +287,12 @@ export class AdminChatService {
         isDirect: true,
         toUserId: userId
       });
-      
       this.triggerEvent('messageReceived', { messages: this.messages });
       return true;
     }
-    
-    // If sending to a specific room, or default to 'global' if not specified
-    const targetRoom = room || 'global';
-    this.socket.emit('room_message', {
-      room: targetRoom,
-      message: message
-    });
-    
-    // Add message to our local messages array
-    this.messages.push({
-      id: Date.now().toString(),
-      text: message,
-      username: this.username,
-      userId: this.userId,
-      timestamp: new Date().toISOString(),
-      isSystem: false,
-      room: targetRoom
-    });
-    
-    this.triggerEvent('messageReceived', { messages: this.messages });
+    // For global chat, emit chat_message with username and userId
+    this.socket.emit('chat_message', messageData);
+    // Do NOT add the message to messages array here; wait for server echo
     return true;
   }
   
