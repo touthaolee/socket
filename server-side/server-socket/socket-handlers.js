@@ -11,9 +11,8 @@ function setupAuthMiddleware(io) {
       const token = socket.handshake.auth.token;
       const username = socket.handshake.auth.username;
       
-      // Allow simple username authentication for testing tools
-      if (username && !token && socket.handshake.headers.referer && 
-          socket.handshake.headers.referer.includes('websocket-test.html')) {
+      // Allow simple username authentication for any client
+      if (username && !token) {
         socket.username = username;
         socket.user = {
           id: socket.id,
@@ -22,30 +21,36 @@ function setupAuthMiddleware(io) {
         return next();
       }
       
-      // Regular authentication flow with token
-      if (!token) {
-        return next(new Error('Authentication token required'));
+      // Regular authentication flow with token (if token is provided)
+      if (token) {
+        try {
+          // Verify token
+          const decoded = authService.verifyToken(token);
+          if (!decoded) {
+            return next(new Error('Invalid authentication token'));
+          }
+          
+          // Find user
+          const user = await authService.findUserById(decoded.id);
+          if (!user) {
+            return next(new Error('User not found'));
+          }
+          
+          // Store user data in socket
+          socket.user = {
+            id: user.id,
+            username: user.username
+          };
+          
+          return next();
+        } catch (tokenError) {
+          console.error('Token verification error:', tokenError);
+          return next(new Error('Authentication token error'));
+        }
       }
       
-      // Verify token
-      const decoded = authService.verifyToken(token);
-      if (!decoded) {
-        return next(new Error('Invalid authentication token'));
-      }
-      
-      // Find user
-      const user = await authService.findUserById(decoded.id);
-      if (!user) {
-        return next(new Error('User not found'));
-      }
-      
-      // Store user data in socket
-      socket.user = {
-        id: user.id,
-        username: user.username
-      };
-      
-      next();
+      // Neither username nor token provided
+      return next(new Error('Authentication required: provide either username or token'));
     } catch (error) {
       console.error('Socket authentication error:', error);
       next(new Error('Authentication error'));
