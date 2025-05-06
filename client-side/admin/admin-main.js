@@ -1,7 +1,7 @@
 // client-side/admin/admin-main.js
 import { getTokenFromStorage } from '../client-utils/client-helpers.js';
-import { aiService } from './services/ai-service.js';
-import { similarityService } from './services/ai-similarity-service.js';
+import { aiService } from './service/ai-service.js';
+import { similarityService } from './service/ai-similarity-service.js';
 
 // State
 let quizzes = [];
