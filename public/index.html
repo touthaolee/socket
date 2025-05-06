@@ -7,6 +7,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/interac/client-side/client-styles/client-styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    .profanity-warning {
+      color: #d35400;
+      font-size: 14px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .profanity-warning i {
+      color: #e67e22;
+    }
+    
+    @media (max-width: 768px) {
+      .auth-card {
+        padding: 20px;
+        width: 90%;
+        max-width: 450px;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -25,50 +47,23 @@
     <!-- Auth Container -->
     <div id="auth-container" class="container">
       <div class="auth-card">
-        <div class="tabs">
-          <button class="tab-btn active" data-tab="login">Login</button>
-          <button class="tab-btn" data-tab="register">Register</button>
-        </div>
+        <h2>Welcome to InterAc</h2>
+        <p class="form-subtitle">Join our interactive quiz and chat platform</p>
         
-        <!-- Login Form -->
+        <!-- Username Entry Form -->
         <div id="login-form" class="auth-form active">
-          <h2>Welcome Back</h2>
-          <p class="form-subtitle">Login to access your quizzes and chat</p>
           <div class="form-group">
-            <label for="login-username">Username</label>
-            <input type="text" id="login-username" required>
+            <label for="login-username">Your Username</label>
+            <input type="text" id="login-username" placeholder="Enter a username" required>
+            <div class="profanity-warning">
+              <i class="fas fa-exclamation-circle"></i>
+              <span>Please avoid using offensive or inappropriate language</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="login-password">Password</label>
-            <input type="password" id="login-password" required>
-          </div>
-          <button id="login-btn" class="btn">Login</button>
+          <button id="login-btn" class="btn">Enter Platform</button>
           <div id="login-error" class="error-message"></div>
         </div>
         
-        <!-- Register Form -->
-        <div id="register-form" class="auth-form">
-          <h2>Create Account</h2>
-          <p class="form-subtitle">Join our interactive learning platform</p>
-          <div class="form-group">
-            <label for="register-username">Username</label>
-            <input type="text" id="register-username" required>
-          </div>
-          <div class="form-group">
-            <label for="register-email">Email</label>
-            <input type="email" id="register-email" required>
-          </div>
-          <div class="form-group">
-            <label for="register-password">Password</label>
-            <input type="password" id="register-password" required>
-          </div>
-          <div class="form-group">
-            <label for="register-confirm-password">Confirm Password</label>
-            <input type="password" id="register-confirm-password" required>
-          </div>
-          <button id="register-btn" class="btn">Register</button>
-          <div id="register-error" class="error-message"></div>
-        </div>
       </div>
     </div>
     
@@ -242,5 +237,25 @@
   <script type="module" src="/interac/client-side/client-main.js"></script>
   <script type="module" src="/interac/client-side/client-components/quiz-questions.js"></script>
   <script type="module" src="/interac/client-side/client-components/quiz-results.js"></script>
+  <script>
+    // Basic profanity filter
+    document.getElementById('login-username').addEventListener('input', function(e) {
+      const profaneWords = ['fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cunt']; // Basic list, can be expanded
+      const username = e.target.value.toLowerCase();
+      
+      let containsProfanity = profaneWords.some(word => username.includes(word));
+      
+      const loginButton = document.getElementById('login-btn');
+      const errorMessage = document.getElementById('login-error');
+      
+      if (containsProfanity) {
+        errorMessage.textContent = 'Please choose a username without inappropriate language.';
+        loginButton.disabled = true;
+      } else {
+        errorMessage.textContent = '';
+        loginButton.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>

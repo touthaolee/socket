@@ -27,6 +27,21 @@ const socketClient = {
       return true;
     },
     
+    // Connect with username only (simplified auth)
+    connectWithUsername(username) {
+      if (!username) {
+        console.error('Username required');
+        return false;
+      }
+      
+      // Set auth data with username
+      this.socket.auth = { username };
+      
+      // Connect to server
+      this.socket.connect();
+      return true;
+    },
+    
     // Disconnect from server
     disconnect() {
       if (this.socket) {

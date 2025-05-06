@@ -2,7 +2,6 @@
 import socketClient from './client-socket/socket-client.js';
 import { setupAuthUI, setupChatUI } from './client-components/auth-components.js';
 import { setupChatHandlers } from './client-components/chat-components.js';
-import { setTokenInStorage, getTokenFromStorage, removeTokenFromStorage } from './client-utils/client-helpers.js';
 import { initQuizComponents } from './client-components/quiz-questions.js';
 import { initResultsComponents } from './client-components/quiz-results.js';
 
@@ -13,8 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize UI components
   setupAuthUI({
-    onLogin: handleLogin,
-    onRegister: handleRegister
+    onLogin: handleLogin
   });
   
   setupChatUI({
@@ -31,10 +29,10 @@ document.addEventListener('DOMContentLoaded', () => {
   setupNavigation();
   
   // Check if user is already logged in
-  const token = getTokenFromStorage();
-  if (token) {
-    // Try to connect with stored token
-    socketClient.connectWithToken(token);
+  const username = localStorage.getItem('username');
+  if (username) {
+    // Try to connect with stored username
+    socketClient.connectWithUsername(username);
   }
   
   // Setup socket event handlers
@@ -43,51 +41,26 @@ document.addEventListener('DOMContentLoaded', () => {
   // Handle login form submission
   async function handleLogin(credentials) {
     try {
-      const response = await fetch('/interac/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials)
-      });
+      const { username } = credentials;
       
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Login failed' };
+      // Validate username
+      if (!username || username.length < 2) {
+        return { success: false, error: 'Username must be at least 2 characters' };
       }
       
-      // Store token and connect
-      setTokenInStorage(data.token);
-      socketClient.connectWithToken(data.token);
+      // Store username in local storage
+      localStorage.setItem('username', username);
       
-      return { success: true, user: data.user };
+      // Connect to socket with username
+      const connected = socketClient.connectWithUsername(username);
+      
+      if (connected) {
+        return { success: true, user: { username } };
+      } else {
+        return { success: false, error: 'Could not connect to the server' };
+      }
     } catch (error) {
       console.error('Login error:', error);
-      return { success: false, error: 'Server error, please try again' };
-    }
-  }
-  
-  // Handle register form submission
-  async function handleRegister(userData) {
-    try {
-      const response = await fetch('/interac/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        return { success: false, error: data.error || 'Registration failed' };
-      }
-      
-      // Store token and connect
-      setTokenInStorage(data.token);
-      socketClient.connectWithToken(data.token);
-      
-      return { success: true, user: data.user };
-    } catch (error) {
-      console.error('Registration error:', error);
       return { success: false, error: 'Server error, please try again' };
     }
   }
@@ -129,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Logout button
     document.getElementById('logout-btn').addEventListener('click', () => {
-      removeTokenFromStorage();
+      localStorage.removeItem('username');
+      socket.disconnect();
       document.getElementById('main-app').classList.add('hidden');
       document.getElementById('auth-container').classList.remove('hidden');
     });
@@ -144,20 +118,16 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('auth-container').classList.add('hidden');
       document.getElementById('main-app').classList.remove('hidden');
       
-      // Setup user info
-      setupUserInfo(socket.user);
+      // Setup user info with username from local storage
+      const username = localStorage.getItem('username');
+      setupUserInfo({ username });
       
       // Join as a user
-      socket.emit('user_join');
+      socket.emit('user_join', username);
     });
     
     socket.on('connect_error', (err) => {
       console.error('Connection error:', err.message);
-      // If token is invalid, clear it
-      if (err.message === 'Authentication error' || 
-          err.message === 'Invalid authentication token') {
-        removeTokenFromStorage();
-      }
       document.getElementById('auth-container').classList.remove('hidden');
       document.getElementById('main-app').classList.add('hidden');
     });
