@@ -7,27 +7,43 @@ import { showToast } from './client-utils/ui-utils.js';
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('InterAc Quiz Application - Initializing...');
-  
+
   try {
     // Initialize core modules
     await initAuthSystem();
     const quizModule = initQuizModule();
-    
-    // Set up main UI functionality (menu toggles, theme, etc.)
     setupMainUI();
-    
+
     // Register global variables for backwards compatibility
     window.setupAuthUI = function(callbacks) {
       console.log('Legacy setupAuthUI called');
     };
-    
     window.setupChatUI = function(callbacks) {
       console.log('Legacy setupChatUI called');
     };
-    
+
+    // --- Robust session persistence ---
+    const token = localStorage.getItem('auth_token');
+    const username = localStorage.getItem('username');
+    if (token && username) {
+      // Restore authenticated state and UI
+      window.showAuthenticatedUI();
+    } else {
+      // Show login UI if not authenticated
+      if (typeof window.showLoginUI === 'function') {
+        window.showLoginUI();
+      } else {
+        // Fallback: show auth container, hide app container
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        if (authContainer) authContainer.style.display = '';
+        if (appContainer) appContainer.style.display = 'none';
+      }
+    }
+
     console.log('Application initialized successfully');
     showToast('Application initialized', 'success');
-    
+
   } catch (error) {
     console.error('Error initializing application:', error);
     showToast('Error initializing application', 'error');

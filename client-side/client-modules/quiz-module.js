@@ -154,6 +154,11 @@ async function loadQuizzes() {
     // Debugging output
     console.log('[DEBUG] loadQuizzes: token', token);
     console.log('[DEBUG] loadQuizzes: headers', headers);
+    if (!token) {
+      showToast('You must be logged in with a password to view quizzes. Please log out and log in again with your credentials.', 'warning');
+      // Optionally, show login UI or redirect
+      return;
+    }
     // Fetch quizzes from server
     const response = await fetch('/interac/api/quiz/quizzes', {
       headers
