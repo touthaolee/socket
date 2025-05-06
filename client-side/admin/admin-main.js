@@ -109,7 +109,8 @@ function setupNavigation() {
   // Logout button
   document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('auth_token');
-    window.location.href = '/interac/';
+    showAdminLogin(); // Show login modal instead of redirecting
+    // window.location.href = '/interac/'; // <-- REMOVE THIS LINE
   });
 }
 
@@ -258,7 +259,8 @@ async function loadQuizzes() {
   try {
     const token = getTokenFromStorage();
     if (!token) {
-      window.location.href = '/interac/';
+      showAdminLogin(); // Show login modal instead of redirecting
+      // window.location.href = '/interac/'; // <-- REMOVE THIS LINE
       return;
     }
     
