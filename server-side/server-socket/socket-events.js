@@ -30,13 +30,24 @@ function initSocketServer(server) {
   // Set up authentication middleware
   setupAuthMiddleware(io);
   
+  // Helper to emit the user list to all clients
+  function emitUserList() {
+    const users = Array.from(io.sockets.sockets.values()).map(s => ({
+      userId: s.user?.id || s.id,
+      username: s.user?.username || 'Anonymous'
+    }));
+    io.emit('user_list', users);
+  }
+
   // Connection handling
   io.on('connection', (socket) => {
-    registerQuizHandlers(io, socket); // Add this line
-    
+    registerQuizHandlers(io, socket);
+    emitUserList(); // Emit on connect
+
     // Handle disconnect
     socket.on('disconnect', () => {
       handleDisconnect(io, socket);
+      emitUserList(); // Emit on disconnect
     });
   });
   
