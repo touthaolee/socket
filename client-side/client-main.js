@@ -11,7 +11,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     // Initialize core modules
     await initAuthSystem();
-    const socketClient = initSocketModule();
     const quizModule = initQuizModule();
     
     // Set up main UI functionality (menu toggles, theme, etc.)
@@ -25,9 +24,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.setupChatUI = function(callbacks) {
       console.log('Legacy setupChatUI called');
     };
-    
-    // Setup socket event handlers for quiz events
-    setupSocketEventHandlers(socketClient);
     
     console.log('Application initialized successfully');
     showToast('Application initialized', 'success');
@@ -143,4 +139,11 @@ socketClient.on('disconnect', (reason) => {
   console.log('Socket disconnected:', reason);
   showToast('Disconnected from server', 'error');
 });
+}
+
+// Add a global function to start socket after login
+window.startSocketAfterLogin = function(authOptions) {
+  const socketClient = initSocketModule(authOptions);
+  setupSocketEventHandlers(socketClient);
+  window.socketClient = socketClient; // Optional: make globally accessible
 }
