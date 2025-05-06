@@ -537,7 +537,6 @@
             <div class="row">
               <div class="input-group">
                 <input id="username" placeholder="Username for auth middleware" />
-                <input id="password" type="password" placeholder="Password" style="margin-left: 8px;" />
               </div>
               <button class="btn btn-primary" onclick="connectSocket()">
                 <i class="fas fa-plug"></i> Connect
@@ -959,19 +958,17 @@
       }
       window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
       const username = window.currentUsername;
-      const password = document.getElementById('password')?.value || '';
-      if (!username || !password) {
-        log('Please enter both username and password.', 'error');
+      if (!username) {
+        log('Please enter a username.', 'error');
         setStatusIndicator('DISCONNECTED');
         return;
       }
-      let token = localStorage.getItem('auth_token');
-      // Always try to login to get a fresh token
+      let token = null;
       try {
         const response = await fetch('/interac/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({ username })
         });
         const data = await response.json();
         if (response.ok && data.token) {
