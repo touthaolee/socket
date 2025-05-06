@@ -62,7 +62,6 @@ Ensure the generated HTML code is responsive and optimized for mobile devices.
 │
 └── server.js               # Application entry point
 
-tell me more about generating quizes
 
 Edit
 I'd be happy to tell you more about the quiz generation functionality in this codebase. Based on my analysis of the code, here are the key aspects of how quizzes are generated:
