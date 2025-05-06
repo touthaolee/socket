@@ -25,6 +25,7 @@ app.use(cookieParser());
 // Serve static files
 app.use('/interac', express.static(path.join(__dirname, '../public')));
 app.use('/interac/client-side', express.static(path.join(__dirname, '../client-side')));
+app.use('/interac/client-styles', express.static(path.join(__dirname, '../client-side/client-styles'))); // Add this line
 
 // API routes
 app.use('/interac/api/auth', authRoutes);
