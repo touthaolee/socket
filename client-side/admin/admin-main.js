@@ -3,6 +3,56 @@ import { getTokenFromStorage } from '../client-utils/client-helpers.js';
 import { aiService } from './service/ai-service.js';
 import { similarityService } from './service/ai-similarity-service.js';
 
+// --- Admin Auth Logic ---
+function showAdminLogin() {
+  document.getElementById('admin-login-container').style.display = 'block';
+  document.querySelector('.admin-container').style.display = 'none';
+}
+function showAdminDashboard() {
+  document.getElementById('admin-login-container').style.display = 'none';
+  document.querySelector('.admin-container').style.display = 'block';
+}
+
+// On page load, check for token
+const token = localStorage.getItem('auth_token');
+if (!token) {
+  showAdminLogin();
+} else {
+  showAdminDashboard();
+}
+
+// Handle admin login
+const loginBtn = document.getElementById('admin-login-btn');
+if (loginBtn) {
+  loginBtn.addEventListener('click', async () => {
+    const username = document.getElementById('admin-username').value.trim();
+    const password = document.getElementById('admin-password').value;
+    const errorDiv = document.getElementById('admin-login-error');
+    errorDiv.textContent = '';
+    if (!username || !password) {
+      errorDiv.textContent = 'Please enter both username and password.';
+      return;
+    }
+    try {
+      const res = await fetch('/interac/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        localStorage.setItem('auth_token', data.token);
+        showAdminDashboard();
+        window.location.reload();
+      } else {
+        errorDiv.textContent = data.error || 'Login failed';
+      }
+    } catch (err) {
+      errorDiv.textContent = 'Server error. Please try again.';
+    }
+  });
+}
+
 // State
 let quizzes = [];
 let currentPage = 1;

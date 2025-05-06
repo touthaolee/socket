@@ -9,6 +9,17 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
+  <!-- Admin Login Modal -->
+  <div id="admin-login-container" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h2>Admin Login</h2>
+      <input type="text" id="admin-username" placeholder="Username" required>
+      <input type="password" id="admin-password" placeholder="Password" required>
+      <button id="admin-login-btn">Login</button>
+      <div id="admin-login-error" class="error-message"></div>
+    </div>
+  </div>
+
   <div class="admin-container">
     <nav class="admin-nav">
       <div class="nav-logo">InterAc Admin</div>
