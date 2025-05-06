@@ -1,7 +1,8 @@
 // server-side/server-socket/socket-handlers.js
 const authService = require('../server-services/auth-service');
 
-// Store admin users and channels
+// Store users, admin users and channels
+const users = [];
 const adminUsers = [];
 const adminChannels = [
   { id: 'general', name: 'general', isDefault: true },
@@ -72,6 +73,27 @@ function setupAuthMiddleware(io) {
  */
 function handleConnection(io, socket) {
   console.log(`User connected: ${socket.user.username} (${socket.id})`);
+  
+  // Add user to the global users list
+  const userInfo = {
+    userId: socket.user.id,
+    username: socket.user.username,
+    status: 'online',
+    isRegularUser: true
+  };
+  
+  // Check if user already exists
+  const existingIndex = users.findIndex(u => u.userId === userInfo.userId);
+  if (existingIndex === -1) {
+    users.push(userInfo);
+  } else {
+    users[existingIndex] = userInfo;
+  }
+  
+  // Broadcast updated user list to all clients
+  broadcastUserList(io);
+  // Also broadcast to admin chat
+  broadcastUsersToAdmins(io);
 }
 
 /**
@@ -81,7 +103,18 @@ function handleConnection(io, socket) {
  */
 function handleDisconnect(io, socket) {
   console.log(`User disconnected: ${socket.user?.username || 'Unknown'} (${socket.id})`);
+  
+  // Remove the user from our global users array
+  if (socket.user) {
+    const index = users.findIndex(u => u.userId === socket.user.id);
+    if (index !== -1) {
+      users.splice(index, 1);
+    }
+  }
+  
+  // Broadcast updated user lists
   broadcastUserList(io);
+  broadcastUsersToAdmins(io);
 }
 
 /**
@@ -99,6 +132,8 @@ function registerChatHandlers(io, socket) {
       console.log(`${socket.user.username} joined the chat`);
     }
     broadcastUserList(io);
+    // Also update the admin chat with this new user
+    broadcastUsersToAdmins(io);
   });
   
   // Handle chat messages
@@ -277,20 +312,57 @@ function registerAdminChatHandlers(io, socket) {
 }
 
 /**
+ * Register quiz-related event handlers
+ * @param {Object} io - Socket.io server instance
+ * @param {Object} socket - Socket instance
+ */
+function registerQuizHandlers(io, socket) {
+  // This function is a placeholder for quiz-related socket events
+  // Quiz functionality can be implemented here as needed
+  
+  // User quiz start
+  socket.on('quiz:start', (quizId) => {
+    console.log(`User ${socket.user.username} started quiz ${quizId}`);
+  });
+  
+  // User quiz submission
+  socket.on('quiz:submit', (data) => {
+    console.log(`User ${socket.user.username} submitted quiz ${data.quizId}`);
+  });
+}
+
+/**
  * Broadcast active users list to all clients
  * @param {Object} io - Socket.io server instance
  */
 function broadcastUserList(io) {
   const users = [];
   for (const [id, socket] of io.sockets.sockets) {
-    if (socket.user) {
+    if (socket.user && socket.user.username) {
       users.push({
         id: socket.user.id,
-        username: socket.user.username
+        username: socket.user.username,
+        status: socket.user.status || 'offline'
       });
     }
   }
+  
+  // Emit updated user list to all clients
   io.emit('user_list', users);
+}
+
+/**
+ * Broadcast active users to admin chat
+ * @param {Object} io - Socket.io server instance
+ */
+function broadcastUsersToAdmins(io) {
+  const userList = users.map(u => ({
+    userId: u.userId,
+    username: u.username,
+    status: u.status
+  }));
+  
+  io.to('admin-chat').emit('admin:user-list', userList);
 }
 
 /**
@@ -298,9 +370,22 @@ function broadcastUserList(io) {
  * @param {Object} io - Socket.io server instance
  */
 function broadcastAdminUserList(io) {
+  // Combine admin users and regular users for the admin chat
+  const allUsers = [...adminUsers];
+  
+  // Add regular users to the list if they're not already in adminUsers
+  users.forEach(user => {
+    if (!allUsers.some(admin => admin.userId === user.userId)) {
+      allUsers.push({
+        ...user,
+        isRegularUser: true
+      });
+    }
+  });
+  
   io.to('admin-chat').emit('admin:user-joined', {
-    users: adminUsers,
-    onlineUsers: adminUsers.length,
+    users: allUsers,
+    onlineUsers: allUsers.length,
     username: adminUsers.length > 0 ? adminUsers[adminUsers.length - 1].username : 'Unknown'
   });
 }
@@ -312,5 +397,6 @@ module.exports = {
   registerChatHandlers,
   registerAdminChatHandlers,
   registerTestEventHandlers,
+  registerQuizHandlers,
   registerEventHandlers
 };

@@ -103,6 +103,23 @@ export class AdminChatService {
       this.addSystemMessage(this.currentChannel, `${data.username} joined the chat`);
     });
     
+    // When receiving the full user list (including regular users)
+    this.socket.on('admin:user-list', userList => {
+      // Update our user list with regular users
+      userList.forEach(regularUser => {
+        // Only add if not already in the list
+        if (!this.users.some(u => u.userId === regularUser.userId)) {
+          this.users.push({
+            ...regularUser,
+            isRegularUser: true
+          });
+        }
+      });
+      
+      this.onlineUsers = this.users.length;
+      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
+    });
+    
     // When a user leaves
     this.socket.on('admin:user-left', data => {
       this.onlineUsers = data.onlineUsers;

@@ -444,3 +444,589 @@ function updateChannelsList(channels) {
     `;
   });
 }
+
+// Setup modal handlers
+function setupModalHandlers() {
+  // Create quiz modal
+  const createQuizBtn = document.getElementById('create-quiz-btn');
+  const createQuizModal = document.getElementById('create-quiz-modal');
+  const closeModalBtn = document.querySelector('.close-modal');
+  const cancelCreateBtn = document.getElementById('cancel-create-btn');
+  
+  if (createQuizBtn && createQuizModal) {
+    createQuizBtn.addEventListener('click', () => {
+      createQuizModal.style.display = 'flex';
+    });
+  }
+  
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      if (createQuizModal) createQuizModal.style.display = 'none';
+    });
+  }
+  
+  if (cancelCreateBtn) {
+    cancelCreateBtn.addEventListener('click', () => {
+      if (createQuizModal) createQuizModal.style.display = 'none';
+    });
+  }
+  
+  // Form tabs in create quiz modal
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabContents = document.querySelectorAll('.tab-content');
+  
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      
+      // Update active tab button
+      tabBtns.forEach(tb => tb.classList.remove('active'));
+      btn.classList.add('active');
+      
+      // Show corresponding tab content
+      tabContents.forEach(content => {
+        if (content.id === `${tabName}-form`) {
+          content.classList.add('active');
+        } else {
+          content.classList.remove('active');
+        }
+      });
+    });
+  });
+  
+  // Advanced options toggle
+  const advancedOptions = document.getElementById('advanced-options');
+  if (advancedOptions) {
+    advancedOptions.previousElementSibling.addEventListener('click', () => {
+      advancedOptions.classList.toggle('expanded');
+    });
+  }
+  
+  // Quiz Preview Modal
+  const closePreviewModalBtn = document.querySelector('.close-preview-modal');
+  const quizPreviewModal = document.getElementById('quiz-preview-modal');
+  
+  if (closePreviewModalBtn && quizPreviewModal) {
+    closePreviewModalBtn.addEventListener('click', () => {
+      quizPreviewModal.style.display = 'none';
+    });
+  }
+  
+  // Edit Question Modal
+  const closeEditModalBtn = document.querySelector('.close-edit-modal');
+  const editQuestionModal = document.getElementById('edit-question-modal');
+  
+  if (closeEditModalBtn && editQuestionModal) {
+    closeEditModalBtn.addEventListener('click', () => {
+      editQuestionModal.style.display = 'none';
+    });
+  }
+  
+  // Similarity Check Modal
+  const closeSimilarityModalBtn = document.querySelector('.close-similarity-modal');
+  const similarityCheckModal = document.getElementById('similarity-check-modal');
+  const closeSimilarityBtn = document.getElementById('close-similarity-btn');
+  
+  if (closeSimilarityModalBtn && similarityCheckModal) {
+    closeSimilarityModalBtn.addEventListener('click', () => {
+      similarityCheckModal.style.display = 'none';
+    });
+  }
+  
+  if (closeSimilarityBtn && similarityCheckModal) {
+    closeSimilarityBtn.addEventListener('click', () => {
+      similarityCheckModal.style.display = 'none';
+    });
+  }
+  
+  // Close modals when clicking outside
+  window.addEventListener('click', (e) => {
+    if (e.target === createQuizModal) createQuizModal.style.display = 'none';
+    if (e.target === quizPreviewModal) quizPreviewModal.style.display = 'none';
+    if (e.target === editQuestionModal) editQuestionModal.style.display = 'none';
+    if (e.target === similarityCheckModal) similarityCheckModal.style.display = 'none';
+  });
+}
+
+// Setup quiz management
+function setupQuizManagement() {
+  // Quiz pagination
+  const prevPageBtn = document.getElementById('prev-page');
+  const nextPageBtn = document.getElementById('next-page');
+  
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        loadQuizzes();
+      }
+    });
+  }
+  
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener('click', () => {
+      if (currentPage < totalPages) {
+        currentPage++;
+        loadQuizzes();
+      }
+    });
+  }
+  
+  // Quiz search
+  const quizSearch = document.getElementById('quiz-search');
+  if (quizSearch) {
+    quizSearch.addEventListener('input', debounce(() => {
+      // Reset to first page when searching
+      currentPage = 1;
+      loadQuizzes();
+    }, 300));
+  }
+  
+  // Quiz filter
+  const quizFilter = document.getElementById('quiz-filter');
+  if (quizFilter) {
+    quizFilter.addEventListener('change', () => {
+      // Reset to first page when filtering
+      currentPage = 1;
+      loadQuizzes();
+    });
+  }
+  
+  // Create quiz submit
+  const createQuizSubmitBtn = document.getElementById('create-quiz-submit-btn');
+  if (createQuizSubmitBtn) {
+    createQuizSubmitBtn.addEventListener('click', createQuiz);
+  }
+}
+
+// Render quizzes to the table
+function renderQuizzes() {
+  const quizzesTable = document.getElementById('quizzes-table').querySelector('tbody');
+  if (!quizzesTable) return;
+  
+  quizzesTable.innerHTML = '';
+  
+  if (quizzes.length === 0) {
+    quizzesTable.innerHTML = `
+      <tr>
+        <td colspan="5" class="empty-state">No quizzes found</td>
+      </tr>
+    `;
+    return;
+  }
+  
+  quizzes.forEach(quiz => {
+    const createdDate = new Date(quiz.createdAt).toLocaleDateString();
+    const statusClass = quiz.status === 'active' ? 'status-active' : 'status-draft';
+    
+    quizzesTable.innerHTML += `
+      <tr data-quiz-id="${quiz.id}">
+        <td>${quiz.name}</td>
+        <td>${quiz.questions ? quiz.questions.length : 0}</td>
+        <td>${createdDate}</td>
+        <td><span class="status-badge ${statusClass}">${quiz.status}</span></td>
+        <td class="actions-cell">
+          <button class="action-btn view-btn" title="View Quiz"><i class="fas fa-eye"></i></button>
+          <button class="action-btn edit-btn" title="Edit Quiz"><i class="fas fa-edit"></i></button>
+          <button class="action-btn delete-btn" title="Delete Quiz"><i class="fas fa-trash"></i></button>
+        </td>
+      </tr>
+    `;
+  });
+  
+  // Add click handlers to action buttons
+  const viewButtons = quizzesTable.querySelectorAll('.view-btn');
+  const editButtons = quizzesTable.querySelectorAll('.edit-btn');
+  const deleteButtons = quizzesTable.querySelectorAll('.delete-btn');
+  
+  viewButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const quizId = e.target.closest('tr').dataset.quizId;
+      viewQuiz(quizId);
+    });
+  });
+  
+  editButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const quizId = e.target.closest('tr').dataset.quizId;
+      editQuiz(quizId);
+    });
+  });
+  
+  deleteButtons.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const quizId = e.target.closest('tr').dataset.quizId;
+      deleteQuiz(quizId);
+    });
+  });
+}
+
+// Update pagination info
+function updatePagination() {
+  const pageInfo = document.getElementById('page-info');
+  if (pageInfo) {
+    pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+  }
+  
+  const prevPageBtn = document.getElementById('prev-page');
+  const nextPageBtn = document.getElementById('next-page');
+  
+  if (prevPageBtn) {
+    prevPageBtn.disabled = currentPage <= 1;
+  }
+  
+  if (nextPageBtn) {
+    nextPageBtn.disabled = currentPage >= totalPages;
+  }
+}
+
+// Create a new quiz
+async function createQuiz() {
+  // Get quiz data from form
+  const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
+  let quizData;
+  
+  if (activeTab === 'ai-generate') {
+    quizData = {
+      name: document.getElementById('quiz-name').value.trim(),
+      description: document.getElementById('quiz-description').value.trim(),
+      timePerQuestion: parseInt(document.getElementById('time-per-question').value) || 30,
+      aiOptions: {
+        topic: document.getElementById('ai-topic').value.trim(),
+        numQuestions: parseInt(document.getElementById('num-questions').value) || 10,
+        difficulty: document.getElementById('difficulty').value,
+        rationaleTone: document.getElementById('rationale-tone').value,
+        optionsPerQuestion: parseInt(document.getElementById('options-per-question').value) || 4,
+        batchSize: parseInt(document.getElementById('batch-size').value) || 5,
+        specificFocuses: document.getElementById('specific-focuses').value.trim()
+      }
+    };
+    
+    // Validate
+    if (!quizData.name || !quizData.aiOptions.topic) {
+      alert('Please enter a quiz name and topic');
+      return;
+    }
+    
+    // Start generation
+    startQuizGeneration(quizData);
+  } else {
+    // Manual creation
+    quizData = {
+      name: document.getElementById('manual-quiz-name').value.trim(),
+      description: document.getElementById('manual-quiz-description').value.trim(),
+      timePerQuestion: parseInt(document.getElementById('manual-time-per-question').value) || 30,
+      questions: getQuestionsFromForm()
+    };
+    
+    // Validate
+    if (!quizData.name || !quizData.questions.length) {
+      alert('Please enter a quiz name and at least one question');
+      return;
+    }
+    
+    // Create quiz
+    await saveQuiz(quizData);
+  }
+}
+
+// Get questions from the manual create form
+function getQuestionsFromForm() {
+  const questions = [];
+  const questionItems = document.querySelectorAll('.question-item');
+  
+  questionItems.forEach((item, index) => {
+    const questionText = item.querySelector('.question-text').value.trim();
+    const rationale = item.querySelector('.question-rationale').value.trim();
+    const options = [];
+    let correctIndex = -1;
+    
+    const optionItems = item.querySelectorAll('.option-item');
+    optionItems.forEach((optionItem, optIndex) => {
+      const optionText = optionItem.querySelector('.option-text').value.trim();
+      const isCorrect = optionItem.querySelector('input[type="radio"]').checked;
+      
+      if (optionText) {
+        options.push(optionText);
+        if (isCorrect) {
+          correctIndex = optIndex;
+        }
+      }
+    });
+    
+    if (questionText && options.length >= 2 && correctIndex !== -1) {
+      questions.push({
+        text: questionText,
+        options,
+        correctIndex,
+        rationale
+      });
+    }
+  });
+  
+  return questions;
+}
+
+// Start AI quiz generation
+function startQuizGeneration(quizData) {
+  // Show generation progress modal
+  const progressModal = document.getElementById('generation-progress-modal');
+  if (progressModal) {
+    progressModal.style.display = 'flex';
+  }
+  
+  // Reset cancellation flag
+  generationCancelled = false;
+  
+  // Start tracking generation time
+  const startTime = Date.now();
+  let elapsedTimeInterval;
+  
+  // Update elapsed time display
+  function updateElapsedTime() {
+    const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+    const minutes = Math.floor(elapsedSeconds / 60);
+    const seconds = elapsedSeconds % 60;
+    document.getElementById('elapsed-time').textContent = 
+      `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  
+  // Start updating elapsed time
+  elapsedTimeInterval = setInterval(updateElapsedTime, 1000);
+  
+  // Setup cancel button
+  const cancelBtn = document.getElementById('cancel-generation-btn');
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      generationCancelled = true;
+      addLogEntry('Generation cancelled by user');
+    }, { once: true });
+  }
+  
+  // Helper function to add log entries
+  function addLogEntry(text) {
+    const logContainer = document.getElementById('generation-log-container');
+    if (logContainer) {
+      logContainer.innerHTML += `<div class="log-entry">${text}</div>`;
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+  }
+  
+  // Generate questions in batches
+  generateQuizQuestions(quizData, {
+    onProgress: (progress, generatedCount, totalCount) => {
+      // Update progress bar
+      document.getElementById('generation-progress-fill').style.width = `${progress}%`;
+      document.getElementById('generation-progress-text').textContent = `${Math.round(progress)}%`;
+      document.getElementById('questions-generated').textContent = `${generatedCount}/${totalCount}`;
+      
+      // Update estimated time remaining
+      if (generatedCount > 0) {
+        const elapsedTime = (Date.now() - startTime) / 1000;
+        const timePerQuestion = elapsedTime / generatedCount;
+        const remainingQuestions = totalCount - generatedCount;
+        const remainingSeconds = Math.round(timePerQuestion * remainingQuestions);
+        
+        const remainingMinutes = Math.floor(remainingSeconds / 60);
+        const seconds = remainingSeconds % 60;
+        document.getElementById('estimated-time').textContent = 
+          `${remainingMinutes}m ${seconds}s`;
+      }
+    },
+    onBatchComplete: (batch, batchNumber, totalBatches) => {
+      addLogEntry(`Batch ${batchNumber}/${totalBatches} complete: ${batch.length} questions generated`);
+    },
+    onComplete: async (questions) => {
+      addLogEntry(`Generation complete: ${questions.length} questions generated`);
+      
+      // Clean up
+      clearInterval(elapsedTimeInterval);
+      
+      // Hide progress modal
+      if (progressModal) {
+        progressModal.style.display = 'none';
+      }
+      
+      // Create final quiz object
+      const finalQuizData = {
+        ...quizData,
+        questions,
+        status: 'draft',
+        createdAt: new Date().toISOString()
+      };
+      
+      // Save quiz
+      delete finalQuizData.aiOptions;
+      await saveQuiz(finalQuizData);
+    },
+    onError: (error) => {
+      addLogEntry(`Error: ${error.message}`);
+      
+      // Clean up
+      clearInterval(elapsedTimeInterval);
+    }
+  });
+}
+
+// Generate quiz questions using AI service
+function generateQuizQuestions(quizData, callbacks) {
+  const { onProgress, onBatchComplete, onComplete, onError } = callbacks;
+  const { aiOptions } = quizData;
+  
+  // Helper function to check if generation should continue
+  const shouldContinue = () => !generationCancelled;
+  
+  // Start generation process
+  aiService.generateQuizQuestions({
+    topic: aiOptions.topic,
+    numQuestions: aiOptions.numQuestions,
+    difficulty: aiOptions.difficulty,
+    optionsPerQuestion: aiOptions.optionsPerQuestion,
+    rationaleTone: aiOptions.rationaleTone,
+    specificFocuses: aiOptions.specificFocuses,
+    batchSize: aiOptions.batchSize
+  }, {
+    onProgress,
+    onBatchComplete,
+    onComplete,
+    onError,
+    shouldContinue
+  });
+}
+
+// Save quiz to server
+async function saveQuiz(quizData) {
+  try {
+    const token = getTokenFromStorage();
+    if (!token) {
+      showAdminLogin();
+      return;
+    }
+    
+    const response = await fetch('/interac/api/quizzes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(quizData)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save quiz');
+    }
+    
+    // Close create quiz modal
+    const createQuizModal = document.getElementById('create-quiz-modal');
+    if (createQuizModal) {
+      createQuizModal.style.display = 'none';
+    }
+    
+    // Reload quizzes
+    loadQuizzes();
+    
+    // Show success message
+    alert('Quiz created successfully');
+  } catch (error) {
+    console.error('Error saving quiz:', error);
+    alert('Error saving quiz: ' + error.message);
+  }
+}
+
+// View quiz details
+function viewQuiz(quizId) {
+  const quiz = quizzes.find(q => q.id.toString() === quizId.toString());
+  if (!quiz) return;
+  
+  // Populate preview modal
+  document.getElementById('preview-quiz-name').textContent = quiz.name;
+  document.getElementById('preview-quiz-description').textContent = quiz.description || 'No description';
+  document.getElementById('preview-quiz-questions').textContent = `${quiz.questions.length} Questions`;
+  document.getElementById('preview-quiz-time').textContent = `${quiz.timePerQuestion}s per question`;
+  
+  // Populate questions
+  const questionsContainer = document.getElementById('preview-questions-container');
+  questionsContainer.innerHTML = '';
+  
+  quiz.questions.forEach((question, index) => {
+    const questionHTML = `
+      <div class="preview-question">
+        <div class="question-header">
+          <span class="question-number">Question ${index + 1}</span>
+        </div>
+        <p class="question-text">${question.text}</p>
+        <div class="question-options">
+          ${question.options.map((option, optIndex) => `
+            <div class="option ${optIndex === question.correctIndex ? 'correct' : ''}">
+              <span class="option-letter">${String.fromCharCode(65 + optIndex)}</span>
+              <span class="option-text">${option}</span>
+              ${optIndex === question.correctIndex ? '<span class="correct-mark"><i class="fas fa-check"></i></span>' : ''}
+            </div>
+          `).join('')}
+        </div>
+        <div class="question-rationale">
+          <p><strong>Rationale:</strong> ${question.rationale || 'No rationale provided'}</p>
+        </div>
+      </div>
+    `;
+    
+    questionsContainer.innerHTML += questionHTML;
+  });
+  
+  // Show preview modal
+  const previewModal = document.getElementById('quiz-preview-modal');
+  if (previewModal) {
+    previewModal.style.display = 'flex';
+  }
+}
+
+// Edit quiz
+function editQuiz(quizId) {
+  alert(`Edit quiz ${quizId} - Feature coming soon`);
+}
+
+// Delete quiz
+async function deleteQuiz(quizId) {
+  if (!confirm('Are you sure you want to delete this quiz?')) {
+    return;
+  }
+  
+  try {
+    const token = getTokenFromStorage();
+    if (!token) {
+      showAdminLogin();
+      return;
+    }
+    
+    const response = await fetch(`/interac/api/quizzes/${quizId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete quiz');
+    }
+    
+    // Reload quizzes
+    loadQuizzes();
+    
+    // Show success message
+    alert('Quiz deleted successfully');
+  } catch (error) {
+    console.error('Error deleting quiz:', error);
+    alert('Error deleting quiz: ' + error.message);
+  }
+}
+
+// Utility function for debouncing
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
