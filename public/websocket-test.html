@@ -950,26 +950,45 @@
       });
     }
 
-    function connectSocket() {
+    async function connectSocket() {
       setStatusIndicator('CONNECTING');
       if (socket && socket.connected) {
         log('Already connected.');
         return;
       }
-      // --- JWT AUTH PATCH START ---
-      // Try to get JWT token from localStorage (or prompt user)
+      window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
+      const username = window.currentUsername;
+      // --- JWT LOGIN PATCH START ---
       let token = localStorage.getItem('auth_token');
       if (!token) {
-        token = prompt('Enter your JWT token (from login):');
-        if (token) localStorage.setItem('auth_token', token);
+        // Try to login automatically
+        try {
+          const response = await fetch('/interac/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password: '' }) // If password is required, prompt for it
+          });
+          const data = await response.json();
+          if (response.ok && data.token) {
+            token = data.token;
+            localStorage.setItem('auth_token', token);
+            log('Obtained JWT token for user: ' + username);
+          } else {
+            log('Login failed: ' + (data.error || 'Unknown error'), 'error');
+            setStatusIndicator('DISCONNECTED');
+            return;
+          }
+        } catch (err) {
+          log('Login request failed: ' + err.message, 'error');
+          setStatusIndicator('DISCONNECTED');
+          return;
+        }
       }
       if (!token) {
-        log('No JWT token provided. Please login via the main app and copy your token.', 'error');
+        log('No JWT token available. Cannot connect.', 'error');
         setStatusIndicator('DISCONNECTED');
         return;
       }
-      window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
-      const username = window.currentUsername;
       socket = io({
         path: '/interac/socket.io',
         auth: { token, username }
