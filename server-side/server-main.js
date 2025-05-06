@@ -5,6 +5,7 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const { initSocketServer } = require('./server-socket/socket-events');
 const config = require('../config/app-config');
+const logger = require('../logger');
 
 // Import API routes
 const authRoutes = require('./server-api/api-auth');
@@ -38,7 +39,7 @@ initSocketServer(server);
 // Start the server
 const PORT = process.env.PORT || config.server.port || 8080;
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  logger.info(`Server running on port ${PORT}`);
 });
 
 module.exports = server;

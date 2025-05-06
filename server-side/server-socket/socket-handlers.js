@@ -1,5 +1,6 @@
 // server-side/server-socket/socket-handlers.js
 const authService = require('../server-services/auth-service');
+const logger = require('../../logger');
 
 // Store users, admin users and channels
 const users = [];
@@ -48,7 +49,7 @@ function setupAuthMiddleware(io) {
           
           return next();
         } catch (tokenError) {
-          console.error('Token verification error:', tokenError);
+          logger.error('Token verification error:', tokenError);
           return next(new Error('Authentication token error'));
         }
       }
@@ -56,7 +57,7 @@ function setupAuthMiddleware(io) {
       // Neither username nor token provided
       return next(new Error('Authentication required: provide either username or token'));
     } catch (error) {
-      console.error('Socket authentication error:', error);
+      logger.error('Socket authentication error:', error);
       next(new Error('Authentication error'));
     }
   });
@@ -68,7 +69,7 @@ function setupAuthMiddleware(io) {
  * @param {Object} socket - Socket instance
  */
 function handleConnection(io, socket) {
-  console.log(`User connected: ${socket.user.username} (${socket.id})`);
+  logger.info(`User connected: ${socket.user.username} (${socket.id})`);
   
   // Add user to the global users list
   const userInfo = {
@@ -96,7 +97,7 @@ function handleConnection(io, socket) {
  * @param {Object} socket - Socket instance
  */
 function handleDisconnect(io, socket) {
-  console.log(`User disconnected: ${socket.user?.username || 'Unknown'} (${socket.id})`);
+  logger.info(`User disconnected: ${socket.user?.username || 'Unknown'} (${socket.id})`);
   
   // Remove the user from our global users array
   const index = users.findIndex(u => u.userId === socket.id);
@@ -122,9 +123,9 @@ function registerChatHandlers(io, socket) {
   socket.on('user_join', (username) => {
     // If username is provided (from websocket-test), use it
     if (username && typeof username === 'string') {
-      console.log(`${username} joined the chat`);
+      logger.info(`${username} joined the chat`);
     } else {
-      console.log(`${socket.user.username} joined the chat`);
+      logger.info(`${socket.user.username} joined the chat`);
     }
     
     // Broadcast updated user list
@@ -156,7 +157,7 @@ function registerChatHandlers(io, socket) {
 function registerTestEventHandlers(io, socket) {
   // Test event
   socket.on('test_event', (data) => {
-    console.log('[Test] Received test_event from', socket.id, data);
+    logger.info('[Test] Received test_event from', socket.id, data);
     socket.emit('test_response', { 
       status: 'ok', 
       received: data, 
@@ -166,13 +167,13 @@ function registerTestEventHandlers(io, socket) {
   
   // Custom ping-pong for latency testing
   socket.on('custom_ping', (data) => {
-    console.log('[Ping] Received custom_ping from', socket.id, data);
+    logger.info('[Ping] Received custom_ping from', socket.id, data);
     socket.emit('custom_pong', { serverTime: new Date().toISOString() });
   });
   
   // Acknowledgement test handler
   socket.on('ack_test', (data, callback) => {
-    console.log('[Ack Test] Received ack_test from', socket.id, data);
+    logger.info('[Ack Test] Received ack_test from', socket.id, data);
     if (typeof callback === 'function') {
       callback({ 
         status: 'acknowledged', 
@@ -184,7 +185,7 @@ function registerTestEventHandlers(io, socket) {
   
   // Room management
   socket.on('join_room', (room) => {
-    console.log(`[Room] ${socket.user.username} joined room ${room}`);
+    logger.info(`[Room] ${socket.user.username} joined room ${room}`);
     socket.join(room);
     socket.emit('room_joined', room);
     io.to(room).emit('room_announcement', `${socket.user.username} joined room ${room}`);
@@ -195,7 +196,7 @@ function registerTestEventHandlers(io, socket) {
   });
   
   socket.on('leave_room', (room) => {
-    console.log(`[Room] ${socket.user.username} left room ${room}`);
+    logger.info(`[Room] ${socket.user.username} left room ${room}`);
     socket.leave(room);
     socket.emit('room_left', room);
     io.to(room).emit('room_announcement', `${socket.user.username} left room ${room}`);
@@ -206,7 +207,7 @@ function registerTestEventHandlers(io, socket) {
   });
   
   socket.on('room_message', ({ room, message }) => {
-    console.log(`[Room] Message in ${room} from ${socket.user.username}: ${message}`);
+    logger.info(`[Room] Message in ${room} from ${socket.user.username}: ${message}`);
     io.to(room).emit('room_message', {
       user: socket.user.username,
       message,
@@ -217,7 +218,7 @@ function registerTestEventHandlers(io, socket) {
   
   // Broadcast message
   socket.on('broadcast_message', (data) => {
-    console.log(`[Broadcast] Message from ${socket.user.username}: ${data.message}`);
+    logger.info(`[Broadcast] Message from ${socket.user.username}: ${data.message}`);
     socket.broadcast.emit('broadcast_message', { 
       from: socket.user.username, 
       message: data.message 
@@ -275,12 +276,12 @@ function registerQuizHandlers(io, socket) {
   
   // User quiz start
   socket.on('quiz:start', (quizId) => {
-    console.log(`User ${socket.user.username} started quiz ${quizId}`);
+    logger.info(`User ${socket.user.username} started quiz ${quizId}`);
   });
   
   // User quiz submission
   socket.on('quiz:submit', (data) => {
-    console.log(`User ${socket.user.username} submitted quiz ${data.quizId}`);
+    logger.info(`User ${socket.user.username} submitted quiz ${data.quizId}`);
   });
 }
 
