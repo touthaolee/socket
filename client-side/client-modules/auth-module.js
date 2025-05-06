@@ -1,4 +1,4 @@
-import { showToast } from '../client-utils/client-helpers.js';
+import { showToast } from '../client-utils/ui-utils.js';
 import { setTokenInStorage, removeTokenFromStorage } from '../client-utils/storage-utils.js';
 import { getState, setState } from '../../client-utils/state-manager.js';
 
