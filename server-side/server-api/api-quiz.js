@@ -15,7 +15,22 @@ const { authService, quizService, aiSimilarityService } = require('../service-re
 const quizErrorCorrectionService = require('../server-services/quiz-error-correction-service');
 const quizRegenerationService = require('../server-services/quiz-regeneration-service');
 
-// Add this new route
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'No token provided' });
+  }
+  
+  const decoded = authService.verifyToken(token);
+  if (!decoded) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+  
+  req.userId = decoded.id;
+  next();
+};
 
 // Check and fix quiz issues
 router.post('/quizzes/:id/quality-check', verifyToken, async (req, res) => {
@@ -46,22 +61,6 @@ router.post('/quizzes/:id/quality-check', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to check quiz quality' });
     }
 });
-// Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  
-  const decoded = authService.verifyToken(token);
-  if (!decoded) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-  
-  req.userId = decoded.id;
-  next();
-};
 
 // Get all quizzes
 router.get('/quizzes', verifyToken, async (req, res) => {
@@ -134,8 +133,6 @@ router.delete('/quizzes/:id', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
-// Add to server-side/server-api/api-quiz.js
-
 // Regenerate a question
 router.post('/quizzes/:id/questions/:index/regenerate', verifyToken, async (req, res) => {
     try {
@@ -173,7 +170,6 @@ router.post('/quizzes/:id/questions/:index/regenerate', verifyToken, async (req,
         res.status(500).json({ error: 'Failed to regenerate question' });
     }
 });
-// Add to server-side/server-api/api-quiz.js
 
 // Create a quiz with AI-generated questions
 router.post('/quizzes/ai-generate', verifyToken, async (req, res) => {
