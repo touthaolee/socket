@@ -55,21 +55,16 @@ export class AdminChatService {
         .then(module => {
           const socketClient = module.default;
           this.socket = socketClient.getSocket();
-          
           if (!this.socket) {
             console.error('Failed to get socket instance');
             return;
           }
-          
           // Connect with admin username
           socketClient.connectWithUsername(this.username);
           this.isConnected = true;
-          
           console.log('Connected to socket server for admin chat');
-          
           // Register socket events
           this.registerSocketEvents();
-
           // Join admin room and global room for communication with all clients
           this.rooms.forEach(room => {
             if (!this._joinedRooms.has(room)) {
@@ -176,19 +171,13 @@ export class AdminChatService {
     // Handle connection/reconnection
     this.socket.on('connect', () => {
       this.isConnected = true;
-      // Only show connection message if not already connected
       if (!this._connectionMessageShown) {
         this.addSystemMessage('Connected to chat server');
         this._connectionMessageShown = true;
       }
       this.triggerEvent('connectionUpdated', { connected: true });
-      // Rejoin only rooms not already joined
-      this.rooms.forEach(room => {
-        if (!this._joinedRooms.has(room)) {
-          this.socket.emit('join_room', room);
-          this._joinedRooms.add(room);
-        }
-      });
+      // Do NOT rejoin rooms here to avoid duplicate join_room emits and system messages
+      // Room join is handled only in connectSocket()
     });
     
     // Handle disconnection
