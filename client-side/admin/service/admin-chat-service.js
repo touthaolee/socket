@@ -17,6 +17,9 @@ export class AdminChatService {
     this.isConnected = false;
     this.rooms = ['global']; // Join only the global room by default
     this.selectedUser = null; // Track currently selected user for direct messaging
+    this._welcomeShown = false; // Prevent duplicate welcome message
+    this._joinedRooms = new Set(); // Track joined rooms
+    this._roomJoinMessagesShown = new Set(); // Track room join system messages
   }
 
   /**
@@ -33,8 +36,11 @@ export class AdminChatService {
     
     console.log('Admin Chat Service initialized for user:', this.username);
     
-    // Add welcome message
-    this.addSystemMessage(`Welcome to the chat, ${this.username}!`);
+    // Add welcome message only once per session
+    if (!this._welcomeShown) {
+      this.addSystemMessage(`Welcome to the chat, ${this.username}!`);
+      this._welcomeShown = true;
+    }
     
     return this;
   }
@@ -66,8 +72,11 @@ export class AdminChatService {
 
           // Join admin room and global room for communication with all clients
           this.rooms.forEach(room => {
-            this.socket.emit('join_room', room);
-            console.log(`Joining room: ${room}`);
+            if (!this._joinedRooms.has(room)) {
+              this.socket.emit('join_room', room);
+              this._joinedRooms.add(room);
+              console.log(`Joining room: ${room}`);
+            }
           });
         })
         .catch(err => {
@@ -158,18 +167,27 @@ export class AdminChatService {
 
     // Listen for room joined confirmation
     this.socket.on('room_joined', (room) => {
-      this.addSystemMessage(`Joined room: ${room}`);
+      if (!this._roomJoinMessagesShown.has(room)) {
+        this.addSystemMessage(`Joined room: ${room}`);
+        this._roomJoinMessagesShown.add(room);
+      }
     });
     
     // Handle connection/reconnection
     this.socket.on('connect', () => {
       this.isConnected = true;
-      this.addSystemMessage('Connected to chat server');
+      // Only show connection message if not already connected
+      if (!this._connectionMessageShown) {
+        this.addSystemMessage('Connected to chat server');
+        this._connectionMessageShown = true;
+      }
       this.triggerEvent('connectionUpdated', { connected: true });
-      
-      // Rejoin only the global room on reconnection
+      // Rejoin only rooms not already joined
       this.rooms.forEach(room => {
-        this.socket.emit('join_room', room);
+        if (!this._joinedRooms.has(room)) {
+          this.socket.emit('join_room', room);
+          this._joinedRooms.add(room);
+        }
       });
     });
     
