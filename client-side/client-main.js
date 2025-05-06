@@ -147,3 +147,34 @@ window.startSocketAfterLogin = function(authOptions) {
   setupSocketEventHandlers(socketClient);
   window.socketClient = socketClient; // Optional: make globally accessible
 }
+
+// Modern, robust, and comprehensive post-login UI handler
+window.showAuthenticatedUI = function() {
+  // Hide login/auth UI
+  const authContainer = document.getElementById('auth-container');
+  if (authContainer) authContainer.style.display = 'none';
+
+  // Show main app UI
+  const appContainer = document.getElementById('app-container');
+  if (appContainer) appContainer.style.display = '';
+
+  // Optionally update username display
+  const username = localStorage.getItem('username');
+  const usernameDisplay = document.getElementById('username-display');
+  if (usernameDisplay && username) usernameDisplay.textContent = username;
+
+  // Start socket connection with correct auth (token or username)
+  const token = localStorage.getItem('auth_token');
+  window.startSocketAfterLogin({
+    auth: token ? { token, username } : { username }
+  });
+
+  // Optionally, focus the first interactive element in the app
+  const firstInput = appContainer && appContainer.querySelector('input, button, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (firstInput) firstInput.focus();
+
+  // Show a welcome toast
+  if (typeof window.showToast === 'function') {
+    window.showToast(`Welcome, ${username || 'User'}!`, 'success');
+  }
+};
