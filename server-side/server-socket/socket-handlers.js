@@ -79,28 +79,32 @@ function setupAuthMiddleware(io, options = {}) {
                 return next(new Error('Too many authentication attempts. Try again later.'));
             }
 
+            // --- DETAILED LOGGING START ---
+            logger.info('Socket handshake received', {
+                ip,
+                auth: socket.handshake.auth,
+                query: socket.handshake.query
+            });
+            // --- DETAILED LOGGING END ---
+
             const token = socket.handshake.auth?.token || socket.handshake.query?.token;
             if (!token) {
                 rl.count++;
-                logger.warn('Authentication token missing', ip);
+                logger.warn('Authentication token missing', ip, socket.handshake.auth);
                 return next(new Error('Authentication token missing'));
             }
             let decoded;
             try {
                 decoded = await new Promise((resolve, reject) => {
-                    jwt.verify(token, config.jwt.secret, (err, decoded) => {
+                    require('jsonwebtoken').verify(token, require('../../config/app-config').jwt.secret, (err, decoded) => {
                         if (err) reject(err);
                         else resolve(decoded);
                     });
                 });
             } catch (err) {
                 rl.count++;
-                if (err.name === 'TokenExpiredError') {
-                    logger.warn('Token expired', ip);
-                    return next(new Error('Authentication token expired'));
-                }
-                logger.warn('Invalid authentication token', ip, err.message);
-                return next(new Error('Invalid authentication token'));
+                logger.warn('Invalid authentication token', ip, err.message, token);
+                return next(new Error('Invalid authentication token: ' + err.message));
             }
             // Optional: role check
             if (allowedRoles && !allowedRoles.includes(decoded.role)) {
@@ -112,8 +116,8 @@ function setupAuthMiddleware(io, options = {}) {
             logger.info('Authentication successful', ip, decoded.username || decoded.id || '');
             next();
         } catch (err) {
-            logger.error('Unexpected error in auth middleware', err.message);
-            next(new Error('Internal authentication error'));
+            logger.error('Unexpected error in auth middleware', err.message, err.stack);
+            next(new Error('Internal authentication error: ' + err.message));
         }
     });
 }
