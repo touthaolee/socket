@@ -3,259 +3,261 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InterAc - Interactive Quiz Platform</title>
+  <title>Interact Quiz</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="css/modern-styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/interac/client-side/client-styles/client-styles.css">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <style>
-    .profanity-warning {
-      color: #d35400;
-      font-size: 14px;
-      margin-top: 8px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    
-    .profanity-warning i {
-      color: #e67e22;
-    }
-    
-    @media (max-width: 768px) {
-      .auth-card {
-        padding: 20px;
-        width: 90%;
-        max-width: 450px;
-      }
-    }
-  </style>
 </head>
 <body>
-  <div class="app-container">
-    <nav class="app-nav">
-      <div class="nav-logo">InterAc</div>
-      <div class="nav-menu" id="nav-menu">
-        <span class="menu-item active" data-view="quizzes">Quizzes</span>
-        <span class="menu-item" data-view="chat">Chat</span>
-        <span class="menu-item" data-view="profile">Profile</span>
-      </div>
-      <button class="nav-toggle" id="nav-toggle">
-        <i class="fas fa-bars"></i>
-      </button>
-    </nav>
+  <!-- Toast Container for Notifications -->
+  <div id="toast-container" class="toast-container"></div>
 
-    <!-- Auth Container -->
-    <div id="auth-container" class="container">
-      <div class="auth-card">
-        <h2>Welcome to InterAc</h2>
-        <p class="form-subtitle">Join our interactive quiz and chat platform</p>
-        
-        <!-- Username Entry Form -->
-        <div id="login-form" class="auth-form active">
+  <!-- Auth Container -->
+  <div id="auth-container" class="auth-container">
+    <div class="auth-card">
+      <div class="auth-header">
+        <h1><i class="fas fa-question-circle"></i> Interact Quiz</h1>
+        <p>Test your knowledge with AI-powered quizzes</p>
+      </div>
+      <div class="auth-body">
+        <form id="login-form">
           <div class="form-group">
-            <label for="login-username">Your Username</label>
-            <input type="text" id="login-username" placeholder="Enter a username" required>
-            <div class="profanity-warning">
-              <i class="fas fa-exclamation-circle"></i>
-              <span>Please enter a safe username</span>
+            <label for="username">Username</label>
+            <div class="input-icon-wrapper">
+              <i class="fas fa-user"></i>
+              <input type="text" id="username" placeholder="Enter your username" required>
             </div>
           </div>
-          <button id="login-btn" class="btn">Enter Platform</button>
+          <div class="form-group">
+            <label for="password">Password (Optional)</label>
+            <div class="input-icon-wrapper">
+              <i class="fas fa-lock"></i>
+              <input type="password" id="password" placeholder="Enter password if required">
+            </div>
+          </div>
           <div id="login-error" class="error-message"></div>
-        </div>
-        
-      </div>
-    </div>
-    
-    <!-- Main App Container (Hidden until authenticated) -->
-    <div id="main-app" class="container hidden">
-      <!-- Quiz View -->
-      <div id="quizzes-view" class="app-view active">
-        <div class="section-header">
-          <h2>Available Quizzes</h2>
-          <div class="search-container">
-            <input type="text" id="quiz-search" placeholder="Search quizzes...">
-            <i class="fas fa-search"></i>
-          </div>
-        </div>
-        
-        <div id="quiz-list" class="card-grid">
-          <!-- Quiz cards will be generated here -->
-        </div>
-        
-        <div class="empty-state hidden" id="no-quizzes">
-          <i class="fas fa-question-circle"></i>
-          <p>No quizzes available. Check back later!</p>
-        </div>
-      </div>
-      
-      <!-- Chat View -->
-      <div id="chat-view" class="app-view">
-        <div class="section-header">
-          <h2>Live Chat</h2>
-        </div>
-        
-        <div class="chat-container">
-          <div class="chat-sidebar">
-            <div class="user-info" id="user-info"></div>
-            <h3>Online Users</h3>
-            <div id="user-list" class="user-list"></div>
-          </div>
-          
-          <div class="chat-main">
-            <div id="chat-messages" class="chat-messages"></div>
-            <div class="message-input">
-              <input type="text" id="message-input" placeholder="Type your message...">
-              <button id="send-btn"><i class="fas fa-paper-plane"></i></button>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Profile View -->
-      <div id="profile-view" class="app-view">
-        <div class="section-header">
-          <h2>My Profile</h2>
-        </div>
-        
-        <div class="profile-container">
-          <div class="profile-card">
-            <div class="profile-header">
-              <div class="profile-avatar">
-                <i class="fas fa-user"></i>
-              </div>
-              <h3 id="profile-username">Username</h3>
-            </div>
-            
-            <div class="profile-stats">
-              <div class="stat-item">
-                <span class="stat-value" id="quizzes-completed">0</span>
-                <span class="stat-label">Quizzes Completed</span>
-              </div>
-              <div class="stat-item">
-                <span class="stat-value" id="avg-score">0%</span>
-                <span class="stat-label">Average Score</span>
-              </div>
-            </div>
-            
-            <button id="logout-btn" class="btn btn-outline">Logout</button>
-          </div>
-          
-          <div class="recent-activity">
-            <h3>Recent Activity</h3>
-            <div id="activity-list" class="activity-list">
-              <div class="empty-state">
-                <p>No recent activity</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Quiz Taking Modal -->
-    <div id="quiz-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2 id="quiz-title">Quiz Title</h2>
-          <span class="close-modal">&times;</span>
-        </div>
-        
-        <div class="quiz-progress">
-          <div class="progress-text">
-            <span id="current-question">1</span>/<span id="total-questions">10</span>
-          </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-          <div class="timer" id="question-timer">
-            <i class="fas fa-clock"></i>
-            <span id="timer-value">30</span>
-          </div>
-        </div>
-        
-        <div id="question-container" class="question-container">
-          <p id="question-text" class="question-text">Question text will appear here</p>
-          
-          <div id="answer-options" class="answer-options">
-            <!-- Answer options will be generated here -->
-          </div>
-        </div>
-        
-        <div id="explanation-container" class="explanation-container hidden">
-          <h3>Explanation</h3>
-          <p id="explanation-text"></p>
-        </div>
-        
-        <div class="modal-footer">
-          <button id="next-question" class="btn">Next Question</button>
-          <button id="submit-quiz" class="btn hidden">Submit Quiz</button>
-        </div>
-      </div>
-    </div>
-    
-    <!-- Quiz Results Modal -->
-    <div id="results-modal" class="modal hidden">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h2>Quiz Results</h2>
-          <span class="close-results">&times;</span>
-        </div>
-        
-        <div class="results-summary">
-          <div class="result-score">
-            <div class="score-circle">
-              <span id="final-score">85%</span>
-            </div>
-          </div>
-          
-          <div class="result-details">
-            <div class="result-item">
-              <span class="result-label">Correct Answers:</span>
-              <span id="correct-answers">8/10</span>
-            </div>
-            <div class="result-item">
-              <span class="result-label">Time Taken:</span>
-              <span id="time-taken">3:24</span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="results-feedback" id="results-feedback">
-          Great job! You've demonstrated a good understanding of this topic.
-        </div>
-        
-        <div class="modal-footer">
-          <button id="review-answers" class="btn btn-outline">Review Answers</button>
-          <button id="back-to-quizzes" class="btn">Back to Quizzes</button>
-        </div>
+          <button type="submit" id="login-btn" class="btn btn-primary btn-block">
+            <span class="btn-text">Begin Quiz Experience</span>
+            <span class="btn-icon"><i class="fas fa-arrow-right"></i></span>
+          </button>
+        </form>
       </div>
     </div>
   </div>
-  
+
+  <!-- Main App Container -->
+  <div id="app-container" class="app-container" style="display: none;">
+    <!-- App Header -->
+    <header class="app-header">
+      <div class="container">
+        <div class="logo">
+          <i class="fas fa-brain"></i> 
+          <span>Interact Quiz</span>
+        </div>
+        <div class="user-area">
+          <div id="user-info" class="user-info">
+            <span id="username-display">Guest</span>
+            <div class="connection-status">
+              <span id="connection-indicator" class="connection-indicator offline"></span>
+              <span id="connection-text">Offline</span>
+            </div>
+          </div>
+          <button id="logout-btn" class="btn btn-text">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <div class="container">
+        <!-- Quiz Selection View -->
+        <section id="quiz-selection-view" class="view-section active">
+          <div class="section-header">
+            <h2>Available Quizzes</h2>
+            <button id="refresh-quizzes-btn" class="btn btn-primary">
+              <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+          </div>
+
+          <div class="search-filter-bar">
+            <div class="search-container">
+              <i class="fas fa-search"></i>
+              <input type="text" id="quiz-search" placeholder="Search quizzes...">
+            </div>
+            <div class="filter-container">
+              <select id="quiz-filter">
+                <option value="all">All Categories</option>
+                <option value="recent">Recently Added</option>
+                <option value="popular">Most Popular</option>
+                <option value="waiting">Open Lounges</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="quiz-grid" class="quiz-grid">
+            <!-- Quiz Cards will be dynamically added here -->
+            <div class="quiz-loading">
+              <div class="spinner"></div>
+              <p>Loading quizzes...</p>
+            </div>
+          </div>
+
+          <div id="no-quizzes" class="empty-state" style="display: none;">
+            <i class="fas fa-search"></i>
+            <h3>No Quizzes Found</h3>
+            <p>Check back later for new content or try refreshing</p>
+          </div>
+        </section>
+
+        <!-- Waiting Room View -->
+        <section id="waiting-room-view" class="view-section">
+          <div class="room-card">
+            <div class="room-header">
+              <h2 id="waiting-quiz-name">Quiz Name</h2>
+              <div class="status-badge">
+                <span class="pulse-dot"></span>
+                <span>Waiting for quiz to start</span>
+              </div>
+            </div>
+            
+            <div class="waiting-animation">
+              <div class="pulse-circle"></div>
+              <i class="fas fa-hourglass-half"></i>
+            </div>
+            
+            <div class="participants-panel">
+              <h3><i class="fas fa-users"></i> Participants (<span id="participant-count">0</span>)</h3>
+              <ul id="participants-list" class="participants-list">
+                <!-- Participants will be added here -->
+              </ul>
+            </div>
+            
+            <div class="room-actions">
+              <button id="leave-room-btn" class="btn btn-outline">
+                <i class="fas fa-sign-out-alt"></i> Leave Room
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Active Quiz View -->
+        <section id="quiz-active-view" class="view-section">
+          <div class="quiz-container">
+            <div class="quiz-header">
+              <h2 id="quiz-title">Quiz Title</h2>
+              <div class="quiz-progress">
+                <div class="progress-text">
+                  Question <span id="current-question">1</span> of <span id="total-questions">10</span>
+                </div>
+                <div class="progress-bar">
+                  <div id="progress-fill" class="progress-fill"></div>
+                </div>
+              </div>
+              <div class="quiz-timer">
+                <i class="fas fa-stopwatch"></i>
+                <span id="timer-value">30</span>s
+              </div>
+            </div>
+            
+            <div class="question-container">
+              <h3 id="question-text" class="question-text">Question text will appear here</h3>
+              <div id="answer-options" class="answer-options">
+                <!-- Answer options will be added here -->
+              </div>
+            </div>
+            
+            <div id="explanation-container" class="explanation-container" style="display: none;">
+              <div class="explanation-header">
+                <span id="explanation-title">Explanation</span>
+                <button id="close-explanation" class="btn-icon">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div id="explanation-text" class="explanation-text"></div>
+            </div>
+            
+            <div class="quiz-actions">
+              <button id="next-question" class="btn btn-primary">
+                Next Question <i class="fas fa-arrow-right"></i>
+              </button>
+              <button id="submit-quiz" class="btn btn-success" style="display: none;">
+                Finish Quiz <i class="fas fa-check"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Results View -->
+        <section id="results-view" class="view-section">
+          <div class="results-card">
+            <div class="results-header">
+              <h2>Quiz Results</h2>
+              <div class="confetti-animation"></div>
+            </div>
+            
+            <div class="results-summary">
+              <div class="result-item">
+                <div class="result-circle">
+                  <span id="final-score">0%</span>
+                </div>
+                <span class="result-label">Score</span>
+              </div>
+              
+              <div class="result-item">
+                <div class="result-value">
+                  <i class="fas fa-check"></i>
+                  <span id="correct-answers">0/0</span>
+                </div>
+                <span class="result-label">Correct Answers</span>
+              </div>
+              
+              <div class="result-item">
+                <div class="result-value">
+                  <i class="fas fa-clock"></i>
+                  <span id="time-taken">0:00</span>
+                </div>
+                <span class="result-label">Time Taken</span>
+              </div>
+            </div>
+            
+            <div class="results-feedback">
+              <div class="feedback-icon">
+                <i class="fas fa-trophy"></i>
+              </div>
+              <p id="results-feedback"></p>
+            </div>
+            
+            <div class="results-actions">
+              <button id="review-answers" class="btn btn-outline">
+                <i class="fas fa-search"></i> Review Answers
+              </button>
+              <button id="back-to-quizzes" class="btn btn-primary">
+                <i class="fas fa-list"></i> Back to Quizzes
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- App Footer -->
+    <footer class="app-footer">
+      <div class="container">
+        <p>&copy; 2025 Interact Quiz - Powered by AI</p>
+        <div class="connection-status">
+          <span>Server Status:</span>
+          <span id="footer-connection-indicator" class="connection-indicator offline"></span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Scripts -->
   <script src="/interac/socket.io/socket.io.js"></script>
-  <script type="module" src="/interac/client-side/client-main.js"></script>
-  <script type="module" src="/interac/client-side/client-components/quiz-questions.js"></script>
-  <script type="module" src="/interac/client-side/client-components/quiz-results.js"></script>
-  <script>
-    // Basic profanity filter
-    document.getElementById('login-username').addEventListener('input', function(e) {
-      const profaneWords = ['fuck', 'shit', 'ass', 'bitch', 'dick', 'pussy', 'cunt']; // Basic list, can be expanded
-      const username = e.target.value.toLowerCase();
-      
-      let containsProfanity = profaneWords.some(word => username.includes(word));
-      
-      const loginButton = document.getElementById('login-btn');
-      const errorMessage = document.getElementById('login-error');
-      
-      if (containsProfanity) {
-        errorMessage.textContent = 'Please choose a username without inappropriate language.';
-        loginButton.disabled = true;
-      } else {
-        errorMessage.textContent = '';
-        loginButton.disabled = false;
-      }
-    });
-  </script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ const path = require('path');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../../config/app-config');
+const fileUtils = require('./file-utils');
 
 // Path to the users data file
 const DB_FILE = path.join(__dirname, '../../data/users.json');
@@ -14,13 +15,24 @@ if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
+// Load admin credentials from environment variables
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+  throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set.');
+}
+
+// Hash the admin password for storage/verification
+const adminHashedPassword = bcrypt.hashSync(ADMIN_PASSWORD, 10);
+
 // Initialize users database if not exists
 if (!fs.existsSync(DB_FILE)) {
-  fs.writeFileSync(DB_FILE, JSON.stringify([
+  fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify([
     {
       id: 1,
-      username: "admin",
-      password: "$2a$10$y5nb9DwU4t93JvI2QoU1Cu6pM8wEY5vZBztWEeQUyQK9D9Yv1bhbO",
+      username: ADMIN_USERNAME,
+      password: adminHashedPassword,
       role: "admin"
     }
   ], null, 2));
@@ -91,17 +103,14 @@ const authService = {
     try {
       // Added logging for debugging
       console.log(`Verifying password: ${plainPassword.substring(0, 1)}*** against hash: ${hashedPassword.substring(0, 10)}...`);
-      
-      // Use a fallback for development if needed
-      const adminPlainPassword = 'admin';
-      const adminHashedPassword = '$2a$10$y5nb9DwU4t93JvI2QoU1Cu6pM8wEY5vZBztWEeQUyQK9D9Yv1bhbO';
-      
-      // Hardcoded admin check for development - remove in production
-      if (plainPassword === adminPlainPassword && hashedPassword === adminHashedPassword) {
-        console.log('Development mode: Admin credentials match');
+      // Use environment admin credentials
+      if (
+        plainPassword === ADMIN_PASSWORD &&
+        hashedPassword === adminHashedPassword
+      ) {
+        console.log('Admin credentials match (from environment variables)');
         return true;
       }
-      
       // Normal password verification
       return bcrypt.compare(plainPassword, hashedPassword);
     } catch (error) {
@@ -162,10 +171,10 @@ const authService = {
       // Add the new user
       if (isArrayFormat) {
         users.push(newUser);
-        fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2));
+        fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(users, null, 2));
       } else {
         data.users.push(newUser);
-        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+        fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       }
       
       // Return user without password
@@ -173,6 +182,38 @@ const authService = {
       return userWithoutPassword;
     } catch (error) {
       console.error('Error creating user:', error);
+      throw error;
+    }
+  },
+  
+  // Add user
+  async addUser(user) {
+    try {
+      const rawData = fs.readFileSync(DB_FILE, 'utf8');
+      let data = JSON.parse(rawData);
+      const users = Array.isArray(data) ? data : (data.users || []);
+      users.push(user);
+      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(users, null, 2));
+      return user;
+    } catch (error) {
+      console.error('Error adding user:', error);
+      throw error;
+    }
+  },
+  
+  // Update user
+  async updateUser(id, updates) {
+    try {
+      const rawData = fs.readFileSync(DB_FILE, 'utf8');
+      let data = JSON.parse(rawData);
+      const users = Array.isArray(data) ? data : (data.users || []);
+      const idx = users.findIndex(u => u.id === id);
+      if (idx === -1) throw new Error('User not found');
+      users[idx] = { ...users[idx], ...updates };
+      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(users, null, 2));
+      return users[idx];
+    } catch (error) {
+      console.error('Error updating user:', error);
       throw error;
     }
   }

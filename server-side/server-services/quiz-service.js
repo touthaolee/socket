@@ -1,6 +1,7 @@
 // server-side/server-services/quiz-service.js
 const fs = require('fs');
 const path = require('path');
+const fileUtils = require('./file-utils');
 
 // Path to the quizzes data file
 const DB_FILE = path.join(__dirname, '../../data/quizzes.json');
@@ -38,7 +39,78 @@ const quizService = {
       return null;
     }
   },
-  
+  // Update server-side/server-services/quiz-service.js
+
+// Add these methods to the quizService object
+
+// Create a quiz with AI-generated questions
+async createQuizWithAI(quizData) {
+  try {
+      // First create the quiz with basic info
+      const quiz = await this.createQuiz({
+          title: quizData.title,
+          description: quizData.description || '',
+          createdBy: quizData.createdBy,
+          status: 'generating' // Mark as generating
+      });
+      
+      // Start background generation if AI details provided
+      if (quizData.generateWithAI && quizData.aiTopic) {
+          const backgroundProcessingService = require('./background-processing-service');
+          
+          // Start generation process
+          const jobId = backgroundProcessingService.startQuizGeneration(quiz.id, {
+              topic: quizData.aiTopic,
+              count: quizData.questionCount || 10,
+              difficulty: quizData.difficulty || 'medium',
+              tone: quizData.rationaleTone || 'educational'
+          });
+          
+          // Add job ID to quiz for tracking
+          await this.updateQuiz(quiz.id, {
+              generationJobId: jobId
+          });
+          
+          // Return quiz with job ID
+          return {
+              ...quiz,
+              generationJobId: jobId
+          };
+      }
+      
+      return quiz;
+  } catch (error) {
+      console.error('Error creating quiz with AI:', error);
+      throw error;
+  }
+},
+
+// Get generation status for a quiz
+async getQuizGenerationStatus(quizId) {
+  try {
+      const quiz = await this.getQuizById(quizId);
+      
+      if (!quiz) {
+          throw new Error('Quiz not found');
+      }
+      
+      if (!quiz.generationJobId) {
+          return { status: 'not_generating' };
+      }
+      
+      const backgroundProcessingService = require('./background-processing-service');
+      const progress = backgroundProcessingService.getJobProgress(quiz.generationJobId);
+      
+      if (!progress) {
+          return { status: 'unknown', generationJobId: quiz.generationJobId };
+      }
+      
+      return progress;
+  } catch (error) {
+      console.error('Error getting quiz generation status:', error);
+      throw error;
+  }
+},
   // Create a new quiz
   async createQuiz(quizData) {
     try {
@@ -54,7 +126,7 @@ const quizService = {
       };
       
       data.quizzes.push(newQuiz);
-      fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       
       return newQuiz;
     } catch (error) {
@@ -72,7 +144,6 @@ const quizService = {
       if (index === -1) {
         throw new Error('Quiz not found');
       }
-      
       const updatedQuiz = {
         ...data.quizzes[index],
         title: quizData.title || data.quizzes[index].title,
@@ -80,9 +151,8 @@ const quizService = {
         questions: quizData.questions || data.quizzes[index].questions,
         updatedAt: new Date().toISOString()
       };
-      
       data.quizzes[index] = updatedQuiz;
-      fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       
       return updatedQuiz;
     } catch (error) {

@@ -1,207 +1,146 @@
 // client-side/client-main.js
-import socketClient from './client-socket/socket-client.js';
-import { setupAuthUI, setupChatUI } from './client-components/auth-components.js';
-import { setupChatHandlers } from './client-components/chat-components.js';
-import { initQuizComponents } from './client-components/quiz-questions.js';
-import { initResultsComponents } from './client-components/quiz-results.js';
+import { initAuthSystem } from './client-modules/auth-module.js';
+import { initSocketModule } from './client-modules/socket-module.js';
+import { initQuizModule } from './client-modules/quiz-module.js';
+import { showToast } from './client-utils/ui-utils.js';
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Socket.io client
-  const socket = socketClient.init();
+// Initialize application when DOM is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+  console.log('InterAc Quiz Application - Initializing...');
   
-  // Initialize UI components
-  setupAuthUI({
-    onLogin: handleLogin
-  });
-  
-  setupChatUI({
-    onSendMessage: (message) => {
-      const username = localStorage.getItem('username') || 'User';
-      const userId = socket.id;
-      socket.emit('chat_message', { message, username, userId });
-    }
-  });
-  
-  // Initialize quiz components
-  initQuizComponents();
-  initResultsComponents();
-  
-  // Setup navigation
-  setupNavigation();
-  
-  // Register updateUserList callback with socket client
-  socketClient.registerUpdateUserListCallback(updateUserList);
-  
-  // Check if user is already logged in
-  const username = localStorage.getItem('username');
-  if (username) {
-    // Try to connect with stored username
-    socketClient.connectWithUsername(username);
-  }
-  
-  // Setup socket event handlers
-  setupSocketEventHandlers(socket);
-  
-  // Handle login form submission
-  async function handleLogin(credentials) {
-    try {
-      const { username } = credentials;
-      
-      // Validate username
-      if (!username || username.length < 2) {
-        return { success: false, error: 'Username must be at least 2 characters' };
-      }
-      
-      // Store username in local storage
-      localStorage.setItem('username', username);
-      
-      // Connect to socket server with username
-      const connected = socketClient.connectWithUsername(username);
-      
-      if (connected) {
-        // Show main app container, hide auth container
-        document.getElementById('auth-container').classList.add('hidden');
-        document.getElementById('main-app').classList.remove('hidden');
-        
-        // Set username in profile
-        document.getElementById('profile-username').textContent = username;
-        document.getElementById('user-info').textContent = `Logged in as: ${username}`;
-        
-        return { success: true };
-      } else {
-        return { success: false, error: 'Could not connect to the server' };
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'An unexpected error occurred' };
-    }
-  }
-  
-  // Update the user list in the UI when users change
-  function updateUserList(users) {
-    const userListElement = document.getElementById('user-list');
+  try {
+    // Initialize core modules
+    await initAuthSystem();
+    const socketClient = initSocketModule();
+    const quizModule = initQuizModule();
     
-    // Clear existing user list
-    userListElement.innerHTML = '';
+    // Set up main UI functionality (menu toggles, theme, etc.)
+    setupMainUI();
     
-    // If no users, show a message
-    if (!users || users.length === 0) {
-      const noUsersElement = document.createElement('div');
-      noUsersElement.className = 'user-item';
-      noUsersElement.textContent = 'No users online';
-      userListElement.appendChild(noUsersElement);
-      return;
-    }
+    // Register global variables for backwards compatibility
+    window.setupAuthUI = function(callbacks) {
+      console.log('Legacy setupAuthUI called');
+    };
     
-    // Add each user to the list
-    users.forEach(user => {
-      const userElement = document.createElement('div');
-      userElement.className = 'user-item';
-      
-      const userStatus = document.createElement('span');
-      userStatus.className = 'user-status online';
-      
-      const userName = document.createElement('span');
-      userName.className = 'user-name';
-      userName.textContent = user.username;
-      
-      userElement.appendChild(userStatus);
-      userElement.appendChild(userName);
-      userListElement.appendChild(userElement);
-    });
-  }
-  
-  // Setup navigation
-  function setupNavigation() {
-    const menuItems = document.querySelectorAll('.menu-item');
-    const views = document.querySelectorAll('.app-view');
-    const navToggle = document.getElementById('nav-toggle');
-    const navMenu = document.getElementById('nav-menu');
+    window.setupChatUI = function(callbacks) {
+      console.log('Legacy setupChatUI called');
+    };
     
-    // Handle menu item clicks
-    menuItems.forEach(item => {
-      item.addEventListener('click', () => {
-        const viewName = item.dataset.view;
-        
-        // Update active menu item
-        menuItems.forEach(mi => mi.classList.remove('active'));
-        item.classList.add('active');
-        
-        // Show corresponding view
-        views.forEach(view => {
-          if (view.id === `${viewName}-view`) {
-            view.classList.add('active');
-          } else {
-            view.classList.remove('active');
-          }
-        });
-        
-        // Close mobile menu if open
-        navMenu.classList.remove('active');
-      });
-    });
+    // Setup socket event handlers for quiz events
+    setupSocketEventHandlers(socketClient);
     
-    // Toggle mobile menu
-    navToggle.addEventListener('click', () => {
-      navMenu.classList.toggle('active');
-    });
+    console.log('Application initialized successfully');
+    showToast('Application initialized', 'success');
     
-    // Logout button
-    document.getElementById('logout-btn').addEventListener('click', () => {
-      localStorage.removeItem('username');
-      socket.disconnect();
-      document.getElementById('main-app').classList.add('hidden');
-      document.getElementById('auth-container').classList.remove('hidden');
-    });
-  }
-  
-  // Setup socket event handlers
-  function setupSocketEventHandlers(socket) {
-    setupChatHandlers(socket);
-    
-    socket.on('connect', () => {
-      console.log('Connected to server');
-      document.getElementById('auth-container').classList.add('hidden');
-      document.getElementById('main-app').classList.remove('hidden');
-      
-      // Setup user info with username from local storage
-      const username = localStorage.getItem('username');
-      setupUserInfo({ username });
-      
-      // Join as a user
-      socket.emit('user_join', username);
-      
-      // Share user information with admin panel
-      socketClient.shareUserWithAdmins({
-        userId: socket.id,
-        username: username,
-        status: 'online',
-        isRegularUser: true
-      });
-    });
-    
-    socket.on('connect_error', (err) => {
-      console.error('Connection error:', err.message);
-      document.getElementById('auth-container').classList.remove('hidden');
-      document.getElementById('main-app').classList.add('hidden');
-    });
-  }
-  
-  // Setup user info
-  function setupUserInfo(user) {
-    if (!user) return;
-    
-    // Set username in profile
-    const profileUsername = document.getElementById('profile-username');
-    if (profileUsername) {
-      profileUsername.textContent = user.username;
-    }
-    
-    // Set user info in chat
-    const userInfo = document.getElementById('user-info');
-    if (userInfo) {
-      userInfo.textContent = `Logged in as ${user.username}`;
-    }
+  } catch (error) {
+    console.error('Error initializing application:', error);
+    showToast('Error initializing application', 'error');
   }
 });
+
+/**
+ * Set up the main UI elements
+ */
+function setupMainUI() {
+  // Mobile menu toggle
+  const menuToggle = document.querySelector('.mobile-menu-toggle');
+  const mobileMenu = document.querySelector('.mobile-menu');
+  
+  if (menuToggle && mobileMenu) {
+    menuToggle.addEventListener('click', () => {
+      mobileMenu.classList.toggle('active');
+      menuToggle.classList.toggle('active');
+    });
+  }
+  
+  // Theme toggle
+  const themeToggle = document.querySelector('.theme-toggle');
+  if (themeToggle) {
+    // Check for saved theme
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      themeToggle.classList.add('active');
+    }
+    
+    // Toggle theme on click
+    themeToggle.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+      
+      themeToggle.classList.toggle('active');
+      showToast(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} theme activated`);
+    });
+  }
+  
+  // System preferences
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (prefersDark && !localStorage.getItem('theme')) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    if (themeToggle) themeToggle.classList.add('active');
+  }
+}
+
+/**
+* Set up socket event handlers for quiz events
+* @param {Object} socketClient - Socket client interface
+*/
+function setupSocketEventHandlers(socketClient) {
+// Quiz start event
+socketClient.on('quiz:start', (data) => {
+  console.log('Quiz started:', data);
+  if (window.startQuiz && data.quizId) {
+    window.startQuiz(data.quizId);
+  }
+});
+
+// Quiz question event
+socketClient.on('quiz:question', (data) => {
+  console.log('Quiz question received:', data);
+  if (window.displayQuestion && data) {
+    window.displayQuestion(data);
+  }
+});
+
+// Quiz end event
+socketClient.on('quiz:end', (data) => {
+  console.log('Quiz ended:', data);
+  if (window.showResults && data) {
+    window.showResults(data);
+  }
+});
+
+// Chat messages
+socketClient.on('chat_message', (data) => {
+  console.log('Chat message received:', data);
+  
+  // Add to chat messages if function exists
+  if (typeof window.addChatMessage === 'function') {
+    window.addChatMessage(data);
+  }
+});
+
+// User list updates
+socketClient.on('user_list', (data) => {
+  console.log('User list updated:', data);
+  
+  // Update user list if function exists
+  if (typeof window.updateUserList === 'function') {
+    window.updateUserList(data);
+  }
+});
+
+// Connect/disconnect events
+socketClient.on('connect', () => {
+  console.log('Socket connected');
+  showToast('Connected to server', 'success');
+});
+
+socketClient.on('disconnect', (reason) => {
+  console.log('Socket disconnected:', reason);
+  showToast('Disconnected from server', 'error');
+});
+}

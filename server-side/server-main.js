@@ -10,6 +10,7 @@ const logger = require('../logger');
 // Import API routes
 const authRoutes = require('./server-api/api-auth');
 const quizRoutes = require('./server-api/api-quiz');
+const aiRoutes = require('./server-api/api-ai'); // Add this line
 
 // Create Express app and HTTP server
 const app = express();
@@ -27,10 +28,19 @@ app.use('/interac/client-side', express.static(path.join(__dirname, '../client-s
 // API routes
 app.use('/interac/api/auth', authRoutes);
 app.use('/interac/api/quiz', quizRoutes);
+app.use('/interac/api/ai', aiRoutes); // Add this line
 
 // Serve the main page
 app.get('/interac', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Centralized error handler middleware
+app.use((err, req, res, next) => {
+  const status = err.status || 500;
+  const message = err.message || 'Internal Server Error';
+  logger.error(`Error: ${message}`);
+  res.status(status).json({ error: message });
 });
 
 // Initialize Socket.io server

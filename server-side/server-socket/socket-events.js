@@ -1,6 +1,6 @@
 // server-side/server-socket/socket-events.js
 const { Server } = require('socket.io');
-const { setupAuthMiddleware, handleConnection, handleDisconnect, registerChatHandlers } = require('./socket-handlers');
+const { setupAuthMiddleware, handleConnection, handleDisconnect, registerChatHandlers, registerQuizHandlers } = require('./socket-handlers');
 
 let io;
 
@@ -36,6 +36,7 @@ function initSocketServer(server) {
     
     // Register event handlers
     registerChatHandlers(io, socket);
+    registerQuizHandlers(io, socket); // Add this line
     
     // Handle disconnect
     socket.on('disconnect', () => {

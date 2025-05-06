@@ -1,8 +1,7 @@
 // server-side/server-api/api-ai.js
 const express = require('express');
 const router = express.Router();
-const authService = require('../server-services/auth-service');
-const aiGenerationService = require('../server-services/ai-generation-service');
+const { authService, aiGenerationService } = require('../service-registry');
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {

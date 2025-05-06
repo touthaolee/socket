@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const authService = require('../server-services/auth-service');
+const { authService } = require('../service-registry');
 
 // Rate limiting to prevent brute force attacks
 const loginLimiter = rateLimit({
@@ -12,7 +12,7 @@ const loginLimiter = rateLimit({
 });
 
 // Register route
-router.post('/register', async (req, res) => {
+router.post('/register', loginLimiter, async (req, res) => {
   try {
     const { username, password, email } = req.body;
     
@@ -61,21 +61,26 @@ router.post('/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Username and password are required' });
     }
     
-    // Special case for admin user in production
-    if (username === 'admin' && password === 'admin') {
-      console.log('Admin login attempt with default credentials');
+    // Special case for admin user using environment variables
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+      throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set.');
+    }
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      console.log('Admin login attempt with environment credentials');
       
       // Create admin user object
       const adminUser = {
         id: 1,
-        username: 'admin',
+        username: ADMIN_USERNAME,
         role: 'admin'
       };
       
       // Generate JWT token
       const token = authService.generateToken(adminUser);
       
-      console.log('Admin login successful with default credentials');
+      console.log('Admin login successful with environment credentials');
       return res.json({ 
         token, 
         user: { 
