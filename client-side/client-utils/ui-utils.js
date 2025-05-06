@@ -215,6 +215,5 @@ export function showToast(message, type = 'info', duration = 5000) {
   
   // Export additional utility functions
   export {
-    fadeOutToast,
-    formatDate
+    fadeOutToast
   };
