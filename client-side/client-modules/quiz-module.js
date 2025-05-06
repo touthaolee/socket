@@ -148,35 +148,31 @@ async function loadQuizzes() {
         </div>
       `;
     }
-    
     // Get the token if available
     const token = getAuthToken();
     const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
-    
+    // Debugging output
+    console.log('[DEBUG] loadQuizzes: token', token);
+    console.log('[DEBUG] loadQuizzes: headers', headers);
     // Fetch quizzes from server
     const response = await fetch('/interac/api/quiz/quizzes', {
       headers
     });
-    
     if (!response.ok) {
+      console.error('[DEBUG] loadQuizzes: response not ok', response.status, response.statusText);
       throw new Error('Failed to load quizzes');
     }
-    
     const quizzes = await response.json();
-    
     renderQuizList(quizzes);
   } catch (error) {
     console.error('Error loading quizzes:', error);
     showToast('Failed to load quizzes', 'error');
-    
     // Show empty state
     const quizGrid = document.getElementById('quiz-grid');
     const noQuizzesElement = document.getElementById('no-quizzes');
-    
     if (quizGrid) {
       quizGrid.innerHTML = '';
     }
-    
     if (noQuizzesElement) {
       noQuizzesElement.style.display = 'flex';
     }
