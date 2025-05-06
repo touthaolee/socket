@@ -271,6 +271,5 @@ export function showToast(message, type = 'info', duration = 5000) {
     formatTime,
     formatSeconds,
     sanitizeHtml,
-    createElement,
-    animate
+    createElement
   };
