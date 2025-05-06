@@ -182,20 +182,6 @@ export function showToast(message, type = 'info', duration = 5000) {
   }
   
   /**
-   * Format seconds to mm:ss
-   * @param {number} seconds - Seconds to format
-   * @returns {string} Formatted time
-   */
-  export function formatSeconds(seconds) {
-    if (isNaN(seconds)) return '00:00';
-    
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
-  
-  /**
    * Create element with properties
    * @param {string} tag - Element tag
    * @param {object} props - Element properties
@@ -257,6 +243,5 @@ export function showToast(message, type = 'info', duration = 5000) {
   export {
     fadeOutToast,
     formatDate,
-    formatTime,
-    formatSeconds
+    formatTime
   };
