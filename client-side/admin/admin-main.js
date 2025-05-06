@@ -27,24 +27,39 @@ function showAdminDashboard() {
 
 // On page load, check for token
 const token = localStorage.getItem('auth_token');
+console.log('Auth token found:', !!token); // Debug log
 if (!token) {
   showAdminLogin();
 } else {
   showAdminDashboard();
 }
 
-// --- ADDED: Immediate initialization for critical UI elements ---
-// Initialize view visibility immediately, don't wait for DOMContentLoaded
-// This ensures the UI is visible even if there are JS errors later
+// Force visibility of dashboard
 document.addEventListener('DOMContentLoaded', function() {
-  // Initialize the admin interface
+  console.log('admin-main.js DOMContentLoaded fired');
+  
+  // Check if dashboard is visible
+  const adminContainer = document.querySelector('.admin-container');
+  if (adminContainer) {
+    const displayStyle = window.getComputedStyle(adminContainer).display;
+    console.log('Admin container display style:', displayStyle);
+    
+    if (displayStyle === 'none' && token) {
+      console.log('Forcing admin container to display');
+      adminContainer.style.display = 'flex'; // Force display
+    }
+  }
+  
+  // --- ADDED: Immediate initialization for critical UI elements ---
+  // Initialize view visibility immediately, don't wait for DOMContentLoaded
+  // This ensures the UI is visible even if there are JS errors later
   initAdminUI();
   
   // Load quiz data
   loadQuizzes();
 });
 
-// In case we hit a race condition, also initialize immediately
+// Initialize views immediately to avoid race conditions
 function initViewsImmediately() {
   const views = document.querySelectorAll('.admin-view');
   const menuItems = document.querySelectorAll('.menu-item');
@@ -59,7 +74,6 @@ function initViewsImmediately() {
 
 // Call immediate initialization
 initViewsImmediately();
-// --- END ADDED ---
 
 // Handle admin login
 const loginBtn = document.getElementById('admin-login-btn');
@@ -74,7 +88,8 @@ if (loginBtn) {
       return;
     }
     try {
-      const res = await fetch('/interac/api/auth/login', {
+      // Fix API path by removing /interac/ prefix
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
@@ -306,12 +321,12 @@ async function loadQuizzes() {
   try {
     const token = getTokenFromStorage();
     if (!token) {
-      showAdminLogin(); // Show login modal instead of redirecting
-      // window.location.href = '/interac/'; // <-- REMOVE THIS LINE
+      showAdminLogin();
       return;
     }
     
-    const response = await fetch('/interac/api/quizzes?page=' + currentPage, {
+    // Fix API path by removing /interac/ prefix
+    const response = await fetch('/api/quizzes?page=' + currentPage, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -459,7 +474,8 @@ async function handleCreateQuizSubmit() {
     addGenerationLog('Creating quiz structure...');
     
     const token = getTokenFromStorage();
-    const response = await fetch('/interac/api/quizzes', {
+    // Fix API path by removing /interac/ prefix
+    const response = await fetch('/api/quizzes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -592,7 +608,8 @@ async function generateQuizQuestionsInBackground(quizId, numQuestions, aiConfig,
       // Save batch to the server
       addGenerationLog(`Saving batch ${i + 1} to the server...`);
       
-      const response = await fetch(`/interac/api/quizzes/${quizId}/questions/batch`, {
+      // Fix API path by removing /interac/ prefix
+      const response = await fetch(`/api/quizzes/${quizId}/questions/batch`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -664,7 +681,8 @@ function resetGenerationLog() {
 async function previewQuiz(quizId) {
   try {
     const token = getTokenFromStorage();
-    const response = await fetch(`/interac/api/quizzes/${quizId}`, {
+    // Fix API path by removing /interac/ prefix
+    const response = await fetch(`/api/quizzes/${quizId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

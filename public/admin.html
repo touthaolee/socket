@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>InterAc Admin - Quiz Management</title>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
+  <!-- Fix the CSS path by removing /interac/ prefix -->
+  <link rel="stylesheet" href="/client-side/client-styles/admin-styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
@@ -383,6 +384,47 @@
     </div>
   </div>
   
-  <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
+  <script src="/client-side/admin/admin-main.js" type="module"></script>
+  <!-- Add debug script to help troubleshoot -->
+  <script>
+    // Simple debug script to check if resources are loading
+    window.addEventListener('DOMContentLoaded', function() {
+      console.log('DOMContentLoaded triggered');
+      
+      // Check if admin-styles.css is loaded
+      const styleSheets = Array.from(document.styleSheets);
+      const adminStyleLoaded = styleSheets.some(sheet => 
+        sheet.href && sheet.href.includes('admin-styles.css'));
+      console.log('Admin styles loaded:', adminStyleLoaded);
+      
+      // Check if main container is visible
+      const adminContainer = document.querySelector('.admin-container');
+      if (adminContainer) {
+        console.log('Admin container found, display:', 
+          window.getComputedStyle(adminContainer).display);
+        
+        // Force display if needed
+        if (window.getComputedStyle(adminContainer).display === 'none') {
+          adminContainer.style.display = 'flex';
+          console.log('Forced admin container display to flex');
+        }
+      } else {
+        console.log('Admin container not found in DOM');
+      }
+      
+      // Check for active view
+      const activeView = document.querySelector('.admin-view.active');
+      console.log('Active view found:', !!activeView);
+      
+      // If no active view, activate the first one
+      if (!activeView) {
+        const firstView = document.querySelector('.admin-view');
+        if (firstView) {
+          firstView.classList.add('active');
+          console.log('Activated first view:', firstView.id);
+        }
+      }
+    });
+  </script>
 </body>
 </html>
