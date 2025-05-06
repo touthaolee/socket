@@ -11,6 +11,18 @@ function showAdminLogin() {
 function showAdminDashboard() {
   document.getElementById('admin-login-container').style.display = 'none';
   document.querySelector('.admin-container').style.display = 'block';
+  
+  // --- ADDED: Ensure a view is always visible ---
+  // Make sure at least one view is visible on dashboard show
+  const activeView = document.querySelector('.admin-view.active');
+  if (!activeView) {
+    // If no view is active, activate the first one
+    const firstView = document.querySelector('.admin-view');
+    const firstMenuItem = document.querySelector('.menu-item');
+    if (firstView) firstView.classList.add('active');
+    if (firstMenuItem) firstMenuItem.classList.add('active');
+  }
+  // --- END ADDED ---
 }
 
 // On page load, check for token
@@ -20,6 +32,34 @@ if (!token) {
 } else {
   showAdminDashboard();
 }
+
+// --- ADDED: Immediate initialization for critical UI elements ---
+// Initialize view visibility immediately, don't wait for DOMContentLoaded
+// This ensures the UI is visible even if there are JS errors later
+document.addEventListener('DOMContentLoaded', function() {
+  // Initialize the admin interface
+  initAdminUI();
+  
+  // Load quiz data
+  loadQuizzes();
+});
+
+// In case we hit a race condition, also initialize immediately
+function initViewsImmediately() {
+  const views = document.querySelectorAll('.admin-view');
+  const menuItems = document.querySelectorAll('.menu-item');
+  
+  if (views.length > 0 && !document.querySelector('.admin-view.active')) {
+    views[0].classList.add('active');
+    if (menuItems.length > 0) {
+      menuItems[0].classList.add('active');
+    }
+  }
+}
+
+// Call immediate initialization
+initViewsImmediately();
+// --- END ADDED ---
 
 // Handle admin login
 const loginBtn = document.getElementById('admin-login-btn');
