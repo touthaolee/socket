@@ -14,7 +14,7 @@ function showAdminLogin() {
   const adminContainer = document.querySelector('.admin-container');
   adminContainer.style.display = 'none';
   
-  console.log('Admin login shown - no valid token found');
+  console.log('Login form displayed');
 }
 
 function showAdminDashboard() {
@@ -39,8 +39,8 @@ function showAdminDashboard() {
 }
 
 // Check for token on page load
-const token = localStorage.getItem('auth_token');
-console.log('Auth token found:', !!token);
+const token = getTokenFromStorage();
+console.log('Auth token check on page load');
 
 // Simple authentication check
 if (!token) {
@@ -67,51 +67,13 @@ async function checkTokenAndShowDashboard() {
       loadQuizzes();
     } else {
       // Token is invalid or expired
-      console.log('Token verification failed - API returned error');
+      console.log('Token validation failed - showing login form');
       localStorage.removeItem('auth_token'); // Clear invalid token
       showAdminLogin();
     }
   } catch (error) {
     console.error('Authentication error:', error);
     showAdminLogin();
-  }
-}
-
-// Load quizzes - also serves as a token verification method
-async function loadQuizzes() {
-  try {
-    const token = getTokenFromStorage();
-    if (!token) {
-      showAdminLogin();
-      return;
-    }
-    
-    const response = await fetch('/interac/api/quizzes?page=' + currentPage, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      // If unauthorized (401), show login form
-      if (response.status === 401) {
-        console.log('Token expired or invalid');
-        localStorage.removeItem('auth_token');
-        showAdminLogin();
-        return;
-      }
-      throw new Error('Failed to load quizzes');
-    }
-    
-    const data = await response.json();
-    quizzes = data.quizzes;
-    totalPages = data.totalPages || 1;
-    
-    renderQuizzes();
-    updatePagination();
-  } catch (error) {
-    console.error('Error loading quizzes:', error);
-    // Show error message
   }
 }
 
@@ -174,7 +136,82 @@ function initAdminUI() {
 
 // Setup navigation
 function setupNavigation() {
-  // ...existing code...
+  const menuItems = document.querySelectorAll('.menu-item');
+  const views = document.querySelectorAll('.admin-view');
+  
+  // Handle menu item clicks
+  menuItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const viewName = item.dataset.view;
+      
+      // Update active menu item
+      menuItems.forEach(mi => mi.classList.remove('active'));
+      item.classList.add('active');
+      
+      // Show corresponding view
+      views.forEach(view => {
+        if (view.id === `${viewName}-view`) {
+          view.classList.add('active');
+        } else {
+          view.classList.remove('active');
+        }
+      });
+    });
+  });
+  
+  // Ensure a default view is active
+  if (menuItems.length > 0 && views.length > 0) {
+    if (!document.querySelector('.menu-item.active')) {
+      menuItems[0].classList.add('active');
+    }
+    if (!document.querySelector('.admin-view.active')) {
+      views[0].classList.add('active');
+    }
+  }
+  
+  // Logout button
+  document.getElementById('logout-btn').addEventListener('click', () => {
+    localStorage.removeItem('auth_token');
+    showAdminLogin();
+  });
 }
 
-// ...rest of the file remains unchanged...
+// Load quizzes - also serves as a token verification method
+async function loadQuizzes() {
+  try {
+    const token = getTokenFromStorage();
+    if (!token) {
+      showAdminLogin();
+      return;
+    }
+    
+    const response = await fetch('/interac/api/quizzes?page=' + currentPage, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      // If unauthorized (401), show login form
+      if (response.status === 401) {
+        console.log('Token expired or invalid');
+        localStorage.removeItem('auth_token');
+        showAdminLogin();
+        return;
+      }
+      throw new Error('Failed to load quizzes');
+    }
+    
+    const data = await response.json();
+    quizzes = data.quizzes || [];
+    totalPages = data.totalPages || 1;
+    
+    renderQuizzes();
+    updatePagination();
+  } catch (error) {
+    console.error('Error loading quizzes:', error);
+    // Show error message
+  }
+}
+
+// ... existing code ...

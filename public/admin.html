@@ -9,9 +9,9 @@
   <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    /* Add specific styles for login modal to ensure it displays properly */
+    /* Improved styles for login modal */
     #admin-login-container.modal {
-      display: none; /* Hidden by default */
+      display: none;
       position: fixed;
       top: 0;
       left: 0;
@@ -24,7 +24,7 @@
     }
     
     #admin-login-container.modal.active {
-      display: flex !important; /* Force display when active */
+      display: flex !important;
     }
     
     .error-message {
@@ -411,9 +411,5 @@
   
   <!-- Restore the /interac/ prefix in the JavaScript path -->
   <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
-  <!-- Simple debug script to check if login is working -->
-  <script>
-    console.log('Admin page loaded');
-  </script>
 </body>
 </html>
