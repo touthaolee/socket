@@ -1,5 +1,8 @@
 // Update server-side/server-socket/socket-handlers.js
 
+const jwt = require('jsonwebtoken');
+const config = require('../../config/app-config');
+
 function registerQuizHandlers(io, socket) {
     const backgroundProcessingService = require('../server-services/background-processing-service');
     const logger = require('../../logger');
@@ -54,6 +57,68 @@ function registerQuizHandlers(io, socket) {
     });
 }
 
+function setupAuthMiddleware(io, options = {}) {
+    const logger = require('../../logger');
+    const rateLimit = {};
+    const MAX_ATTEMPTS = 5;
+    const WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+    const allowedRoles = options.allowedRoles || null; // e.g., ['admin', 'user']
+
+    io.use(async (socket, next) => {
+        try {
+            const ip = socket.handshake.address;
+            // Rate limiting (per IP)
+            if (!rateLimit[ip]) rateLimit[ip] = { count: 0, first: Date.now() };
+            const rl = rateLimit[ip];
+            if (Date.now() - rl.first > WINDOW_MS) {
+                rl.count = 0;
+                rl.first = Date.now();
+            }
+            if (rl.count >= MAX_ATTEMPTS) {
+                logger.warn('Rate limit exceeded for IP', ip);
+                return next(new Error('Too many authentication attempts. Try again later.'));
+            }
+
+            const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+            if (!token) {
+                rl.count++;
+                logger.warn('Authentication token missing', ip);
+                return next(new Error('Authentication token missing'));
+            }
+            let decoded;
+            try {
+                decoded = await new Promise((resolve, reject) => {
+                    jwt.verify(token, config.jwt.secret, (err, decoded) => {
+                        if (err) reject(err);
+                        else resolve(decoded);
+                    });
+                });
+            } catch (err) {
+                rl.count++;
+                if (err.name === 'TokenExpiredError') {
+                    logger.warn('Token expired', ip);
+                    return next(new Error('Authentication token expired'));
+                }
+                logger.warn('Invalid authentication token', ip, err.message);
+                return next(new Error('Invalid authentication token'));
+            }
+            // Optional: role check
+            if (allowedRoles && !allowedRoles.includes(decoded.role)) {
+                logger.warn('User role not permitted', ip, decoded.role);
+                return next(new Error('User role not permitted'));
+            }
+            socket.user = decoded;
+            rl.count = 0; // Reset on success
+            logger.info('Authentication successful', ip, decoded.username || decoded.id || '');
+            next();
+        } catch (err) {
+            logger.error('Unexpected error in auth middleware', err.message);
+            next(new Error('Internal authentication error'));
+        }
+    });
+}
+
 module.exports = {
-    registerQuizHandlers
+    registerQuizHandlers,
+    setupAuthMiddleware
 };
