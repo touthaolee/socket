@@ -51,6 +51,11 @@ async function handleLogin(e) {
     // Try full authentication first if password is provided
     if (password) {
       const success = await authenticateWithCredentials(username, password);
+      // Always save token to localStorage if present after login
+      const token = getAuthToken();
+      if (token) {
+        localStorage.setItem('auth_token', token);
+      }
       if (success) {
         showToast(`Welcome back, ${username}!`, 'success');
         window.showAuthenticatedUI();
