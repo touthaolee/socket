@@ -332,6 +332,7 @@ function updateConnectionStatus(connected) {
 
 // Update the users list in the UI
 function updateUsersList(users, onlineCount) {
+  console.log('Admin Debug - users received:', users);
   const userList = document.getElementById('chat-user-list');
   const onlineCountElement = document.getElementById('online-count');
   
