@@ -20,6 +20,8 @@ export class AdminChatService {
     this._welcomeShown = false; // Prevent duplicate welcome message
     this._joinedRooms = new Set(); // Track joined rooms
     this._roomJoinMessagesShown = new Set(); // Track room join system messages
+    this._connecting = false; // Prevent parallel connection attempts
+    this._eventsRegistered = false; // Prevent duplicate event handler registration
   }
 
   /**
@@ -49,11 +51,11 @@ export class AdminChatService {
    * Connect to the socket server
    */
   connectSocket() {
-    // Use the existing socket connection from socket-client.js
-    if (this.isConnected && this.socket) {
-      // Already connected, do not reconnect or rejoin rooms
+    // Prevent parallel connection attempts
+    if (this.isConnected || this._connecting) {
       return;
     }
+    this._connecting = true;
     try {
       import('/interac/client-side/client-socket/socket-client.js')
         .then(module => {
@@ -61,14 +63,18 @@ export class AdminChatService {
           this.socket = socketClient.getSocket();
           if (!this.socket) {
             console.error('Failed to get socket instance');
+            this._connecting = false;
             return;
           }
           // Only connect if not already connected
           if (!this.socket.connected) {
             socketClient.connectWithUsername(this.username);
           }
-          // Register socket events
-          this.registerSocketEvents();
+          // Register socket events only once
+          if (!this._eventsRegistered) {
+            this.registerSocketEvents();
+            this._eventsRegistered = true;
+          }
           // Join admin room and global room for communication with all clients
           this.rooms.forEach(room => {
             if (!this._joinedRooms.has(room)) {
@@ -78,12 +84,15 @@ export class AdminChatService {
             }
           });
           this.isConnected = true;
+          this._connecting = false;
         })
         .catch(err => {
           console.error('Error importing socket client:', err);
+          this._connecting = false;
         });
     } catch (error) {
       console.error('Error connecting to socket server:', error);
+      this._connecting = false;
     }
   }
   
@@ -441,10 +450,14 @@ export class AdminChatService {
     if (this.socket) {
       this.socket.disconnect();
     }
-    
     this.messages = [];
     this.users = [];
     this.eventHandlers = {};
+    this._eventsRegistered = false;
+    this._connecting = false;
+    this.isConnected = false;
+    this._joinedRooms = new Set();
+    this._roomJoinMessagesShown = new Set();
   }
 }
 
