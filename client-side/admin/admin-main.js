@@ -353,7 +353,7 @@ function updateUsersList(users, onlineCount) {
         const userId = typeof user === 'string' ? user : (user.userId || user.id || 'unknown');
         const username = typeof user === 'string' ? user : (user.username || 'Anonymous');
         const userStatus = typeof user === 'string' ? 'online' : (user.status || 'online');
-        
+        console.log('Rendering username:', username);
         userList.innerHTML += `
           <div class="user-item" data-user-id="${userId}">
             <span class="user-status ${userStatus}"></span>
