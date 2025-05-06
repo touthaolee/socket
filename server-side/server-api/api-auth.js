@@ -52,72 +52,41 @@ router.post('/register', loginLimiter, async (req, res) => {
 router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-    
     console.log(`Login attempt for user: ${username}`);
-    
-    // Validate input
-    if (!username || !password) {
-      console.log('Login failed: Missing username or password');
-      return res.status(400).json({ error: 'Username and password are required' });
-    }
-    
-    // Special case for admin user using environment variables
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-    if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
-      throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set.');
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
     }
-    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-      console.log('Admin login attempt with environment credentials');
-      
-      // Create admin user object
-      const adminUser = {
-        id: 1,
-        username: ADMIN_USERNAME,
-        role: 'admin'
-      };
-      
-      // Generate JWT token
-      const token = authService.generateToken(adminUser);
-      
-      console.log('Admin login successful with environment credentials');
-      return res.json({ 
-        token, 
-        user: { 
-          id: adminUser.id, 
-          username: adminUser.username,
-          role: adminUser.role
-        } 
-      });
+    // Admin login always requires password
+    if (username === ADMIN_USERNAME) {
+      if (!password) {
+        return res.status(400).json({ error: 'Password is required for admin login' });
+      }
+      if (password === ADMIN_PASSWORD) {
+        const adminUser = { id: 1, username: ADMIN_USERNAME, role: 'admin' };
+        const token = authService.generateToken(adminUser);
+        return res.json({ token, user: adminUser });
+      } else {
+        return res.status(401).json({ error: 'Invalid admin credentials' });
+      }
     }
-    
-    // Find user
-    const user = await authService.findUserByUsername(username);
+    // For non-admin users, allow username-only login
+    let user = await authService.findUserByUsername(username);
     if (!user) {
-      console.log(`Login failed: User "${username}" not found`);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Optionally auto-register the user if not found
+      user = await authService.createUser({ username, password: '', email: null });
     }
-    
-    // Check password
-    const isPasswordValid = await authService.verifyPassword(password, user.password);
-    if (!isPasswordValid) {
-      console.log(`Login failed: Invalid password for user "${username}"`);
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // If password is provided, verify it (for legacy users)
+    if (password && user.password) {
+      const isPasswordValid = await authService.verifyPassword(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
     }
-    
-    // Generate JWT token
+    // Issue JWT for the user
     const token = authService.generateToken(user);
-    
-    console.log(`Login successful: User "${username}" authenticated`);
-    res.json({ 
-      token, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
-        email: user.email,
-        role: user.role || 'user'
-      } 
-    });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role || 'user' } });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error during login' });

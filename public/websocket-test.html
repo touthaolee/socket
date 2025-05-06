@@ -537,6 +537,7 @@
             <div class="row">
               <div class="input-group">
                 <input id="username" placeholder="Username for auth middleware" />
+                <input id="password" type="password" placeholder="Password" style="margin-left: 8px;" />
               </div>
               <button class="btn btn-primary" onclick="connectSocket()">
                 <i class="fas fa-plug"></i> Connect
@@ -958,31 +959,34 @@
       }
       window.currentUsername = document.getElementById('username').value.trim() || 'Anonymous';
       const username = window.currentUsername;
-      // --- JWT LOGIN PATCH START ---
+      const password = document.getElementById('password')?.value || '';
+      if (!username || !password) {
+        log('Please enter both username and password.', 'error');
+        setStatusIndicator('DISCONNECTED');
+        return;
+      }
       let token = localStorage.getItem('auth_token');
-      if (!token) {
-        // Try to login automatically
-        try {
-          const response = await fetch('/interac/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password: '' }) // If password is required, prompt for it
-          });
-          const data = await response.json();
-          if (response.ok && data.token) {
-            token = data.token;
-            localStorage.setItem('auth_token', token);
-            log('Obtained JWT token for user: ' + username);
-          } else {
-            log('Login failed: ' + (data.error || 'Unknown error'), 'error');
-            setStatusIndicator('DISCONNECTED');
-            return;
-          }
-        } catch (err) {
-          log('Login request failed: ' + err.message, 'error');
+      // Always try to login to get a fresh token
+      try {
+        const response = await fetch('/interac/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await response.json();
+        if (response.ok && data.token) {
+          token = data.token;
+          localStorage.setItem('auth_token', token);
+          log('Obtained JWT token for user: ' + username);
+        } else {
+          log('Login failed: ' + (data.error || 'Unknown error'), 'error');
           setStatusIndicator('DISCONNECTED');
           return;
         }
+      } catch (err) {
+        log('Login request failed: ' + err.message, 'error');
+        setStatusIndicator('DISCONNECTED');
+        return;
       }
       if (!token) {
         log('No JWT token available. Cannot connect.', 'error');
