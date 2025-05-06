@@ -135,5 +135,26 @@ function handleLogout() {
   showToast('You have been logged out', 'info');
 }
 
+/**
+ * Get the current authentication token (JWT) from storage, with robust error handling.
+ * @returns {string|null} The JWT token if available, or null.
+ */
+export function getAuthToken() {
+  try {
+    const token = localStorage.getItem('auth_token');
+    if (typeof token === 'string' && token.length > 0) {
+      return token;
+    }
+    return null;
+  } catch (err) {
+    // Optionally, show a toast or log the error
+    if (typeof window.showToast === 'function') {
+      window.showToast('Could not access authentication token. Please check your browser settings.', 'error');
+    }
+    console.error('getAuthToken error:', err);
+    return null;
+  }
+}
+
 // Export functions for use in other modules
 export { handleLogin, handleLogout, authenticateWithCredentials };
