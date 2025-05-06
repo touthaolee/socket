@@ -4,6 +4,22 @@ import { aiService } from './service/ai-service.js';
 import { similarityService } from './service/ai-similarity-service.js';
 import adminChatService from './service/admin-chat-service.js';
 
+/**
+ * Utility function for debouncing
+ * @param {Function} func - The function to debounce
+ * @param {number} delay - Delay in milliseconds
+ * @returns {Function} - Debounced function
+ */
+function debounce(func, delay) {
+  let timeoutId;
+  return function(...args) {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
+
 // --- Admin Auth Logic ---
 function showAdminLogin() {
   // Show login modal by adding active class

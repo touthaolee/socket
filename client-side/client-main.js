@@ -124,12 +124,57 @@ document.addEventListener('DOMContentLoaded', () => {
       
       // Join as a user
       socket.emit('user_join', username);
+      
+      // Share user information with admin panel
+      socketClient.shareUserWithAdmins({
+        userId: socket.id,
+        username: username,
+        status: 'online',
+        isRegularUser: true
+      });
     });
     
     socket.on('connect_error', (err) => {
       console.error('Connection error:', err.message);
       document.getElementById('auth-container').classList.remove('hidden');
       document.getElementById('main-app').classList.add('hidden');
+    });
+    
+    // Listen for user list updates
+    socket.on('users_online', (users) => {
+      updateUserList(users);
+      
+      // Also share updated user status with admins
+      const username = localStorage.getItem('username');
+      socketClient.shareUserWithAdmins({
+        userId: socket.id,
+        username: username,
+        status: 'online',
+        isRegularUser: true
+      });
+    });
+  }
+  
+  // Update user list in the UI
+  function updateUserList(users) {
+    const userList = document.getElementById('user-list');
+    if (!userList) return;
+    
+    userList.innerHTML = '';
+    
+    if (users.length === 0) {
+      userList.innerHTML = '<div class="empty-state">No users online</div>';
+      return;
+    }
+    
+    users.forEach(user => {
+      const userStatus = user.status || 'online';
+      userList.innerHTML += `
+        <div class="user-item" data-user-id="${user.userId || user.socketId}">
+          <span class="user-status ${userStatus}"></span>
+          <span class="user-name">${user.username}</span>
+        </div>
+      `;
     });
   }
   

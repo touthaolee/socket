@@ -103,6 +103,31 @@ export class AdminChatService {
       this.addSystemMessage(this.currentChannel, `${data.username} joined the chat`);
     });
     
+    // When a regular user shares their information with admin
+    this.socket.on('user:share-with-admin', userData => {
+      // Check if the user is already in our list
+      const existingUserIndex = this.users.findIndex(u => u.userId === userData.userId);
+      
+      if (existingUserIndex >= 0) {
+        // Update existing user
+        this.users[existingUserIndex] = {
+          ...this.users[existingUserIndex],
+          ...userData
+        };
+      } else {
+        // Add new user
+        this.users.push(userData);
+      }
+      
+      this.onlineUsers = this.users.length;
+      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
+      
+      // Add system message for new users
+      if (existingUserIndex < 0) {
+        this.addSystemMessage(this.currentChannel, `${userData.username} is now online`);
+      }
+    });
+    
     // When receiving the full user list (including regular users)
     this.socket.on('admin:user-list', userList => {
       // Update our user list with regular users
@@ -130,6 +155,22 @@ export class AdminChatService {
       this.addSystemMessage(this.currentChannel, `${data.username} left the chat`);
     });
     
+    // When a regular user disconnects
+    this.socket.on('user:disconnect', userId => {
+      // Remove the user from our list
+      const userIndex = this.users.findIndex(u => u.userId === userId);
+      
+      if (userIndex >= 0) {
+        const username = this.users[userIndex].username;
+        this.users.splice(userIndex, 1);
+        this.onlineUsers = this.users.length;
+        this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
+        
+        // Add system message
+        this.addSystemMessage(this.currentChannel, `${username} went offline`);
+      }
+    });
+    
     // When receiving a new message
     this.socket.on('admin:message', message => {
       const { channelId, text, username, timestamp, userId } = message;
@@ -152,6 +193,32 @@ export class AdminChatService {
       this.triggerEvent('messageReceived', { 
         channelId, 
         messages: this.messages[channelId] 
+      });
+    });
+    
+    // Listen for regular user messages too
+    this.socket.on('chat_message', data => {
+      const { message, username, userId } = data;
+      
+      // Store message in general channel
+      if (!this.messages['general']) {
+        this.messages['general'] = [];
+      }
+      
+      this.messages['general'].push({
+        id: Date.now().toString(),
+        text: message,
+        username,
+        userId,
+        timestamp: new Date().toISOString(),
+        isSystem: false,
+        isRegularUser: true
+      });
+      
+      // Trigger event for UI update
+      this.triggerEvent('messageReceived', { 
+        channelId: 'general', 
+        messages: this.messages['general'] 
       });
     });
     

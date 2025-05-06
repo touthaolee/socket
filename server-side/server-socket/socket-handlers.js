@@ -76,7 +76,7 @@ function handleConnection(io, socket) {
   
   // Add user to the global users list
   const userInfo = {
-    userId: socket.user.id,
+    userId: socket.id, // Use socket.id as userId for non-authenticated users
     username: socket.user.username,
     status: 'online',
     isRegularUser: true
@@ -105,11 +105,13 @@ function handleDisconnect(io, socket) {
   console.log(`User disconnected: ${socket.user?.username || 'Unknown'} (${socket.id})`);
   
   // Remove the user from our global users array
-  if (socket.user) {
-    const index = users.findIndex(u => u.userId === socket.user.id);
-    if (index !== -1) {
-      users.splice(index, 1);
-    }
+  const index = users.findIndex(u => u.userId === socket.id);
+  if (index !== -1) {
+    const disconnectedUser = users[index];
+    users.splice(index, 1);
+    
+    // Notify admins about disconnected user
+    io.to('admin-chat').emit('user:disconnect', disconnectedUser.userId);
   }
   
   // Broadcast updated user lists
@@ -131,18 +133,34 @@ function registerChatHandlers(io, socket) {
     } else {
       console.log(`${socket.user.username} joined the chat`);
     }
+    
+    // Broadcast updated user list
     broadcastUserList(io);
+    
     // Also update the admin chat with this new user
     broadcastUsersToAdmins(io);
   });
   
   // Handle chat messages
   socket.on('chat_message', (data) => {
-    io.emit('chat_message', {
-      user: socket.user.username,
+    const messageData = {
+      userId: socket.id,
+      username: socket.user.username,
       message: data.message,
       timestamp: new Date().toISOString()
-    });
+    };
+    
+    // Broadcast to all clients
+    io.emit('chat_message', messageData);
+    
+    // Also forward messages to admin chat
+    io.to('admin-chat').emit('chat_message', messageData);
+  });
+  
+  // Handle user info sharing with admin
+  socket.on('user:share-with-admin', (userData) => {
+    // Forward the user data to admin chat room
+    io.to('admin-chat').emit('user:share-with-admin', userData);
   });
   
   // Add test event handlers for websocket-test.html
@@ -262,6 +280,9 @@ function registerAdminChatHandlers(io, socket) {
     
     // Broadcast updated user list
     broadcastAdminUserList(io);
+    
+    // Send the regular users list to this admin
+    broadcastUsersToAdmins(io);
   });
   
   // Admin sending message
@@ -277,6 +298,16 @@ function registerAdminChatHandlers(io, socket) {
       userId: message.userId,
       timestamp: message.timestamp || new Date().toISOString()
     });
+    
+    // If it's in the general channel, also broadcast to regular clients
+    if (message.channelId === 'general') {
+      io.emit('chat_message', {
+        userId: message.userId,
+        username: `Admin: ${message.username}`,
+        message: message.text,
+        timestamp: message.timestamp || new Date().toISOString()
+      });
+    }
   });
   
   // Admin creating a new channel
@@ -336,19 +367,8 @@ function registerQuizHandlers(io, socket) {
  * @param {Object} io - Socket.io server instance
  */
 function broadcastUserList(io) {
-  const users = [];
-  for (const [id, socket] of io.sockets.sockets) {
-    if (socket.user && socket.user.username) {
-      users.push({
-        id: socket.user.id,
-        username: socket.user.username,
-        status: socket.user.status || 'offline'
-      });
-    }
-  }
-  
   // Emit updated user list to all clients
-  io.emit('user_list', users);
+  io.emit('users_online', users);
 }
 
 /**
@@ -359,7 +379,8 @@ function broadcastUsersToAdmins(io) {
   const userList = users.map(u => ({
     userId: u.userId,
     username: u.username,
-    status: u.status
+    status: u.status,
+    isRegularUser: true
   }));
   
   io.to('admin-chat').emit('admin:user-list', userList);
