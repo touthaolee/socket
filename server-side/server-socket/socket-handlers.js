@@ -79,19 +79,30 @@ function setupAuthMiddleware(io, options = {}) {
                 return next(new Error('Too many authentication attempts. Try again later.'));
             }
 
-            // --- DETAILED LOGGING START ---
             logger.info('Socket handshake received', {
                 ip,
                 auth: socket.handshake.auth,
                 query: socket.handshake.query
             });
-            // --- DETAILED LOGGING END ---
 
             const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+            const username = socket.handshake.auth?.username || socket.handshake.query?.username;
             if (!token) {
-                rl.count++;
-                logger.warn('Authentication token missing', ip, socket.handshake.auth);
-                return next(new Error('Authentication token missing'));
+                // Allow guest/test connections with just a username
+                if (username) {
+                    socket.user = {
+                        id: `guest_${Date.now()}_${Math.floor(Math.random()*10000)}`,
+                        username,
+                        role: 'guest',
+                        guest: true
+                    };
+                    logger.info('Guest/username-only connection allowed', ip, username);
+                    return next();
+                } else {
+                    rl.count++;
+                    logger.warn('Authentication token missing', ip, socket.handshake.auth);
+                    return next(new Error('Authentication token missing'));
+                }
             }
             let decoded;
             try {
@@ -106,7 +117,6 @@ function setupAuthMiddleware(io, options = {}) {
                 logger.warn('Invalid authentication token', ip, err.message, token);
                 return next(new Error('Invalid authentication token: ' + err.message));
             }
-            // Optional: role check
             if (allowedRoles && !allowedRoles.includes(decoded.role)) {
                 logger.warn('User role not permitted', ip, decoded.role);
                 return next(new Error('User role not permitted'));
