@@ -369,6 +369,9 @@ function registerQuizHandlers(io, socket) {
 function broadcastUserList(io) {
   // Emit updated user list to all clients
   io.emit('users_online', users);
+  
+  // Also emit with the event name 'user_list' for the websocket-test.html client
+  io.emit('user_list', users);
 }
 
 /**
