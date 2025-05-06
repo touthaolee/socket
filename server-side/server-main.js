@@ -14,6 +14,7 @@ const aiRoutes = require('./server-api/api-ai'); // Add this line
 
 // Create Express app and HTTP server
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy for correct IP handling
 const server = http.createServer(app);
 
 // Initialize middleware
