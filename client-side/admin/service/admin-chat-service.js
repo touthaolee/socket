@@ -60,8 +60,8 @@ export class AdminChatService {
     try {
       import('/interac/client-side/client-socket/socket-client.js')
         .then(module => {
-          const SocketClient = module.default;
-          this.socket = SocketClient.getSocket();
+          const socketClient = module.default;
+          this.socket = socketClient.getSocket();
           
           if (!this.socket) {
             console.error('Failed to get socket instance');

@@ -55,7 +55,7 @@ if (!token) {
 async function checkTokenAndShowDashboard() {
   try {
     // Attempt to get quizzes - this will fail if token is invalid
-    const response = await fetch('/interac/api/quizzes?page=1', {
+    const response = await fetch('/interac/api/quiz?page=1', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -189,7 +189,7 @@ async function loadQuizzes() {
       return;
     }
     
-    const response = await fetch('/interac/api/quizzes?page=' + currentPage, {
+    const response = await fetch('/interac/api/quiz?page=' + currentPage, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -903,7 +903,7 @@ async function saveQuiz(quizData) {
       return;
     }
     
-    const response = await fetch('/interac/api/quizzes', {
+    const response = await fetch('/interac/api/quiz', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -931,102 +931,4 @@ async function saveQuiz(quizData) {
     console.error('Error saving quiz:', error);
     alert('Error saving quiz: ' + error.message);
   }
-}
-
-// View quiz details
-function viewQuiz(quizId) {
-  const quiz = quizzes.find(q => q.id.toString() === quizId.toString());
-  if (!quiz) return;
-  
-  // Populate preview modal
-  document.getElementById('preview-quiz-name').textContent = quiz.name;
-  document.getElementById('preview-quiz-description').textContent = quiz.description || 'No description';
-  document.getElementById('preview-quiz-questions').textContent = `${quiz.questions.length} Questions`;
-  document.getElementById('preview-quiz-time').textContent = `${quiz.timePerQuestion}s per question`;
-  
-  // Populate questions
-  const questionsContainer = document.getElementById('preview-questions-container');
-  questionsContainer.innerHTML = '';
-  
-  quiz.questions.forEach((question, index) => {
-    const questionHTML = `
-      <div class="preview-question">
-        <div class="question-header">
-          <span class="question-number">Question ${index + 1}</span>
-        </div>
-        <p class="question-text">${question.text}</p>
-        <div class="question-options">
-          ${question.options.map((option, optIndex) => `
-            <div class="option ${optIndex === question.correctIndex ? 'correct' : ''}">
-              <span class="option-letter">${String.fromCharCode(65 + optIndex)}</span>
-              <span class="option-text">${option}</span>
-              ${optIndex === question.correctIndex ? '<span class="correct-mark"><i class="fas fa-check"></i></span>' : ''}
-            </div>
-          `).join('')}
-        </div>
-        <div class="question-rationale">
-          <p><strong>Rationale:</strong> ${question.rationale || 'No rationale provided'}</p>
-        </div>
-      </div>
-    `;
-    
-    questionsContainer.innerHTML += questionHTML;
-  });
-  
-  // Show preview modal
-  const previewModal = document.getElementById('quiz-preview-modal');
-  if (previewModal) {
-    previewModal.style.display = 'flex';
-  }
-}
-
-// Edit quiz
-function editQuiz(quizId) {
-  alert(`Edit quiz ${quizId} - Feature coming soon`);
-}
-
-// Delete quiz
-async function deleteQuiz(quizId) {
-  if (!confirm('Are you sure you want to delete this quiz?')) {
-    return;
-  }
-  
-  try {
-    const token = getTokenFromStorage();
-    if (!token) {
-      showAdminLogin();
-      return;
-    }
-    
-    const response = await fetch(`/interac/api/quizzes/${quizId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to delete quiz');
-    }
-    
-    // Reload quizzes
-    loadQuizzes();
-    
-    // Show success message
-    alert('Quiz deleted successfully');
-  } catch (error) {
-    console.error('Error deleting quiz:', error);
-    alert('Error deleting quiz: ' + error.message);
-  }
-}
-
-// Utility function for debouncing
-function debounce(func, delay) {
-  let timeoutId;
-  return function(...args) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-      func.apply(this, args);
-    }, delay);
-  };
 }

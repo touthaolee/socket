@@ -42,6 +42,14 @@ const socketClient = {
       return true;
     },
     
+    // Get the socket instance
+    getSocket() {
+      if (!this.socket) {
+        this.init();
+      }
+      return this.socket;
+    },
+    
     // Disconnect from server
     disconnect() {
       if (this.socket) {
