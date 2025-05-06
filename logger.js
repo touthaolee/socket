@@ -1,8 +1,5 @@
 // logger.js
 const winston = require('winston');
-
-const winston = require('winston');
-// logger.js
 const fs = require('fs');
 const path = require('path');
 
