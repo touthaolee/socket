@@ -71,7 +71,7 @@ if (!token) {
 async function checkTokenAndShowDashboard() {
   try {
     // Attempt to get quizzes - this will fail if token is invalid
-    const response = await fetch('/interac/api/quiz?page=1', {
+    const response = await fetch('/interac/api/quiz/quizzes', {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -205,7 +205,7 @@ async function loadQuizzes() {
       return;
     }
     
-    const response = await fetch('/interac/api/quiz?page=' + currentPage, {
+    const response = await fetch('/interac/api/quiz/quizzes?page=' + currentPage, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -919,7 +919,7 @@ async function saveQuiz(quizData) {
       return;
     }
     
-    const response = await fetch('/interac/api/quiz', {
+    const response = await fetch('/interac/api/quiz/quizzes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
