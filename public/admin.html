@@ -8,10 +8,35 @@
   <!-- Restore the /interac/ prefix in the CSS path -->
   <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <style>
+    /* Add specific styles for login modal to ensure it displays properly */
+    #admin-login-container.modal {
+      display: none; /* Hidden by default */
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #admin-login-container.modal.active {
+      display: flex !important; /* Force display when active */
+    }
+    
+    .error-message {
+      color: #ef4444;
+      margin-top: 10px;
+      font-size: 0.9rem;
+    }
+  </style>
 </head>
 <body>
   <!-- Admin Login Modal -->
-  <div id="admin-login-container" class="modal" style="display:none;">
+  <div id="admin-login-container" class="modal">
     <div class="modal-content">
       <h2>Admin Login</h2>
       <input type="text" id="admin-username" placeholder="Username" required>
@@ -21,7 +46,7 @@
     </div>
   </div>
 
-  <div class="admin-container">
+  <div class="admin-container" style="display:none;">
     <nav class="admin-nav">
       <div class="nav-logo">InterAc Admin</div>
       <div class="nav-menu">
@@ -386,46 +411,9 @@
   
   <!-- Restore the /interac/ prefix in the JavaScript path -->
   <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
-  <!-- Add debug script to help troubleshoot -->
+  <!-- Simple debug script to check if login is working -->
   <script>
-    // Simple debug script to check if resources are loading
-    window.addEventListener('DOMContentLoaded', function() {
-      console.log('DOMContentLoaded triggered');
-      
-      // Check if admin-styles.css is loaded
-      const styleSheets = Array.from(document.styleSheets);
-      const adminStyleLoaded = styleSheets.some(sheet => 
-        sheet.href && sheet.href.includes('admin-styles.css'));
-      console.log('Admin styles loaded:', adminStyleLoaded);
-      
-      // Check if main container is visible
-      const adminContainer = document.querySelector('.admin-container');
-      if (adminContainer) {
-        console.log('Admin container found, display:', 
-          window.getComputedStyle(adminContainer).display);
-        
-        // Force display if needed
-        if (window.getComputedStyle(adminContainer).display === 'none') {
-          adminContainer.style.display = 'flex';
-          console.log('Forced admin container display to flex');
-        }
-      } else {
-        console.log('Admin container not found in DOM');
-      }
-      
-      // Check for active view
-      const activeView = document.querySelector('.admin-view.active');
-      console.log('Active view found:', !!activeView);
-      
-      // If no active view, activate the first one
-      if (!activeView) {
-        const firstView = document.querySelector('.admin-view');
-        if (firstView) {
-          firstView.classList.add('active');
-          console.log('Activated first view:', firstView.id);
-        }
-      }
-    });
+    console.log('Admin page loaded');
   </script>
 </body>
 </html>
