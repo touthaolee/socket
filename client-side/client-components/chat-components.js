@@ -22,13 +22,14 @@ export function setupChatHandlers(socket) {
     function addChatMessage(data) {
       const messageElement = document.createElement('div');
       // Use localStorage username for comparison instead of socket.user
-      messageElement.className = `message ${data.user === currentUsername ? 'message-mine' : 'message-other'}`;
+      const sender = data.username || data.user || 'Unknown';
+      messageElement.className = `message ${sender === currentUsername ? 'message-mine' : 'message-other'}`;
       
       // Format time
       const time = new Date(data.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       
       messageElement.innerHTML = `
-        <div class="user">${data.user}</div>
+        <div class="user">${sender}</div>
         <div class="content">${data.message}</div>
         <div class="time">${time}</div>
       `;
