@@ -109,7 +109,7 @@ function setupNavigation() {
   // Logout button
   document.getElementById('logout-btn').addEventListener('click', () => {
     localStorage.removeItem('auth_token');
-    window.location.href = '/interac/';
+    showAdminLogin();
   });
 }
 
@@ -258,7 +258,7 @@ async function loadQuizzes() {
   try {
     const token = getTokenFromStorage();
     if (!token) {
-      window.location.href = '/interac/';
+      showAdminLogin();
       return;
     }
     
