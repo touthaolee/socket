@@ -922,19 +922,24 @@
       users.forEach(user => {
         const li = document.createElement('li');
         li.className = 'user-item';
-        if (user === (window.currentUsername || '')) {
+        
+        // Handle both string usernames and user objects
+        const username = typeof user === 'string' ? user : (user?.username || 'Anonymous');
+        const userId = typeof user === 'string' ? user : (user?.id || 'unknown');
+        
+        if (username === (window.currentUsername || '')) {
           li.classList.add('current');
         }
         
         // Create avatar with first letter
         const avatar = document.createElement('div');
         avatar.className = 'user-avatar';
-        avatar.textContent = (user && user.charAt(0).toUpperCase()) || '?';
+        avatar.textContent = (username && username.charAt(0).toUpperCase()) || '?';
         
         const name = document.createElement('div');
         name.className = 'user-name';
-        name.textContent = user || 'Anonymous';
-        if (user === (window.currentUsername || '')) {
+        name.textContent = username || 'Anonymous';
+        if (username === (window.currentUsername || '')) {
           name.textContent += ' (You)';
         }
         
