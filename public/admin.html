@@ -32,6 +32,267 @@
       margin-top: 10px;
       font-size: 0.9rem;
     }
+
+    /* Chat Styles */
+    .chat-container {
+      display: flex;
+      height: calc(100vh - 180px);
+      border-radius: 8px;
+      overflow: hidden;
+      background-color: #fff;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-sidebar {
+      width: 280px;
+      background-color: #f8f9fa;
+      border-right: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 15px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .sidebar-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .online-indicator {
+      display: flex;
+      align-items: center;
+      font-size: 12px;
+      margin-top: 5px;
+      color: #666;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .user-list, .channel-list {
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .user-item, .channel-item {
+      padding: 10px 15px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .user-item:hover, .channel-item:hover {
+      background-color: #e9ecef;
+    }
+
+    .channel-item.active {
+      background-color: #e9ecef;
+      font-weight: 500;
+    }
+
+    .user-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 10px;
+    }
+
+    .user-status.online {
+      background-color: #10b981;
+    }
+
+    .user-status.offline {
+      background-color: #9ca3af;
+    }
+
+    .user-status.away {
+      background-color: #f59e0b;
+    }
+
+    .user-name, .channel-name {
+      font-size: 14px;
+      color: #333;
+    }
+
+    .chat-header {
+      padding: 15px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #333;
+    }
+
+    .chat-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 15px;
+      overflow-y: auto;
+      background-color: #fff;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .message-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background-color: #e2e8f0;
+      margin-right: 10px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #64748b;
+    }
+
+    .message-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .message-content-wrapper {
+      flex: 1;
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .message-sender {
+      font-weight: 600;
+      font-size: 14px;
+      margin-right: 8px;
+    }
+
+    .message-time {
+      font-size: 12px;
+      color: #64748b;
+    }
+
+    .message-content {
+      font-size: 14px;
+      line-height: 1.5;
+      color: #333;
+      padding: 8px 12px;
+      background-color: #f8f9fa;
+      border-radius: 8px;
+      display: inline-block;
+      max-width: 80%;
+    }
+
+    .system-message {
+      text-align: center;
+      margin: 15px 0;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .system-message .message-content {
+      background-color: #f1f5f9;
+      color: #64748b;
+      display: inline-block;
+      padding: 5px 10px;
+      border-radius: 8px;
+    }
+
+    .chat-input-container {
+      padding: 15px;
+      border-top: 1px solid #e2e8f0;
+      background-color: #fff;
+    }
+
+    #chat-input {
+      width: 100%;
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      padding: 10px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+    }
+
+    #chat-input:focus {
+      border-color: #3b82f6;
+    }
+
+    .chat-input-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    #send-message-btn {
+      padding: 6px 15px;
+    }
+
+    #attach-file-btn {
+      background: none;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    #attach-file-btn:hover {
+      color: #3b82f6;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      background-color: #f8f9fa;
+      border: 1px solid #e2e8f0;
+      cursor: pointer;
+    }
+
+    .btn-sm:hover {
+      background-color: #e9ecef;
+    }
+
+    .mt-4 {
+      margin-top: 16px;
+    }
+
+    .admin-card .chat-container {
+      margin-top: 15px;
+    }
   </style>
 </head>
 <body>
@@ -53,6 +314,7 @@
         <span class="menu-item active" data-view="quizzes">Quizzes</span>
         <span class="menu-item" data-view="users">Users</span>
         <span class="menu-item" data-view="stats">Statistics</span>
+        <span class="menu-item" data-view="chat">Chat</span>
       </div>
       <button id="logout-btn" class="btn-outline">Logout</button>
     </nav>
@@ -117,6 +379,69 @@
           <h2>Statistics</h2>
         </div>
         <!-- Statistics content here -->
+      </div>
+      
+      <!-- Chat View -->
+      <div id="chat-view" class="admin-view">
+        <div class="admin-header">
+          <h2>Chat Management</h2>
+        </div>
+        <div class="admin-card">
+          <div class="chat-container">
+            <div class="chat-sidebar">
+              <div class="sidebar-header">
+                <h3>Active Users</h3>
+                <div class="online-indicator">
+                  <span class="dot"></span>
+                  <span id="online-count">0</span> online
+                </div>
+              </div>
+              <div class="user-list" id="chat-user-list">
+                <!-- User list will be populated here -->
+                <div class="user-item">
+                  <span class="user-status online"></span>
+                  <span class="user-name">Loading users...</span>
+                </div>
+              </div>
+              <div class="sidebar-header mt-4">
+                <h3>Chat Channels</h3>
+                <button id="create-channel-btn" class="btn-sm"><i class="fas fa-plus"></i></button>
+              </div>
+              <div class="channel-list" id="chat-channel-list">
+                <!-- Channel list will be populated here -->
+                <div class="channel-item active">
+                  <span class="channel-name"># general</span>
+                </div>
+                <div class="channel-item">
+                  <span class="channel-name"># support</span>
+                </div>
+              </div>
+            </div>
+            <div class="chat-main">
+              <div class="chat-header">
+                <h3><span id="current-channel"># general</span></h3>
+                <div class="chat-actions">
+                  <button id="chat-settings-btn" title="Chat Settings"><i class="fas fa-cog"></i></button>
+                </div>
+              </div>
+              <div class="chat-messages" id="chat-messages">
+                <!-- Messages will be populated here -->
+                <div class="system-message">
+                  <div class="message-content">
+                    Welcome to the admin chat. This is the beginning of the conversation.
+                  </div>
+                </div>
+              </div>
+              <div class="chat-input-container">
+                <textarea id="chat-input" placeholder="Type your message here..." rows="2"></textarea>
+                <div class="chat-input-actions">
+                  <button id="attach-file-btn" title="Attach File"><i class="fas fa-paperclip"></i></button>
+                  <button id="send-message-btn" class="btn">Send</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

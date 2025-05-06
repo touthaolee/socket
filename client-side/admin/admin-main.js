@@ -2,6 +2,7 @@
 import { getTokenFromStorage } from '../client-utils/client-helpers.js';
 import { aiService } from './service/ai-service.js';
 import { similarityService } from './service/ai-similarity-service.js';
+import adminChatService from './service/admin-chat-service.js';
 
 // --- Admin Auth Logic ---
 function showAdminLogin() {
@@ -132,6 +133,9 @@ function initAdminUI() {
   
   // Setup quiz management
   setupQuizManagement();
+  
+  // Initialize chat functionality
+  initAdminChat();
 }
 
 // Setup navigation
@@ -214,4 +218,229 @@ async function loadQuizzes() {
   }
 }
 
-// ... existing code ...
+// Initialize admin chat functionality
+function initAdminChat() {
+  try {
+    // Get logged in user info from JWT token (if available)
+    const token = getTokenFromStorage();
+    if (!token) return;
+    
+    // For simplicity, we'll use a fixed admin user ID
+    // In a real application, you would decode the JWT to get user details
+    const adminUsername = 'admin';
+    const adminUserId = '1';
+    
+    // Initialize the chat service
+    adminChatService.init(adminUsername, adminUserId);
+    
+    // Set up UI event listeners
+    setupChatUIEventListeners();
+    
+    // Set up event handlers for the chat service
+    setupChatEventHandlers();
+    
+    console.log('Admin chat initialized');
+  } catch (error) {
+    console.error('Error initializing admin chat:', error);
+  }
+}
+
+// Set up UI event listeners for the chat interface
+function setupChatUIEventListeners() {
+  // Send message button
+  const sendMessageBtn = document.getElementById('send-message-btn');
+  if (sendMessageBtn) {
+    sendMessageBtn.addEventListener('click', sendChatMessage);
+  }
+  
+  // Send message on Enter key (but allow Shift+Enter for new line)
+  const chatInput = document.getElementById('chat-input');
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+  }
+  
+  // Channel selection
+  const channelList = document.getElementById('chat-channel-list');
+  if (channelList) {
+    channelList.addEventListener('click', (e) => {
+      const channelItem = e.target.closest('.channel-item');
+      if (channelItem) {
+        const channelName = channelItem.querySelector('.channel-name').textContent.substring(2); // Remove '# ' prefix
+        
+        // Update active channel in UI
+        document.querySelectorAll('.channel-item').forEach(item => {
+          item.classList.remove('active');
+        });
+        channelItem.classList.add('active');
+        
+        // Update current channel display
+        document.getElementById('current-channel').textContent = `# ${channelName}`;
+        
+        // Switch channel in service
+        adminChatService.switchChannel(channelName);
+      }
+    });
+  }
+  
+  // Create new channel button
+  const createChannelBtn = document.getElementById('create-channel-btn');
+  if (createChannelBtn) {
+    createChannelBtn.addEventListener('click', () => {
+      const channelName = prompt('Enter new channel name:');
+      if (channelName) {
+        adminChatService.createChannel(channelName);
+      }
+    });
+  }
+}
+
+// Send a chat message
+function sendChatMessage() {
+  const chatInput = document.getElementById('chat-input');
+  if (!chatInput) return;
+  
+  const messageText = chatInput.value.trim();
+  if (!messageText) return;
+  
+  // Send message using chat service
+  adminChatService.sendMessage(messageText);
+  
+  // Clear input
+  chatInput.value = '';
+  chatInput.focus();
+}
+
+// Setup event handlers for the chat service events
+function setupChatEventHandlers() {
+  // When users list is updated
+  adminChatService.on('usersUpdated', ({ users, onlineUsers }) => {
+    updateUsersList(users, onlineUsers);
+  });
+  
+  // When messages are received
+  adminChatService.on('messageReceived', ({ channelId, messages }) => {
+    // Only update UI if this is the current channel
+    if (channelId === adminChatService.currentChannel) {
+      updateChatMessages(messages);
+    }
+  });
+  
+  // When channels are updated
+  adminChatService.on('channelsUpdated', ({ channels }) => {
+    updateChannelsList(channels);
+  });
+  
+  // When channel is switched
+  adminChatService.on('channelSwitched', ({ channelId, messages }) => {
+    updateChatMessages(messages);
+  });
+}
+
+// Update the users list in the UI
+function updateUsersList(users, onlineCount) {
+  const userList = document.getElementById('chat-user-list');
+  const onlineCountElement = document.getElementById('online-count');
+  
+  if (userList) {
+    userList.innerHTML = '';
+    
+    if (users.length === 0) {
+      userList.innerHTML = `
+        <div class="user-item">
+          <span class="user-status offline"></span>
+          <span class="user-name">No users online</span>
+        </div>
+      `;
+    } else {
+      users.forEach(user => {
+        const userStatus = user.status || 'online';
+        userList.innerHTML += `
+          <div class="user-item" data-user-id="${user.userId}">
+            <span class="user-status ${userStatus}"></span>
+            <span class="user-name">${user.username}</span>
+          </div>
+        `;
+      });
+    }
+  }
+  
+  if (onlineCountElement) {
+    onlineCountElement.textContent = onlineCount || 0;
+  }
+}
+
+// Update the chat messages in the UI
+function updateChatMessages(messages) {
+  const chatMessages = document.getElementById('chat-messages');
+  if (!chatMessages) return;
+  
+  chatMessages.innerHTML = '';
+  
+  if (messages.length === 0) {
+    chatMessages.innerHTML = `
+      <div class="system-message">
+        <div class="message-content">
+          No messages in this channel yet. Be the first to say hello!
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  messages.forEach(message => {
+    if (message.isSystem) {
+      // System message
+      chatMessages.innerHTML += `
+        <div class="system-message">
+          <div class="message-content">
+            ${message.text}
+          </div>
+        </div>
+      `;
+    } else {
+      // User message
+      const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const firstInitial = message.username ? message.username.charAt(0).toUpperCase() : '?';
+      
+      chatMessages.innerHTML += `
+        <div class="message" data-message-id="${message.id}">
+          <div class="message-avatar">${firstInitial}</div>
+          <div class="message-content-wrapper">
+            <div class="message-header">
+              <span class="message-sender">${message.username}</span>
+              <span class="message-time">${time}</span>
+            </div>
+            <div class="message-content">
+              ${message.text}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+  });
+  
+  // Scroll to bottom
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Update the channels list in the UI
+function updateChannelsList(channels) {
+  const channelList = document.getElementById('chat-channel-list');
+  if (!channelList) return;
+  
+  channelList.innerHTML = '';
+  
+  channels.forEach(channel => {
+    const isActive = channel.id === adminChatService.currentChannel;
+    channelList.innerHTML += `
+      <div class="channel-item ${isActive ? 'active' : ''}" data-channel-id="${channel.id}">
+        <span class="channel-name"># ${channel.name}</span>
+      </div>
+    `;
+  });
+}

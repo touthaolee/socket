@@ -1,6 +1,13 @@
 // server-side/server-socket/socket-handlers.js
 const authService = require('../server-services/auth-service');
 
+// Store admin users and channels
+const adminUsers = [];
+const adminChannels = [
+  { id: 'general', name: 'general', isDefault: true },
+  { id: 'support', name: 'support', isDefault: false }
+];
+
 /**
  * Set up Socket.io authentication middleware
  * @param {Object} io - Socket.io server instance
@@ -177,6 +184,99 @@ function registerTestEventHandlers(io, socket) {
 }
 
 /**
+ * Register all event handlers
+ * @param {Object} io - Socket.io server instance
+ * @param {Object} socket - Socket instance
+ */
+function registerEventHandlers(io, socket) {
+  // Register chat handlers
+  registerChatHandlers(io, socket);
+  
+  // Register admin chat handlers
+  registerAdminChatHandlers(io, socket);
+  
+  // Register quiz handlers
+  registerQuizHandlers(io, socket);
+}
+
+/**
+ * Register admin chat event handlers
+ * @param {Object} io - Socket.io server instance
+ * @param {Object} socket - Socket instance
+ */
+function registerAdminChatHandlers(io, socket) {
+  // Admin joining chat
+  socket.on('admin:join', (data) => {
+    console.log(`Admin joined: ${data.username} (${data.userId})`);
+    
+    // Store admin user data in socket
+    socket.isAdmin = true;
+    socket.adminUser = {
+      userId: data.userId,
+      username: data.username,
+      status: 'online'
+    };
+    
+    // Add user to admin users list if not already present
+    if (!adminUsers.some(user => user.userId === data.userId)) {
+      adminUsers.push(socket.adminUser);
+    }
+    
+    // Join admin room
+    socket.join('admin-chat');
+    
+    // Broadcast updated user list
+    broadcastAdminUserList(io);
+  });
+  
+  // Admin sending message
+  socket.on('admin:send-message', (message) => {
+    console.log(`Admin message from ${message.username} in channel ${message.channelId}: ${message.text}`);
+    
+    // Broadcast to all admins
+    io.to('admin-chat').emit('admin:message', {
+      id: Date.now().toString(),
+      channelId: message.channelId,
+      text: message.text,
+      username: message.username,
+      userId: message.userId,
+      timestamp: message.timestamp || new Date().toISOString()
+    });
+  });
+  
+  // Admin creating a new channel
+  socket.on('admin:create-channel', (channel) => {
+    console.log(`Admin ${socket.adminUser?.username} created channel: ${channel.name}`);
+    
+    // Check if channel already exists
+    if (!adminChannels.some(c => c.id === channel.id)) {
+      adminChannels.push(channel);
+      
+      // Broadcast updated channel list
+      io.to('admin-chat').emit('admin:channels-updated', {
+        channels: adminChannels
+      });
+    }
+  });
+  
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    if (socket.isAdmin && socket.adminUser) {
+      console.log(`Admin disconnected: ${socket.adminUser.username}`);
+      
+      // Remove user from admin users list
+      const index = adminUsers.findIndex(user => user.userId === socket.adminUser.userId);
+      if (index !== -1) {
+        adminUsers.splice(index, 1);
+      }
+      
+      // Broadcast updated user list
+      broadcastAdminUserList(io);
+    }
+  });
+}
+
+/**
  * Broadcast active users list to all clients
  * @param {Object} io - Socket.io server instance
  */
@@ -193,10 +293,24 @@ function broadcastUserList(io) {
   io.emit('user_list', users);
 }
 
+/**
+ * Broadcast admin users list to all admins
+ * @param {Object} io - Socket.io server instance
+ */
+function broadcastAdminUserList(io) {
+  io.to('admin-chat').emit('admin:user-joined', {
+    users: adminUsers,
+    onlineUsers: adminUsers.length,
+    username: adminUsers.length > 0 ? adminUsers[adminUsers.length - 1].username : 'Unknown'
+  });
+}
+
 module.exports = {
   setupAuthMiddleware,
   handleConnection,
   handleDisconnect,
   registerChatHandlers,
-  registerTestEventHandlers
+  registerAdminChatHandlers,
+  registerTestEventHandlers,
+  registerEventHandlers
 };
