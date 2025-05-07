@@ -43,6 +43,9 @@ const socketClient = {
     
     // Connect with username only (simplified auth)
     connectWithUsername(username) {
+      if (!this.socket) {
+        this.init();
+      }
       if (!username) {
         console.error('Username required');
         return false;
