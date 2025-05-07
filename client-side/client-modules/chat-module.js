@@ -144,7 +144,7 @@ class ChatModule {
       console.log('Chat message received:', data);
       
       // Don't add duplicate messages from self (already added optimistically)
-      if (!data.system && data.from === this.currentUsername) {
+      if (!data.system && data.username === this.currentUsername) {
         return;
       }
       
@@ -157,7 +157,7 @@ class ChatModule {
         
         // Show toast notification
         if (!data.system) {
-          showToast(`${data.from}: ${data.message.substring(0, 30)}${data.message.length > 30 ? '...' : ''}`, 'info');
+          showToast(`${data.username || data.from || 'Anonymous'}: ${data.message.substring(0, 30)}${data.message.length > 30 ? '...' : ''}`, 'info');
         }
       }
     });
@@ -467,7 +467,7 @@ class ChatModule {
       
       const messageName = document.createElement('div');
       messageName.className = 'chat-message-name';
-      messageName.textContent = message.from || 'Anonymous';
+      messageName.textContent = message.username || message.from || 'Anonymous';
       
       const messageTime = document.createElement('div');
       messageTime.className = 'chat-message-time';
