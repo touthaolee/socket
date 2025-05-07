@@ -211,38 +211,28 @@ function setupAuthMiddleware(io, options = {}) {
                         else resolve(decoded);
                     });
                 });
-                
-                // Check if the username from the token is already active (but not by this user's ID)
-                // This prevents someone else from using a registered user's username
+                // PATCH: Allow connection if username is active but userId matches (same user/session)
                 if (decoded.username && isUsernameActive(decoded.username)) {
-                    // Check if it's not the same user with a different connection
-                    const activeUsers = Array.from(global.activeUsers?.values() || []);
-                    const sameUserDifferentConnection = activeUsers.some(user => 
-                        user.username.toLowerCase() === decoded.username.toLowerCase() && 
-                        user.userId === decoded.id
-                    );
-                    
-                    if (!sameUserDifferentConnection) {
+                    // If the userId matches the active session, allow connection
+                    if (!hasMatchingUserIdForUsername(decoded.username, decoded.id)) {
                         logger.warn('Username from token already active', decoded.username, ip);
                         return next(new Error('This account is already logged in elsewhere.'));
                     }
+                    // else: allow connection
                 }
-                
+                if (allowedRoles && !allowedRoles.includes(decoded.role)) {
+                    logger.warn('User role not permitted', ip, decoded.role);
+                    return next(new Error('User role not permitted'));
+                }
+                socket.user = decoded;
+                rl.count = 0; // Reset on success
+                logger.info('Authentication successful', ip, decoded.username || decoded.id || '');
+                next();
             } catch (err) {
                 rl.count++;
                 logger.warn('Invalid authentication token', ip, err.message, token);
                 return next(new Error('Invalid authentication token: ' + err.message));
             }
-            
-            if (allowedRoles && !allowedRoles.includes(decoded.role)) {
-                logger.warn('User role not permitted', ip, decoded.role);
-                return next(new Error('User role not permitted'));
-            }
-            
-            socket.user = decoded;
-            rl.count = 0; // Reset on success
-            logger.info('Authentication successful', ip, decoded.username || decoded.id || '');
-            next();
         } catch (err) {
             logger.error('Unexpected error in auth middleware', err.message, err.stack);
             next(new Error('Internal authentication error: ' + err.message));
