@@ -309,32 +309,19 @@ function registerPresenceHandlers(io, socket) {
     // Handle explicit user logout event
     socket.on('user_logout', (data) => {
         logger.info(`User logout event received for: ${data.username || username}`);
-        let removed = false;
-        // Always force remove if requested, regardless of socket state
         if (data && data.forceRemove && data.userId) {
-            if (activeUsers.has(data.userId)) {
-                activeUsers.delete(data.userId);
-                logger.info(`User force removed from active list after logout: ${data.username}`);
-                removed = true;
-            }
+            activeUsers.delete(data.userId);
+            logger.info(`User force removed from active list after logout: ${data.username}`);
         } else if (activeUsers.has(userId)) {
             const userData = activeUsers.get(userId);
-            // Remove this socket ID
             userData.socketIds.delete(socket.id);
-            // If no more sockets, mark as offline
             if (userData.socketIds.size === 0) {
-                userData.status = 'offline';
+                activeUsers.delete(userId);
+                logger.info(`[LOGOUT] User immediately removed: ${username}`);
             }
-            // Notify other users that this user logged out
-            socket.broadcast.emit('user_disconnected', { username: data.username || username });
-            // Update the user list for all clients
-            broadcastUserList(io);
-            removed = true;
         }
-        // Always update user list after any removal
         broadcastUserList(io);
-        // Send ack to client
-        socket.emit('user_logout_ack', { success: true, removed });
+        socket.emit('user_logout_ack', { success: true });
     });
     
     // Handle explicit presence updates from client
@@ -411,44 +398,12 @@ function registerPresenceHandlers(io, socket) {
     socket.on('disconnect', (reason) => {
         if (activeUsers.has(userId)) {
             const userData = activeUsers.get(userId);
-            
-            // Remove this socket ID
             userData.socketIds.delete(socket.id);
-            
-            logger.info(`Socket disconnect: ${reason} for user ${username} (socket ${socket.id}). Remaining connections: ${userData.socketIds.size}`);
-            
-            // If no more sockets, mark as offline after grace period
             if (userData.socketIds.size === 0) {
-                // Set status to disconnecting immediately
-                userData.status = 'disconnecting';
+                activeUsers.delete(userId);
                 broadcastUserList(io);
-                
-                // Notify other users that this user disconnected
-                socket.broadcast.emit('user_disconnected', { username });
-                
-                setTimeout(() => {
-                    // Double check if user has reconnected
-                    if (activeUsers.has(userId)) {
-                        const userData = activeUsers.get(userId);
-                        if (userData.socketIds.size === 0) {
-                            userData.status = 'offline';
-                            broadcastUserList(io);
-                            
-                            // After longer period, remove user completely
-                            setTimeout(() => {
-                                if (activeUsers.has(userId) && 
-                                    activeUsers.get(userId).socketIds.size === 0 &&
-                                    activeUsers.get(userId).status === 'offline') {
-                                    activeUsers.delete(userId);
-                                    broadcastUserList(io);
-                                    logger.info(`User removed from active list: ${username}`);
-                                }
-                            }, 60000); // Remove completely after 1 minute of being offline
-                        }
-                    }
-                }, disconnectionGracePeriod); // 5-second grace period before showing offline
+                logger.info(`[DISCONNECT] User immediately removed: ${username}`);
             } else {
-                // Still has active connections - update count
                 broadcastUserList(io);
             }
         }
@@ -514,7 +469,7 @@ function isUsernameActive(username) {
         // 2. The user is genuinely online (not offline/disconnecting)
         // 3. They have at least one active socket connection
         if (userData.username.toLowerCase() === lowerUsername && 
-            (userData.status === 'online' || userData.status === 'inactive') &&
+            userData.status === 'online' &&
             userData.socketIds.size > 0) {
             return true;
         }
@@ -626,6 +581,17 @@ function forceRemoveUserById(userId) {
     return false;
 }
 
+// New function to remove user by username (case-insensitive)
+function forceRemoveUserByUsername(username) {
+    const lowerUsername = username.toLowerCase();
+    for (const [userId, userData] of activeUsers.entries()) {
+        if (userData.username.toLowerCase() === lowerUsername) {
+            activeUsers.delete(userId);
+            require('../../logger').info(`[FORCE REMOVE] User removed by username: ${username} (userId: ${userId})`);
+        }
+    }
+}
+
 // Expose functions for use by other modules
 module.exports = {
     registerQuizHandlers,
@@ -640,5 +606,6 @@ module.exports = {
     checkUsernameAvailability,
     clearOfflineUsers,
     hasMatchingUserIdForUsername,
-    forceRemoveUserById
+    forceRemoveUserById,
+    forceRemoveUserByUsername
 };
