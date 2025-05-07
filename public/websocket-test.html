@@ -1399,6 +1399,16 @@ function completeConnection(token, username) {
 let chatMessages = [];
 const MAX_CHAT_HISTORY = 100;
 
+// Function to clear offline users from the list
+function clearOfflineUsers() {
+  if (socket && socket.connected) {
+    socket.emit('clear_offline_users');
+    log('Requested to clear offline users');
+  } else {
+    log('Socket not connected. Cannot clear offline users.', 'error');
+  }
+}
+
 // Initialize chat UI elements
 function initChatUI() {
   const chatInput = document.getElementById('chat-input');
