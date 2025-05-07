@@ -196,3 +196,34 @@ window.showAuthenticatedUI = function() {
     window.showToast(`Welcome, ${username || 'User'}!`, 'success');
   }
 };
+
+// --- Offline/Online and Server Status UI ---
+function updateServerStatus(online) {
+  const statusEl = document.getElementById('server-status-text');
+  if (statusEl) {
+    statusEl.textContent = online ? 'Online' : 'Offline';
+    statusEl.style.color = online ? 'var(--success)' : 'var(--danger)';
+  }
+}
+
+window.addEventListener('online', () => {
+  updateServerStatus(true);
+  showToast('You are back online!', 'success');
+});
+
+window.addEventListener('offline', () => {
+  updateServerStatus(false);
+  showToast('You are offline. Some features may not work.', 'warning');
+});
+
+// On load, set initial status
+updateServerStatus(navigator.onLine);
+
+// Optionally, check server health every 30 seconds
+function checkServerHealth() {
+  fetch('/interac/api/quiz/quizzes', { method: 'HEAD' })
+    .then(() => updateServerStatus(true))
+    .catch(() => updateServerStatus(false));
+}
+setInterval(checkServerHealth, 30000);
+checkServerHealth();
