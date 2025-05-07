@@ -24,6 +24,9 @@ export function initSocketModule(options = {}) {
     
     // Start heartbeat after successful connection
     startHeartbeat(socket);
+    
+    // Emit presence when connected
+    socket.emit('user:presence', { status: 'online' });
   });
   
   socket.on('disconnect', (reason) => {
@@ -50,6 +53,36 @@ export function initSocketModule(options = {}) {
     updateUserDisplay(users);
   });
   
+  // Handle user disconnect notifications
+  socket.on('user_disconnected', (data) => {
+    if (data.username) {
+      // Add system message about user disconnection
+      const chatMessages = document.getElementById('chat-messages');
+      if (chatMessages) {
+        const disconnectMsg = document.createElement('div');
+        disconnectMsg.className = 'chat-message-disconnected';
+        disconnectMsg.innerHTML = `<span>${data.username} has disconnected</span>`;
+        chatMessages.appendChild(disconnectMsg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+  });
+  
+  // Handle user reconnection notifications
+  socket.on('user_reconnected', (data) => {
+    if (data.username) {
+      // Add system message about user reconnection
+      const chatMessages = document.getElementById('chat-messages');
+      if (chatMessages) {
+        const reconnectMsg = document.createElement('div');
+        reconnectMsg.className = 'chat-message-system';
+        reconnectMsg.innerHTML = `<span>${data.username} has reconnected</span>`;
+        chatMessages.appendChild(reconnectMsg);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    }
+  });
+  
   return socket;
 }
 
@@ -64,12 +97,12 @@ function startHeartbeat(socket) {
   // Clear any existing interval
   stopHeartbeat();
   
-  // Send heartbeat every 30 seconds
+  // Send heartbeat every 15 seconds
   heartbeatInterval = setInterval(() => {
     if (socket && socket.connected) {
       socket.emit('user:heartbeat');
     }
-  }, 30000);
+  }, 15000);
   
   // Send initial heartbeat
   socket.emit('user:heartbeat');
@@ -109,10 +142,17 @@ function updateUserDisplay(users) {
       return;
     }
     
-    // Sort users: current user first, then alphabetically
+    // Sort users: current user first, then online users, then offline users
     const sortedUsers = [...users].sort((a, b) => {
+      // Current user always first
       if (a.username === currentUsername) return -1;
       if (b.username === currentUsername) return 1;
+      
+      // Then sort by status (online first)
+      if (a.status === 'online' && b.status !== 'online') return -1;
+      if (a.status !== 'online' && b.status === 'online') return 1;
+      
+      // Then alphabetically
       return a.username.localeCompare(b.username);
     });
     
@@ -120,9 +160,18 @@ function updateUserDisplay(users) {
       const li = document.createElement('li');
       li.className = 'user-item';
       
+      // Add status-based class
+      if (user.status === 'offline' || user.status === 'inactive') {
+        li.classList.add('user-offline');
+      }
+      
       if (user.username === currentUsername) {
         li.classList.add('current-user');
       }
+      
+      // Create status indicator
+      const statusDot = document.createElement('span');
+      statusDot.className = 'user-status';
       
       const avatar = document.createElement('div');
       avatar.className = 'user-avatar';
@@ -144,6 +193,7 @@ function updateUserDisplay(users) {
       
       nameEl.textContent = displayName;
       
+      li.appendChild(statusDot);
       li.appendChild(avatar);
       li.appendChild(nameEl);
       el.appendChild(li);

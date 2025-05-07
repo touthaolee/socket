@@ -507,6 +507,43 @@
     border-bottom: 1px solid #eee;
   }
 }
+
+/* Add right after the CSS styling section, before the closing </style> tag */
+.user-offline {
+  opacity: 0.5;
+}
+
+.user-offline .user-avatar {
+  background-color: var(--gray);
+}
+
+.user-offline .user-name::after {
+  content: " (Offline)";
+  font-style: italic;
+  font-size: 0.8em;
+  color: var(--gray);
+}
+
+.user-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  background-color: var(--success);
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.user-offline .user-status {
+  background-color: var(--gray);
+}
+
+.chat-message-disconnected {
+  text-align: center;
+  color: var(--gray);
+  font-style: italic;
+  margin: 10px 0;
+}
   </style>
 </head>
 <body>
@@ -960,12 +997,18 @@
         li.className = 'user-item';
         
         // Handle both string usernames and user objects
-        // Updated to properly handle the server's user object format
         const username = typeof user === 'string' ? user : (user.username || 'Anonymous');
         const userId = typeof user === 'string' ? user : (user.userId || user.id || 'unknown');
+        const status = typeof user === 'object' ? (user.status || 'online') : 'online';
         
-        if (username === (window.currentUsername || '')) {
+        // Add current class if it's the current user
+        if (username === window.currentUsername) {
           li.classList.add('current');
+        }
+        
+        // Add status-specific classes
+        if (status === 'offline' || status === 'disconnecting' || status === 'inactive') {
+          li.classList.add('user-offline');
         }
         
         // Create avatar with first letter
@@ -973,13 +1016,28 @@
         avatar.className = 'user-avatar';
         avatar.textContent = (username && username.charAt(0).toUpperCase()) || '?';
         
+        // Add status indicator
+        const statusIndicator = document.createElement('span');
+        statusIndicator.className = 'user-status';
+        
         const name = document.createElement('div');
         name.className = 'user-name';
         name.textContent = username || 'Anonymous';
-        if (username === (window.currentUsername || '')) {
+        
+        if (username === window.currentUsername) {
           name.textContent += ' (You)';
         }
         
+        // User status-specific text
+        if (status === 'inactive') {
+          li.title = 'User is inactive';
+        } else if (status === 'disconnecting') {
+          li.title = 'User is disconnecting';
+        } else if (status === 'offline') {
+          li.title = 'User is offline';
+        }
+        
+        li.appendChild(statusIndicator);
         li.appendChild(avatar);
         li.appendChild(name);
         ul.appendChild(li);
@@ -1001,137 +1059,104 @@
       }
       let token = null;
       try {
-        const response = await fetch('/interac/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username })
-        });
-        const data = await response.json();
-        if (response.ok && data.token) {
-          token = data.token;
-          localStorage.setItem('auth_token', token);
-          log('Obtained JWT token for user: ' + username);
-        } else {
-          log('Login failed: ' + (data.error || 'Unknown error'), 'error');
-          setStatusIndicator('DISCONNECTED');
-          return;
-        }
+        (async () => {
+          try {
+            const response = await fetch('/interac/api/auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username })
+            });
+            const data = await response.json();
+            if (response.ok && data.token) {
+              token = data.token;
+              localStorage.setItem('auth_token', token);
+              log('Obtained JWT token for user: ' + username);
+              completeConnection(token, username);
+            } else {
+              log('Login failed: ' + (data.error || 'Unknown error'), 'error');
+              setStatusIndicator('DISCONNECTED');
+            }
+          } catch (err) {
+            log('Login request failed: ' + err.message, 'error');
+            setStatusIndicator('DISCONNECTED');
+          }
+        })();
       } catch (err) {
-        log('Login request failed: ' + err.message, 'error');
+        log('Error in login process: ' + err.message, 'error');
         setStatusIndicator('DISCONNECTED');
-        return;
       }
-      if (!token) {
-        log('No JWT token available. Cannot connect.', 'error');
-        setStatusIndicator('DISCONNECTED');
-        return;
-      }
-      socket = io({
-        path: '/interac/socket.io',
-        auth: { token, username }
-      });
-      
-      // Connection events
-      socket.on('connect', () => {
-        log('Connected: ' + socket.id);
-        connectTimestamp = Date.now();
-        updateDashboard();
-        startUptime();
-        setStatusIndicator('CONNECTED');
-        socket.emit('user_join', window.currentUsername);
-
-        // Enable chat UI when connected
-        initChatUI();
-        
-        // Important: System message about connection
-        addChatMessage({
-          system: true,
-          message: 'You have connected to the chat room.',
-          timestamp: new Date().toISOString()
-        });
-      });
-      
-      socket.on('disconnect', reason => {
-        log('Disconnected: ' + reason, 'warn');
-        lastDisconnectTime = Date.now();
-        updateDashboard();
-        stopUptime();
-        setStatusIndicator('DISCONNECTED');
-      });
-      
-      socket.on('connect_error', err => {
-        log('Connect error: ' + err.message, 'error');
-        setStatusIndicator('DISCONNECTED');
-      });
-      
-      socket.on('error', err => log('General error: ' + err, 'error'));
-      
-      // Reconnection events
-      socket.on('reconnect_attempt', attempt => {
-        log('Reconnect attempt: ' + attempt, 'warn');
-        setStatusIndicator('CONNECTING');
-      });
-      
-      socket.on('reconnect', attempt => {
-        log('Reconnected after ' + attempt + ' attempt(s)', 'info');
-        reconnectCount++;
-        updateDashboard();
-        setStatusIndicator('CONNECTED');
-      });
-      
-      socket.on('reconnect_error', err => log('Reconnect error: ' + err, 'error'));
-      socket.on('reconnect_failed', () => log('Reconnect failed', 'error'));
-      
-      // Test event
-      socket.on('test_response', data => log('Test response: ' + JSON.stringify(data)));
-      
-      // Ack test
-      socket.on('ack_test', data => log('Ack test event received: ' + JSON.stringify(data)));
-      
-      // Custom ping-pong
-      socket.on('custom_pong', data => {
-        const rtt = Date.now() - lastPingTime;
-        log('Custom pong received. RTT: ' + rtt + ' ms, serverTime: ' + data.serverTime);
-      });
-      
-      // Room events
-      socket.on('room_joined', room => log('Joined room: ' + room));
-      socket.on('room_left', room => log('Left room: ' + room));
-      socket.on('room_announcement', msg => log('Room announcement: ' + msg));
-      socket.on('room_message', data => log(`[Room ${data.room}] ${data.user}: ${data.message}`));
-      socket.on('rate_limited', data => log('Rate limited on event: ' + data.event, 'warn'));
-      
-      // Broadcast
-      socket.on('broadcast_message', data => log(`[Broadcast] ${data.from}: ${data.message}`));
-      
-      // User list
-      socket.on('user_list', users => {
-        updateOnlineUsers(users);
-      });
-      
-      // Engine.IO heartbeat logging
-      if (socket && socket.io && socket.io.engine) {
-        socket.io.engine.on('ping', () => log('Engine.IO ping sent'));
-        socket.io.engine.on('pong', () => log('Engine.IO pong received'));
-      }
-      
-      // CRITICAL FIX: Add the chat_message handler directly here
-      socket.on('chat_message', (data) => {
-        log(`Chat message from ${data.from || 'System'}: ${data.message}`);
-        
-        // Only add message to chat display if it's not from self (already added optimistically)
-        // or if it's a system message
-        if (data.system || data.from !== window.currentUsername) {
-          addChatMessage({
-            from: data.from,
-            message: data.message,
-            timestamp: data.timestamp || new Date().toISOString(),
-            isSelf: data.from === window.currentUsername,
-            system: data.system
-          });
-        }
-      });
     }
+
+function completeConnection(token, username) {
+  if (!token) {
+    log('No JWT token available. Cannot connect.', 'error');
+    setStatusIndicator('DISCONNECTED');
+    return;
+  }
+  
+  // Disconnect any existing connection
+  if (socket) {
+    socket.disconnect();
+  }
+  
+  socket = io({
+    path: '/interac/socket.io',
+    auth: { token, username }
+  });
+  
+  // Connection events
+  socket.on('connect', () => {
+    log('Connected: ' + socket.id);
+    connectTimestamp = Date.now();
+    updateDashboard();
+    startUptime();
+    setStatusIndicator('CONNECTED');
+    
+    // Start the heartbeat mechanism to maintain presence
+    startUserHeartbeat();
+    
+    socket.emit('user_join', window.currentUsername);
+
+    // Enable chat UI when connected
+    initChatUI();
+    
+    // Important: System message about connection
+    addChatMessage({
+      system: true,
+      message: 'You have connected to the chat room.',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  socket.on('disconnect', reason => {
+    log('Disconnected: ' + reason, 'warn');
+    lastDisconnectTime = Date.now();
+    updateDashboard();
+    stopUptime();
+    
+    // Stop the heartbeat mechanism
+    stopUserHeartbeat();
+    
+    setStatusIndicator('DISCONNECTED');
+    
+    // Disable chat UI
+    const chatInput = document.getElementById('chat-input');
+    const chatSendBtn = document.getElementById('chat-send-btn');
+    if (chatInput) chatInput.disabled = true;
+    if (chatSendBtn) chatSendBtn.disabled = true;
+    if (chatInput) chatInput.placeholder = "Connect to start chatting...";
+    
+    // Add system message about disconnection
+    addChatMessage({
+      system: true,
+      message: 'You have been disconnected from the chat.',
+      timestamp: new Date().toISOString()
+    });
+  });
+  
+  // Set up the remaining event handlers
+  setupSocketEventHandlers();
+}
 
     function disconnectSocket() {
       if (socket) {
@@ -1306,7 +1331,6 @@ function sendChatMessage() {
     
     // Clear input
     chatInput.value = '';
-    chatInput.focus();
   }
 }
 
@@ -1892,5 +1916,32 @@ document.addEventListener('DOMContentLoaded', () => {
     log('Chat enhancements loaded with error correction and typing indicators');
   });
 </script>
+<script>
+  // Add user heartbeat function to periodically notify the server that the user is still active
+function startUserHeartbeat() {
+  // Clear any existing heartbeat interval
+  if (window.heartbeatInterval) {
+    clearInterval(window.heartbeatInterval);
+  }
+  
+  // Create a new heartbeat interval that runs every 15 seconds
+  window.heartbeatInterval = setInterval(() => {
+    if (socket && socket.connected) {
+      // Emit heartbeat to server
+      socket.emit('user:heartbeat');
+    } else {
+      // If socket disconnected, stop heartbeat
+      stopUserHeartbeat();
+    }
+  }, 15000); // Every 15 seconds
+}
+
+function stopUserHeartbeat() {
+  if (window.heartbeatInterval) {
+    clearInterval(window.heartbeatInterval);
+    window.heartbeatInterval = null;
+  }
+}
+  </script>
 </body>
 </html>

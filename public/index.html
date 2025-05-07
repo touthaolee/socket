@@ -9,6 +9,77 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* User status indicators for chat */
+    .user-offline {
+      opacity: 0.5;
+    }
+
+    .user-offline .user-avatar {
+      background-color: #6c757d;
+    }
+
+    .user-offline .user-name::after {
+      content: " (Offline)";
+      font-style: italic;
+      font-size: 0.8em;
+      color: #6c757d;
+    }
+
+    .user-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background-color: #4CC9F0;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    .user-offline .user-status {
+      background-color: #6c757d;
+    }
+
+    .chat-message-disconnected {
+      text-align: center;
+      color: #6c757d;
+      font-style: italic;
+      margin: 10px 0;
+    }
+
+    /* Typing indicator styles */
+    .typing-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 8px 12px;
+      background-color: rgba(67, 97, 238, 0.05);
+      border-radius: 16px;
+      margin-bottom: 8px;
+      width: fit-content;
+      font-size: 0.85rem;
+      font-style: italic;
+      color: #6c757d;
+    }
+
+    .typing-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #4361ee;
+      opacity: 0.6;
+      animation: typingDot 1s infinite;
+    }
+
+    .typing-dot:nth-child(1) { animation-delay: 0s; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes typingDot {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-4px); }
+    }
+  </style>
 </head>
 <body>
   <!-- Toast Container for Notifications -->
