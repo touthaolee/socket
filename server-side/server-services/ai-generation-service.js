@@ -1,5 +1,5 @@
 // server-side/server-services/ai-generation-service.js
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const logger = require('../../logger');
 
 // Check if the GEMINI_API_KEY is present in the environment
@@ -8,8 +8,34 @@ if (!process.env.GEMINI_API_KEY) {
   console.error('\x1b[31m%s\x1b[0m', 'ERROR: Missing GEMINI_API_KEY in environment variables. Make sure your .env file contains a valid API key.');
 }
 
-// Initialize Gemini AI with your API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Initialize Gemini AI with your API key using the new SDK
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy-key-for-initialization" });
+
+// Log the SDK version to help with debugging
+logger.info('Using Google Gen AI SDK (@google/genai)');
+
+// Test connection to the API
+async function testGeminiConnection() {
+  try {
+    logger.info('Testing connection to Gemini API...');
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash",
+      contents: "Hello, are you working?"
+    });
+    logger.info('Successfully connected to Gemini API');
+    return true;
+  } catch (error) {
+    logger.error('Failed to connect to Gemini API:', error);
+    return false;
+  }
+}
+
+// Run the test (but don't wait for it)
+testGeminiConnection().then(success => {
+  if (!success) {
+    logger.error('Gemini API connection test failed - AI features will not work properly');
+  }
+});
 
 // Add these imports at the top
 const fs = require('fs');
@@ -184,127 +210,144 @@ function similarity(str1, str2) {
 }
 const aiGenerationService = {
   // Generate a quiz question
-// Inside aiGenerationService object
-
-async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'educational', specificFocus = null) {
-  // Apply throttling
-  await throttleIfNeeded();
-  
-  return await retryWithBackoff(async () => {
-      try {
-          // Enhanced debug logging
-          logger.info(`Starting question generation for topic: "${topic}", difficulty: ${difficulty}, options: ${optionsCount}`);
-          if (!process.env.GEMINI_API_KEY) {
-            logger.error('GEMINI_API_KEY is missing. Cannot generate question.');
-            throw new Error('API key configuration error: GEMINI_API_KEY is missing');
-          }
-          
-          // Create the model
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-          logger.info('Gemini model initialized successfully');
-          
-          // Enhanced prompt for better quality questions
-          let prompt = `Generate a high-quality multiple-choice quiz question about "${topic}" with the following specifications:
+  async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'educational', specificFocus = null) {
+    // Apply throttling
+    await throttleIfNeeded();
+    
+    return await retryWithBackoff(async () => {
+        try {
+            // Enhanced debug logging
+            logger.info(`Starting question generation for topic: "${topic}", difficulty: ${difficulty}, options: ${optionsCount}`);
+            if (!process.env.GEMINI_API_KEY) {
+              logger.error('GEMINI_API_KEY is missing. Cannot generate question.');
+              throw new Error('API key configuration error: GEMINI_API_KEY is missing');
+            }
+            
+            // Enhanced prompt for better quality questions
+            let prompt = `Generate a high-quality multiple-choice quiz question about "${topic}" with the following specifications:
 - Difficulty level: ${difficulty} (ensure appropriate cognitive challenge)
 - ${optionsCount} answer options with exactly ONE correct answer
 - Each option should be plausible but only one clearly correct
 - The correct answer should not be obviously different from wrong answers
 - Ensure all options are similar in length and style to avoid giving clues
 - The question should test understanding, not just recall`;
-          
-          if (specificFocus) {
-              prompt += `\n- Focus specifically on: ${specificFocus}`;
-          }
-          
-          prompt += `\n\nPlease format your response as a JSON object with the following structure:
+            
+            if (specificFocus) {
+                prompt += `\n- Focus specifically on: ${specificFocus}`;
+            }
+            
+            prompt += `\n\nPlease format your response as a JSON object with the following structure:
 {
 "text": "The question text goes here",
 "options": [
-  { "text": "First option text", "isCorrect": false, "rationale": "Brief explanation of why this is incorrect" },
-  { "text": "Second option text", "isCorrect": true, "rationale": "Thorough explanation of why this is correct" },
-  ...
-]
+  "First option text",
+  "Second option text",
+  "Third option text",
+  "Fourth option text"
+],
+"correctIndex": 0,
+"rationale": "Explanation of why the correct answer is right"
 }`;
-          
-          // Set more specific generation parameters for better quality
-          const generationConfig = {
-              temperature: 0.7,
-              topK: 40,
-              topP: 0.95,
-              maxOutputTokens: 1024,
-          };
-          
-          // Generate content
-          logger.info('Sending request to Gemini API');
-          try {
-            const result = await model.generateContent({
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig
-            });
-            logger.info('Successfully received response from Gemini API');
             
-            const response = result.response;
-            const text = response.text();
-            
-            // Enhanced parsing logic with better error handling
-            let questionObject;
+            // Generate content with the new API
+            logger.info('Sending request to Gemini API');
             try {
-                // Extract JSON if it's wrapped in markdown code blocks
-                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
-                                 text.match(/```\n([\s\S]*?)\n```/) || 
-                                 [null, text];
-                
-                const jsonContent = jsonMatch[1].trim();
-                logger.info(`Parsing JSON response of length: ${jsonContent.length} characters`);
-                questionObject = JSON.parse(jsonContent);
-                
-                // Validate the structure
-                if (!questionObject.text || !Array.isArray(questionObject.options)) {
-                    throw new Error('Invalid question structure: missing text or options array');
+              // Using the new SDK approach
+              const response = await ai.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: prompt
+              });
+              
+              logger.info('Successfully received response from Gemini API');
+              const text = response.text;
+              logger.info(`Received response of length: ${text.length} characters`);
+              
+              // Enhanced parsing logic with better error handling
+              let questionObject;
+              try {
+                  // Extract JSON if it's wrapped in markdown code blocks
+                  const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                                   text.match(/```\n([\s\S]*?)\n```/) || 
+                                   [null, text];
+                  
+                  const jsonContent = jsonMatch[1].trim();
+                  logger.info(`Parsing JSON response of length: ${jsonContent.length} characters`);
+                  questionObject = JSON.parse(jsonContent);
+                  
+                  // Validate the structure and potentially fix the formatting
+                  if (!questionObject.text || !Array.isArray(questionObject.options)) {
+                      logger.error('Invalid question structure:', questionObject);
+                      throw new Error('Invalid question structure: missing text or options array');
+                  }
+                  
+                  // Ensure correctIndex is valid
+                  if (typeof questionObject.correctIndex !== 'number' || 
+                      questionObject.correctIndex < 0 || 
+                      questionObject.correctIndex >= questionObject.options.length) {
+                      // Default to first option if missing
+                      questionObject.correctIndex = 0;
+                  }
+                  
+                  // Ensure rationale exists
+                  if (!questionObject.rationale) {
+                      questionObject.rationale = `This is the correct answer: ${questionObject.options[questionObject.correctIndex]}`;
+                  }
+                  
+                  logger.info('Successfully generated and validated question');
+                  return questionObject;
+              } catch (parseError) {
+                  logger.error('Error parsing AI response:', parseError);
+                  logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
+                  throw new Error(`Failed to parse AI response: ${parseError.message}`);
+              }
+            } catch (apiError) {
+              logger.error('Gemini API call failed:', apiError);
+              if (apiError.message && apiError.message.includes('API key')) {
+                logger.error('API key issue detected. Check your GEMINI_API_KEY configuration.');
+              } else if (apiError.message && apiError.message.includes('404')) {
+                logger.error('404 Not Found error. The model endpoint may not exist or be accessible.');
+                logger.error('Trying with fallback model...');
+                // Try with fallback model
+                try {
+                  const fallbackResponse = await ai.models.generateContent({
+                    model: "gemini-1.5-pro",
+                    contents: prompt
+                  });
+                  
+                  logger.info('Successfully received response from fallback Gemini API model');
+                  
+                  const fallbackText = fallbackResponse.text;
+                  // Continue with parsing as before...
+                  const jsonMatch = fallbackText.match(/```json\n([\s\S]*?)\n```/) || 
+                                   fallbackText.match(/```\n([\s\S]*?)\n```/) || 
+                                   [null, fallbackText];
+                  
+                  const jsonContent = jsonMatch[1].trim();
+                  const fallbackQuestionObject = JSON.parse(jsonContent);
+                  
+                  // Same validation as above...
+                  if (!fallbackQuestionObject.text || !Array.isArray(fallbackQuestionObject.options)) {
+                      throw new Error('Invalid question structure from fallback model');
+                  }
+                  
+                  return fallbackQuestionObject;
+                } catch (fallbackError) {
+                  logger.error('Fallback model also failed:', fallbackError);
+                  throw new Error('Both primary and fallback models failed');
                 }
-                
-                // Ensure exactly one correct answer
-                const correctOptions = questionObject.options.filter(o => o.isCorrect);
-                if (correctOptions.length !== 1) {
-                    throw new Error(`Question must have exactly one correct answer, found ${correctOptions.length}`);
-                }
-                
-                // Ensure all options have rationales
-                questionObject.options.forEach(option => {
-                    if (!option.rationale || option.rationale.trim() === '') {
-                        option.rationale = option.isCorrect 
-                            ? "This is the correct answer." 
-                            : "This answer is incorrect.";
-                    }
-                });
-                
-                logger.info('Successfully generated and validated question');
-                return questionObject;
-            } catch (parseError) {
-                logger.error('Error parsing AI response:', parseError);
-                logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
-                throw new Error(`Failed to parse AI response: ${parseError.message}`);
+              }
+              throw apiError;
             }
-          } catch (apiError) {
-            logger.error('Gemini API call failed:', apiError);
-            if (apiError.message && apiError.message.includes('API key')) {
-              logger.error('API key issue detected. Check your GEMINI_API_KEY configuration.');
-            }
-            throw apiError;
-          }
-      } catch (error) {
-          logger.error('Error generating question with AI:', error);
-          throw error;
-      }
-  });
-},
+        } catch (error) {
+            logger.error('Error generating question with AI:', error);
+            throw error;
+        }
+    });
+  },
   
   // Generate a rationale for a question
   async generateRationale(question, correctAnswer, incorrectAnswers = [], tone = 'educational') {
     try {
-      // Create the model
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-      
       // Build the prompt
       const incorrectAnswersText = incorrectAnswers.length > 0 
         ? `\nIncorrect answers:\n${incorrectAnswers.map(a => `- ${a}`).join('\n')}` 
@@ -316,12 +359,13 @@ Correct answer: ${correctAnswer}${incorrectAnswersText}
 Please generate a clear and concise explanation for why the correct answer is right and the others are wrong.
 Use a ${tone} tone. Keep the explanation under 100 words.`;
       
-      // Generate content
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
+      // Generate content with new SDK
+      const response = await ai.models.generateContent({
+        model: "gemini-1.5-pro",
+        contents: prompt
+      });
       
-      return text;
+      return response.text;
     } catch (error) {
       console.error('Error generating rationale with AI:', error);
       throw error;
