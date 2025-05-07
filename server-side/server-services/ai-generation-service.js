@@ -1,15 +1,19 @@
 // server-side/server-services/ai-generation-service.js
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const logger = require('../../logger');
+
+// Check if the GEMINI_API_KEY is present in the environment
+if (!process.env.GEMINI_API_KEY) {
+  logger.error('CRITICAL ERROR: GEMINI_API_KEY environment variable is not set. AI functions will not work.');
+  console.error('\x1b[31m%s\x1b[0m', 'ERROR: Missing GEMINI_API_KEY in environment variables. Make sure your .env file contains a valid API key.');
+}
 
 // Initialize Gemini AI with your API key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// server-side/server-services/ai-generation-service.js
-
 // Add these imports at the top
 const fs = require('fs');
 const path = require('path');
-const logger = require('../../logger');
 
 // Enhanced rate limiting and retry logic
 const aiGenerationState = {
@@ -188,8 +192,16 @@ async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'e
   
   return await retryWithBackoff(async () => {
       try {
+          // Enhanced debug logging
+          logger.info(`Starting question generation for topic: "${topic}", difficulty: ${difficulty}, options: ${optionsCount}`);
+          if (!process.env.GEMINI_API_KEY) {
+            logger.error('GEMINI_API_KEY is missing. Cannot generate question.');
+            throw new Error('API key configuration error: GEMINI_API_KEY is missing');
+          }
+          
           // Create the model
           const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+          logger.info('Gemini model initialized successfully');
           
           // Enhanced prompt for better quality questions
           let prompt = `Generate a high-quality multiple-choice quiz question about "${topic}" with the following specifications:
@@ -223,49 +235,62 @@ async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'e
           };
           
           // Generate content
-          const result = await model.generateContent({
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              generationConfig
-          });
-          
-          const response = result.response;
-          const text = response.text();
-          
-          // Enhanced parsing logic with better error handling
-          let questionObject;
+          logger.info('Sending request to Gemini API');
           try {
-              // Extract JSON if it's wrapped in markdown code blocks
-              const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
-                               text.match(/```\n([\s\S]*?)\n```/) || 
-                               [null, text];
-              
-              const jsonContent = jsonMatch[1].trim();
-              questionObject = JSON.parse(jsonContent);
-              
-              // Validate the structure
-              if (!questionObject.text || !Array.isArray(questionObject.options)) {
-                  throw new Error('Invalid question structure: missing text or options array');
-              }
-              
-              // Ensure exactly one correct answer
-              const correctOptions = questionObject.options.filter(o => o.isCorrect);
-              if (correctOptions.length !== 1) {
-                  throw new Error(`Question must have exactly one correct answer, found ${correctOptions.length}`);
-              }
-              
-              // Ensure all options have rationales
-              questionObject.options.forEach(option => {
-                  if (!option.rationale || option.rationale.trim() === '') {
-                      option.rationale = option.isCorrect 
-                          ? "This is the correct answer." 
-                          : "This answer is incorrect.";
-                  }
-              });
-              
-              return questionObject;
-          } catch (parseError) {
-              logger.error('Error parsing AI response:', parseError, text.substring(0, 200));
-              throw new Error(`Failed to parse AI response: ${parseError.message}`);
+            const result = await model.generateContent({
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig
+            });
+            logger.info('Successfully received response from Gemini API');
+            
+            const response = result.response;
+            const text = response.text();
+            
+            // Enhanced parsing logic with better error handling
+            let questionObject;
+            try {
+                // Extract JSON if it's wrapped in markdown code blocks
+                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                                 text.match(/```\n([\s\S]*?)\n```/) || 
+                                 [null, text];
+                
+                const jsonContent = jsonMatch[1].trim();
+                logger.info(`Parsing JSON response of length: ${jsonContent.length} characters`);
+                questionObject = JSON.parse(jsonContent);
+                
+                // Validate the structure
+                if (!questionObject.text || !Array.isArray(questionObject.options)) {
+                    throw new Error('Invalid question structure: missing text or options array');
+                }
+                
+                // Ensure exactly one correct answer
+                const correctOptions = questionObject.options.filter(o => o.isCorrect);
+                if (correctOptions.length !== 1) {
+                    throw new Error(`Question must have exactly one correct answer, found ${correctOptions.length}`);
+                }
+                
+                // Ensure all options have rationales
+                questionObject.options.forEach(option => {
+                    if (!option.rationale || option.rationale.trim() === '') {
+                        option.rationale = option.isCorrect 
+                            ? "This is the correct answer." 
+                            : "This answer is incorrect.";
+                    }
+                });
+                
+                logger.info('Successfully generated and validated question');
+                return questionObject;
+            } catch (parseError) {
+                logger.error('Error parsing AI response:', parseError);
+                logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
+                throw new Error(`Failed to parse AI response: ${parseError.message}`);
+            }
+          } catch (apiError) {
+            logger.error('Gemini API call failed:', apiError);
+            if (apiError.message && apiError.message.includes('API key')) {
+              logger.error('API key issue detected. Check your GEMINI_API_KEY configuration.');
+            }
+            throw apiError;
           }
       } catch (error) {
           logger.error('Error generating question with AI:', error);

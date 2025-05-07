@@ -7,6 +7,8 @@ export const aiService = {
       try {
         const token = getToken();
         
+        console.log('Generating question for topic:', topic, 'with config:', config);
+        
         const response = await fetch('/interac/api/ai/generate-question', {
           method: 'POST',
           headers: {
@@ -23,12 +25,43 @@ export const aiService = {
         });
         
         if (!response.ok) {
-          throw new Error('Failed to generate question');
+          try {
+            const errorData = await response.json();
+            console.error('Server error details:', errorData);
+            
+            // If we have detailed error information, show it in the UI
+            if (errorData && errorData.details) {
+              // Display a more user-friendly error in the console
+              let errorMessage = `Server error (${response.status}): ${errorData.error}`;
+              
+              if (errorData.details.message) {
+                errorMessage += ` - ${errorData.details.message}`;
+              }
+              
+              if (errorData.details.suggestion) {
+                errorMessage += `\nSuggestion: ${errorData.details.suggestion}`;
+              }
+              
+              throw new Error(errorMessage);
+            } else {
+              throw new Error(errorData.error || `Server error: ${response.status}`);
+            }
+          } catch (parseError) {
+            // If we can't parse the error response
+            throw new Error(`Server error: ${response.status}`);
+          }
         }
         
         return await response.json();
       } catch (error) {
         console.error('Error generating question:', error);
+        
+        // Provide fallback if there's a network error or other issue
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          console.warn('Network error detected, using fallback question generation');
+          return this.generateMockQuestion(topic, config);
+        }
+        
         throw error;
       }
     },
@@ -226,6 +259,28 @@ export const aiService = {
         console.error('Error generating rationale:', error);
         throw error;
       }
+    },
+    
+    // Generate a mock question when the server fails
+    generateMockQuestion(topic, config = {}) {
+      console.log('Generating mock question for topic:', topic);
+      const difficulty = config.difficulty || 'medium';
+      const optionsCount = config.optionsPerQuestion || 4;
+      
+      // Create a basic placeholder question
+      const question = {
+        text: `Sample question about ${topic} (${difficulty} difficulty)`,
+        options: [],
+        correctIndex: 0,
+        rationale: `This is a sample rationale for a question about ${topic}.`
+      };
+      
+      // Generate some plausible options
+      for (let i = 0; i < optionsCount; i++) {
+        question.options.push(`Sample option ${i + 1} for ${topic}`);
+      }
+      
+      return question;
     }
   };
   

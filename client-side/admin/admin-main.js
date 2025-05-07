@@ -854,13 +854,20 @@ function startQuizGeneration(quizData) {
   }
   
   // Helper function to add log entries
-  function addLogEntry(text) {
+  function addLogEntry(text, isError = false) {
     const logContainer = document.getElementById('generation-log-container');
     if (logContainer) {
-      logContainer.innerHTML += `<div class="log-entry">${text}</div>`;
+      const entryElement = document.createElement('div');
+      entryElement.className = `log-entry${isError ? ' log-error' : ''}`;
+      entryElement.textContent = text;
+      logContainer.appendChild(entryElement);
       logContainer.scrollTop = logContainer.scrollHeight;
     }
   }
+  
+  // Add initial log entry
+  addLogEntry('Starting quiz generation for topic: ' + quizData.aiOptions.topic);
+  addLogEntry('Connecting to AI service...');
   
   // Generate questions in batches
   generateQuizQuestions(quizData, {
@@ -884,33 +891,103 @@ function startQuizGeneration(quizData) {
       }
     },
     onBatchComplete: (batch, batchNumber, totalBatches) => {
-      addLogEntry(`Batch ${batchNumber}/${totalBatches} complete: ${batch.length} questions generated`);
+      const hasMockQuestions = batch.some(q => q.text.includes('Sample question about'));
+      if (hasMockQuestions) {
+        addLogEntry(`Batch ${batchNumber}/${totalBatches} complete with fallback questions due to server issues`, true);
+      } else {
+        addLogEntry(`Batch ${batchNumber}/${totalBatches} complete: ${batch.length} questions generated`);
+      }
     },
     onComplete: async (questions) => {
-      addLogEntry(`Generation complete: ${questions.length} questions generated`);
+      const mockCount = questions.filter(q => q.text.includes('Sample question about')).length;
+      if (mockCount > 0) {
+        addLogEntry(`Generation complete: ${questions.length} questions generated (${mockCount} fallback questions due to server issues)`, mockCount === questions.length);
+      } else {
+        addLogEntry(`Generation complete: ${questions.length} questions generated`);
+      }
       
       // Clean up
       clearInterval(elapsedTimeInterval);
       
-      // Hide progress modal
-      if (progressModal) {
-        progressModal.style.display = 'none';
+      // Add option to continue with the generated questions
+      const generateAgainBtn = document.createElement('button');
+      generateAgainBtn.className = 'btn-outline';
+      generateAgainBtn.textContent = 'Try Generating Again';
+      generateAgainBtn.style.marginRight = '10px';
+      
+      const continueBtn = document.createElement('button');
+      continueBtn.className = 'btn';
+      continueBtn.textContent = 'Continue with Generated Questions';
+      
+      const actionContainer = document.createElement('div');
+      actionContainer.className = 'generation-actions';
+      actionContainer.style.marginTop = '15px';
+      actionContainer.style.display = 'flex';
+      actionContainer.style.justifyContent = 'center';
+      actionContainer.style.gap = '10px';
+      
+      if (mockCount > 0) {
+        actionContainer.appendChild(generateAgainBtn);
+      }
+      actionContainer.appendChild(continueBtn);
+      
+      const logContainer = document.getElementById('generation-log-container');
+      if (logContainer) {
+        logContainer.appendChild(actionContainer);
       }
       
-      // Create final quiz object
-      const finalQuizData = {
-        ...quizData,
-        questions,
-        status: 'draft',
-        createdAt: new Date().toISOString()
-      };
+      // Handle try again button
+      generateAgainBtn.addEventListener('click', () => {
+        // Hide the action buttons
+        actionContainer.style.display = 'none';
+        
+        // Start generation again
+        addLogEntry('Retrying generation...');
+        startQuizGeneration(quizData);
+      });
       
-      // Save quiz
-      delete finalQuizData.aiOptions;
-      await saveQuiz(finalQuizData);
+      // Handle continue button
+      continueBtn.addEventListener('click', async () => {
+        // Hide progress modal
+        if (progressModal) {
+          progressModal.style.display = 'none';
+        }
+        
+        // Create final quiz object
+        const finalQuizData = {
+          ...quizData,
+          questions,
+          status: 'draft',
+          createdAt: new Date().toISOString()
+        };
+        
+        // Save quiz
+        delete finalQuizData.aiOptions;
+        await saveQuiz(finalQuizData);
+      });
     },
     onError: (error) => {
-      addLogEntry(`Error: ${error.message}`);
+      addLogEntry(`Error: ${error.message}`, true);
+      
+      // Add a retry button
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'btn';
+      retryBtn.textContent = 'Retry Generation';
+      retryBtn.style.marginTop = '15px';
+      
+      const logContainer = document.getElementById('generation-log-container');
+      if (logContainer) {
+        logContainer.appendChild(retryBtn);
+      }
+      
+      retryBtn.addEventListener('click', () => {
+        // Hide the retry button
+        retryBtn.style.display = 'none';
+        
+        // Start generation again
+        addLogEntry('Retrying generation...');
+        startQuizGeneration(quizData);
+      });
       
       // Clean up
       clearInterval(elapsedTimeInterval);

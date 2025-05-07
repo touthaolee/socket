@@ -9,6 +9,13 @@ if (!process.env.JWT_SECRET) {
   process.exit(1); // Exit with error code
 }
 
+// Validate AI configuration
+if (!process.env.GEMINI_API_KEY) {
+  console.warn('WARNING: GEMINI_API_KEY environment variable is not set!');
+  console.warn('AI features will not work correctly without a valid Gemini API key.');
+  console.warn('Please set GEMINI_API_KEY in your environment or .env file.');
+}
+
 module.exports = {
   jwt: {
     secret: process.env.JWT_SECRET,
@@ -16,5 +23,9 @@ module.exports = {
   },
   server: {
     port: process.env.PORT || 8080
+  },
+  ai: {
+    geminiApiKey: process.env.GEMINI_API_KEY,
+    enabled: !!process.env.GEMINI_API_KEY
   }
 };

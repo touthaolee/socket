@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { authService, aiGenerationService } = require('../service-registry');
+const logger = require('../../logger');
 
 // Middleware to verify JWT token
 const verifyToken = (req, res, next) => {
@@ -29,18 +30,62 @@ router.post('/generate-question', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Topic is required' });
     }
     
-    const question = await aiGenerationService.generateQuestion(
-      topic,
-      difficulty || 'medium',
-      optionsCount || 4,
-      rationaleTone || 'educational',
-      specificFocus
-    );
+    // Check for Gemini API key before attempting to generate
+    if (!process.env.GEMINI_API_KEY) {
+      logger.error('GEMINI_API_KEY environment variable is missing, API request will fail');
+      return res.status(500).json({ 
+        error: 'Server configuration error: GEMINI_API_KEY is missing',
+        details: 'The server is missing the Gemini API key in its environment configuration'
+      });
+    }
     
-    res.json(question);
+    logger.info(`Generating question for topic: "${topic}", difficulty: ${difficulty || 'medium'}`);
+    
+    try {
+      const question = await aiGenerationService.generateQuestion(
+        topic,
+        difficulty || 'medium',
+        optionsCount || 4,
+        rationaleTone || 'educational',
+        specificFocus
+      );
+      
+      logger.info('Question generated successfully');
+      res.json(question);
+    } catch (aiError) {
+      logger.error('AI generation failed:', aiError);
+      
+      // Return more detailed error information to help diagnose the issue
+      let errorDetails = {};
+      
+      if (aiError.message && aiError.message.includes('API key')) {
+        errorDetails = {
+          type: 'api_key_error',
+          message: 'There was an issue with the Gemini API key',
+          suggestion: 'Verify that the GEMINI_API_KEY in the server environment is valid and has not expired'
+        };
+      } else if (aiError.message && aiError.message.includes('rate limit')) {
+        errorDetails = {
+          type: 'rate_limit_error',
+          message: 'The server is being rate-limited by the Gemini API',
+          suggestion: 'Try again later when rate limits have reset'
+        };
+      } else if (aiError.message && aiError.message.includes('parse')) {
+        errorDetails = {
+          type: 'parsing_error',
+          message: 'The server received a response from Gemini but could not parse it correctly',
+          suggestion: 'This is a server-side issue, please report it to the administrator'
+        };
+      }
+      
+      res.status(500).json({ 
+        error: 'Failed to generate question', 
+        details: errorDetails
+      });
+    }
   } catch (error) {
-    console.error('Error generating question:', error);
-    res.status(500).json({ error: 'Failed to generate question' });
+    logger.error('Error in generate-question endpoint:', error);
+    res.status(500).json({ error: 'Failed to process question generation request' });
   }
 });
 
