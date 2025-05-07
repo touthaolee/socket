@@ -10,6 +10,7 @@ const SETTINGS_KEY = 'app_settings';
 // Cookie keys
 const USER_COOKIE_KEY = 'user_identity';
 const TOKEN_COOKIE_KEY = 'user_session';
+const LOGOUT_SYNC_KEY = 'app_logout_event';
 
 // Cookie utility functions
 // Set a cookie with expiration
@@ -69,6 +70,21 @@ export function getUserIdentityFromCookie() {
   } catch (error) {
     console.error('Error reading user identity cookie:', error);
     return null;
+  }
+}
+
+// Update last active timestamp for user identity cookie
+export function updateUserLastActive() {
+  try {
+    const userIdentity = getUserIdentityFromCookie();
+    if (!userIdentity) return false;
+    
+    userIdentity.lastActive = new Date().toISOString();
+    setCookie(USER_COOKIE_KEY, btoa(JSON.stringify(userIdentity)), 30);
+    return true;
+  } catch (error) {
+    console.error('Error updating user last active timestamp:', error);
+    return false;
   }
 }
 
@@ -175,7 +191,6 @@ export function clearClientCache() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(USERNAME_KEY);
-    localStorage.removeItem(THEME_KEY);
     localStorage.removeItem(SETTINGS_KEY);
     localStorage.removeItem('socketId');
     // Remove all sessionStorage
@@ -190,6 +205,58 @@ export function clearClientCache() {
   }
 }
 
+// Clear data across all browser tabs by triggering a storage event
+export function clearAllTabsData() {
+  try {
+    // First, try to use BroadcastChannel
+    let broadcastSuccessful = false;
+    try {
+      const logoutChannel = new BroadcastChannel('app_logout_channel');
+      logoutChannel.postMessage('logout');
+      broadcastSuccessful = true;
+      
+      // Close the channel after a short delay
+      setTimeout(() => {
+        try {
+          logoutChannel.close();
+        } catch (e) {
+          // Ignore errors on close
+        }
+      }, 500);
+    } catch (e) {
+      console.warn('BroadcastChannel not supported in this browser:', e);
+    }
+    
+    // If BroadcastChannel failed or isn't supported, fall back to localStorage
+    if (!broadcastSuccessful) {
+      localStorage.setItem(LOGOUT_SYNC_KEY, 'true');
+      // Remove it after a short delay to ensure it triggers storage events
+      setTimeout(() => {
+        localStorage.removeItem(LOGOUT_SYNC_KEY);
+      }, 100);
+    }
+    
+    // Clear the current tab's data
+    clearClientCache();
+    
+    return true;
+  } catch (e) {
+    console.error('Error clearing data across tabs:', e);
+    return false;
+  }
+}
+
+// Check if a user is active across all browser tabs
+export function isUserActiveInAnyTab() {
+  try {
+    // Use localStorage to check if at least one tab has an active user
+    return !!getTokenFromStorage() || !!getUserIdentityFromCookie();
+  } catch (e) {
+    console.error('Error checking user activity across tabs:', e);
+    return false;
+  }
+}
+
 // Export additional storage functions as needed
 export {
   TOKEN_KEY,
@@ -198,5 +265,6 @@ export {
   THEME_KEY,
   SETTINGS_KEY,
   USER_COOKIE_KEY,
-  TOKEN_COOKIE_KEY
+  TOKEN_COOKIE_KEY,
+  LOGOUT_SYNC_KEY
 };
