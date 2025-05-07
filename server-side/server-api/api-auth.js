@@ -7,9 +7,9 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth-middlewa
 
 // Rate limiting to prevent brute force attacks
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Increased to 10 attempts
-  message: { error: 'Too many login attempts, please try again later' }
+  windowMs: 10 * 1000, // 10 seconds (changed from 15 minutes)
+  max: 5, // 5 attempts within 10 seconds
+  message: { error: 'Too many login attempts, please try again in 10 seconds' }
 });
 
 // Register route

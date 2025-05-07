@@ -188,16 +188,16 @@ const requirePermission = (requiredPermissions) => {
  * Prevents brute force attacks
  */
 const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
+  windowMs: 10 * 1000, // 10 seconds (changed from 15 minutes)
+  max: 5, // 5 attempts per window
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
     logger.warn(`Rate limit exceeded for IP: ${req.ip}`);
     res.status(429).json({
       error: 'Too many attempts',
-      message: 'Too many login attempts. Please try again later.',
-      retryAfter: Math.ceil(15 * 60 / 60) // Minutes until reset
+      message: 'Too many login attempts. Please try again in 10 seconds.',
+      retryAfter: 10 // Seconds until reset
     });
   }
 });

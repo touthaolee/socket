@@ -405,6 +405,7 @@
       overflow: hidden;
       box-shadow: var(--shadow);
       flex-direction: column;
+      max-height: 80vh; /* Limit height on mobile */
     }
 
     .chat-sidebar {
@@ -413,8 +414,9 @@
       border-bottom: 1px solid #eee;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      overflow-y: auto; /* Make sidebar scrollable */
       max-height: 150px;
+      -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
     }
 
     .chat-main {
@@ -422,6 +424,8 @@
       display: flex;
       flex-direction: column;
       background-color: white;
+      min-height: 0; /* Critical for nested flex scrolling */
+      overflow: hidden; /* Contain overflow */
     }
 
     .chat-messages {
@@ -429,73 +433,9 @@
       padding: 16px;
       overflow-y: auto;
       background-color: #f8f9fa;
-    }
-
-    .chat-message {
-      margin-bottom: 12px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      max-width: 85%;
-      animation: fadeIn 0.3s;
-    }
-
-    .chat-message-self {
-      background-color: #4361ee;
-      color: white;
-      align-self: flex-end;
-      margin-left: auto;
-    }
-
-    .chat-message-other {
-      background-color: white;
-      border: 1px solid #eee;
-      align-self: flex-start;
-    }
-
-    .chat-message-system {
-      background-color: #f8f9fa;
-      border: 1px solid #eee;
-      color: #6c757d;
-      font-style: italic;
-      text-align: center;
-      max-width: 100%;
-      margin: 8px auto;
-    }
-
-    .chat-message-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 4px;
-      flex-wrap: wrap;
-    }
-
-    .chat-message-name {
-      font-weight: 600;
-      margin-right: 8px;
-    }
-
-    .chat-message-time {
-      font-size: 0.8em;
-      color: rgba(255, 255, 255, 0.7);
-    }
-
-    .chat-message-other .chat-message-time {
-      color: #6c757d;
-    }
-
-    .chat-message-content {
-      word-break: break-word;
-    }
-
-    .chat-input-container {
-      display: flex;
-      padding: 12px;
-      border-top: 1px solid #eee;
-    }
-
-    .chat-input-container input {
-      flex: 1;
-      margin-right: 8px;
+      -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+      min-height: 0; /* Critical for nested flex containers */
+      max-height: 100%; /* Ensure it takes available space */
     }
 
     .welcome-message {
