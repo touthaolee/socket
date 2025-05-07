@@ -1,6 +1,6 @@
 // server-side/server-socket/socket-events.js
 const { Server } = require('socket.io');
-const { setupAuthMiddleware, handleDisconnect, registerQuizHandlers, registerChatHandlers, registerPresenceHandlers } = require('./socket-handlers');
+const { setupAuthMiddleware, handleDisconnect, registerQuizHandlers, registerChatHandlers, registerPresenceHandlers, registerCleanupHandlers } = require('./socket-handlers');
 
 let io;
 
@@ -35,6 +35,7 @@ function initSocketServer(server) {
     registerQuizHandlers(io, socket);
     registerChatHandlers(io, socket);
     registerPresenceHandlers(io, socket); // Register presence handlers
+    registerCleanupHandlers(io, socket);  // Register cleanup handlers
     
     // Emit the user list is now handled by presence system
     

@@ -525,6 +525,25 @@ function clearOfflineUsers() {
     return removedCount;
 }
 
+// Add handler for the clear_offline_users event
+function registerCleanupHandlers(io, socket) {
+    const logger = require('../../logger');
+    
+    socket.on('clear_offline_users', () => {
+        const removedCount = clearOfflineUsers();
+        logger.info(`User ${socket.user?.username || 'Anonymous'} requested cleanup of offline users`);
+        
+        // Broadcast updated user list after cleanup
+        broadcastUserList(io);
+        
+        // Send confirmation back to the requesting client
+        socket.emit('offline_users_cleared', { 
+            count: removedCount,
+            timestamp: new Date().toISOString()
+        });
+    });
+}
+
 module.exports = {
     registerQuizHandlers,
     setupAuthMiddleware,
@@ -533,5 +552,6 @@ module.exports = {
     registerPresenceHandlers,
     isUsernameActive, // Export the username checking function
     checkUsernameAvailability,
-    clearOfflineUsers // Export the cleanup function
+    clearOfflineUsers, // Export the cleanup function
+    registerCleanupHandlers // Export the new cleanup handlers function
 };
