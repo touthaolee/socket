@@ -926,22 +926,105 @@ function generateQuizQuestions(quizData, callbacks) {
   // Helper function to check if generation should continue
   const shouldContinue = () => !generationCancelled;
   
-  // Start generation process
-  aiService.generateQuizQuestions({
-    topic: aiOptions.topic,
-    numQuestions: aiOptions.numQuestions,
-    difficulty: aiOptions.difficulty,
-    optionsPerQuestion: aiOptions.optionsPerQuestion,
-    rationaleTone: aiOptions.rationaleTone,
-    specificFocuses: aiOptions.specificFocuses,
-    batchSize: aiOptions.batchSize
-  }, {
-    onProgress,
-    onBatchComplete,
-    onComplete,
-    onError,
-    shouldContinue
-  });
+  // Debug the aiService to ensure it's properly loaded
+  console.log('AI Service object:', aiService);
+  console.log('generateQuizQuestions function exists:', typeof aiService.generateQuizQuestions === 'function');
+  
+  // Safely call the method with a fallback implementation if needed
+  if (typeof aiService.generateQuizQuestions === 'function') {
+    // Use the existing method from the service
+    aiService.generateQuizQuestions({
+      topic: aiOptions.topic,
+      numQuestions: aiOptions.numQuestions,
+      difficulty: aiOptions.difficulty,
+      optionsPerQuestion: aiOptions.optionsPerQuestion,
+      rationaleTone: aiOptions.rationaleTone,
+      specificFocuses: aiOptions.specificFocuses,
+      batchSize: aiOptions.batchSize
+    }, {
+      onProgress,
+      onBatchComplete,
+      onComplete,
+      onError,
+      shouldContinue
+    });
+  } else {
+    // Fallback implementation
+    console.warn('aiService.generateQuizQuestions not found, using fallback implementation');
+    
+    // Implement a basic version in-place to handle the generation
+    (async function() {
+      try {
+        const batchSize = aiOptions.batchSize || 5;
+        const totalQuestions = aiOptions.numQuestions;
+        const totalBatches = Math.ceil(totalQuestions / batchSize);
+        let generatedQuestions = [];
+        let currentBatch = 1;
+        let generatedCount = 0;
+        
+        // Report initial progress
+        onProgress(0, 0, totalQuestions);
+        
+        // Process in batches
+        while (generatedCount < totalQuestions) {
+          // Check if we should continue
+          if (!shouldContinue()) {
+            onError(new Error('Generation cancelled by user'));
+            return;
+          }
+          
+          // Calculate how many to generate in this batch
+          const batchCount = Math.min(batchSize, totalQuestions - generatedCount);
+          
+          try {
+            // Generate batch using the lower-level API
+            console.log(`Generating batch ${currentBatch}/${totalBatches} (${batchCount} questions)...`);
+            
+            // Use the available generateQuestions method instead
+            const batchQuestions = await aiService.generateQuestions(
+              aiOptions.topic,
+              batchCount,
+              {
+                difficulty: aiOptions.difficulty,
+                rationaleTone: aiOptions.rationaleTone,
+                optionsPerQuestion: aiOptions.optionsPerQuestion,
+                specificFocuses: aiOptions.specificFocuses ? 
+                  aiOptions.specificFocuses.split(',').map(f => f.trim()) : []
+              }
+            );
+            
+            // Add to results
+            generatedQuestions = generatedQuestions.concat(batchQuestions);
+            generatedCount += batchQuestions.length;
+            
+            // Report progress
+            onProgress(
+              (generatedCount / totalQuestions) * 100,
+              generatedCount,
+              totalQuestions
+            );
+            
+            // Report batch completion
+            onBatchComplete(batchQuestions, currentBatch, totalBatches);
+            
+            currentBatch++;
+          } catch (error) {
+            console.error(`Error in batch ${currentBatch}:`, error);
+            // Continue with next batch despite errors
+          }
+          
+          // Small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Complete
+        onComplete(generatedQuestions);
+      } catch (error) {
+        console.error('Error in fallback quiz generation:', error);
+        onError(error);
+      }
+    })();
+  }
 }
 
 // Save quiz to server
