@@ -132,6 +132,7 @@ function registerChatHandlers(io, socket) {
     });
 }
 
+// Handle user authentication middleware
 function setupAuthMiddleware(io, options = {}) {
     const logger = require('../../logger');
     const rateLimit = {};
@@ -162,22 +163,36 @@ function setupAuthMiddleware(io, options = {}) {
 
             const token = socket.handshake.auth?.token || socket.handshake.query?.token;
             const username = socket.handshake.auth?.username || socket.handshake.query?.username;
+            const userId = socket.handshake.auth?.userId || socket.handshake.query?.userId;
+            const isPreviousUser = socket.handshake.auth?.isPreviousUser || socket.handshake.query?.isPreviousUser;
             
             if (!token) {
                 // Allow guest/test connections with just a username
                 if (username) {
-                    // Check if the username is already active
-                    if (isUsernameActive(username)) {
+                    // Check if the username is already active but this is NOT a returning user with the same userId
+                    if (isUsernameActive(username) && !(isPreviousUser && userId && hasMatchingUserIdForUsername(username, userId))) {
                         logger.warn('Username already active', username, ip);
                         return next(new Error('Username already in use. Please choose a different username.'));
                     }
                     
                     socket.user = {
-                        id: `guest_${Date.now()}_${Math.floor(Math.random()*10000)}`,
+                        id: userId || `guest_${Date.now()}_${Math.floor(Math.random()*10000)}`,
                         username,
                         role: 'guest',
-                        guest: true
+                        guest: true,
+                        isPreviousUser
                     };
+                    
+                    // If this is a returning user, explicitly remove any lingering sessions
+                    if (isPreviousUser && userId) {
+                        forceRemoveUserById(userId);
+                        logger.info('Forced removal of previous user session before reconnect', {
+                            username, 
+                            userId,
+                            ip
+                        });
+                    }
+                    
                     logger.info('Guest/username-only connection allowed', ip, username);
                     return next();
                 } else {
@@ -311,16 +326,23 @@ function registerPresenceHandlers(io, socket) {
             // Remove this socket ID
             userData.socketIds.delete(socket.id);
             
-            // Immediately remove user from active users list on explicit logout
-            activeUsers.delete(userId);
+            // Check if this is a force remove request (from explicit logout)
+            if (data.forceRemove) {
+                // Immediately remove user from active users list on explicit logout
+                activeUsers.delete(userId);
+                logger.info(`User force removed from active list after logout: ${username}`);
+            } else {
+                // If no more sockets, mark as offline
+                if (userData.socketIds.size === 0) {
+                    userData.status = 'offline';
+                }
+            }
             
             // Notify other users that this user logged out
             socket.broadcast.emit('user_disconnected', { username: data.username || username });
             
             // Update the user list for all clients
             broadcastUserList(io);
-            
-            logger.info(`User removed from active list after logout: ${username}`);
         }
     });
     
@@ -496,8 +518,13 @@ function isUsernameActive(username) {
     
     // Check all active users
     for (const userData of activeUsers.values()) {
+        // Only consider a username active if:
+        // 1. The username matches (case insensitive)
+        // 2. The user is genuinely online (not offline/disconnecting)
+        // 3. They have at least one active socket connection
         if (userData.username.toLowerCase() === lowerUsername && 
-            (userData.status === 'online' || userData.status === 'inactive')) {
+            (userData.status === 'online' || userData.status === 'inactive') &&
+            userData.socketIds.size > 0) {
             return true;
         }
     }
@@ -584,6 +611,35 @@ function registerCleanupHandlers(io, socket) {
     });
 }
 
+// New helper function to check if a username and userId match
+// This is used to verify if a returning user with a cookie is legitimately the same user
+function hasMatchingUserIdForUsername(username, userId) {
+    // Check if this userId was previously associated with this username
+    for (const [storedUserId, userData] of activeUsers.entries()) {
+        if (userData.username.toLowerCase() === username.toLowerCase() && 
+            storedUserId === userId) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Force remove a user by their userId
+function forceRemoveUserById(userId) {
+    if (activeUsers.has(userId)) {
+        const userData = activeUsers.get(userId);
+        
+        // Log the forced removal
+        const logger = require('../../logger');
+        logger.info(`Forcing removal of user by ID: ${userId}, username: ${userData.username}`);
+        
+        // Delete from active users map
+        activeUsers.delete(userId);
+        return true;
+    }
+    return false;
+}
+
 // Expose functions for use by other modules
 module.exports = {
     registerQuizHandlers,
@@ -596,5 +652,7 @@ module.exports = {
     clearAllUsers,
     isUsernameActive,
     checkUsernameAvailability,
-    clearOfflineUsers
+    clearOfflineUsers,
+    hasMatchingUserIdForUsername,
+    forceRemoveUserById
 };

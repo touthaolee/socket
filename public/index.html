@@ -390,7 +390,12 @@
     
     // Add logout handler
     document.getElementById('logout-btn').addEventListener('click', function() {
-      // Use the proper socketClient disconnect method
+      // First, disable the logout button to prevent multiple clicks
+      const logoutBtn = document.getElementById('logout-btn');
+      logoutBtn.disabled = true;
+      logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging out...';
+      
+      // Use the proper socketClient disconnect method with force removal
       socketClient.disconnect();
       
       // Proceed with regular logout process
@@ -401,15 +406,126 @@
       // Reset any persistent socket data
       localStorage.removeItem('socketId');
       
-      // Show auth container, hide app container
-      document.getElementById('auth-container').style.display = '';
-      document.getElementById('app-container').style.display = 'none';
+      // Clear any session storage items too
+      sessionStorage.clear();
       
-      // Clear the login form
-      const usernameInput = document.getElementById('username');
-      const passwordInput = document.getElementById('password');
-      if (usernameInput) usernameInput.value = '';
-      if (passwordInput) passwordInput.value = '';
+      // Wait a moment to ensure the server processes the logout before allowing a new login
+      setTimeout(() => {
+        // Show auth container, hide app container
+        document.getElementById('auth-container').style.display = '';
+        document.getElementById('app-container').style.display = 'none';
+        
+        // Clear the login form
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        if (usernameInput) usernameInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+        
+        // Re-enable the logout button
+        logoutBtn.disabled = false;
+        logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> Logout';
+      }, 500);
+    });
+    
+    // Add login form handler to support cookie identity
+    document.addEventListener('DOMContentLoaded', function() {
+      // Import required modules
+      import('/interac/client-side/client-socket/socket-client.js').then(socketClientModule => {
+        const socketClient = socketClientModule.default;
+        
+        import('/interac/client-side/client-utils/storage-utils.js').then(storageUtils => {
+          // Handle login form submission
+          const loginForm = document.getElementById('login-form');
+          
+          if (loginForm) {
+            loginForm.addEventListener('submit', async function(e) {
+              e.preventDefault();
+              
+              // Get form values
+              const usernameInput = document.getElementById('username');
+              const passwordInput = document.getElementById('password');
+              const loginBtn = document.getElementById('login-btn');
+              const loginError = document.getElementById('login-error');
+              
+              if (!usernameInput.value.trim()) {
+                loginError.textContent = 'Please enter a username';
+                return;
+              }
+              
+              // Disable form during login attempt
+              loginBtn.disabled = true;
+              loginBtn.innerHTML = '<span class="btn-icon"><i class="fas fa-spinner fa-spin"></i></span> Logging in...';
+              loginError.textContent = '';
+              
+              try {
+                // Check for existing identity cookie
+                const storedIdentity = storageUtils.getUserIdentityFromCookie();
+                let isReturningUser = false;
+                
+                if (storedIdentity && storedIdentity.username === usernameInput.value.trim()) {
+                  console.log('Detected returning user with matching cookie identity');
+                  isReturningUser = true;
+                }
+                
+                // Connect to socket server
+                const connected = socketClient.connectWithUsername(usernameInput.value.trim());
+                
+                if (!connected) {
+                  throw new Error('Failed to connect to server');
+                }
+                
+                // Wait for connection confirmation
+                await new Promise((resolve, reject) => {
+                  // Set a timeout for connection attempt
+                  const timeout = setTimeout(() => {
+                    reject(new Error('Connection timeout'));
+                  }, 5000);
+                  
+                  // Listen for connect event
+                  socketClient.getSocket().once('connect', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                  });
+                  
+                  // Listen for connect_error event
+                  socketClient.getSocket().once('connect_error', (err) => {
+                    clearTimeout(timeout);
+                    reject(new Error(err.message || 'Connection error'));
+                  });
+                });
+                
+                // Store user info
+                const userInfo = {
+                  username: usernameInput.value.trim(),
+                  isReturningUser
+                };
+                
+                // Save to both localStorage and cookies for redundancy
+                storageUtils.setUserInStorage(userInfo);
+                storageUtils.setUserIdentityCookie(userInfo.username, socketClient.userId);
+                
+                // Show app container, hide auth container
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('app-container').style.display = '';
+                
+                // Update displayed username
+                const usernameDisplay = document.getElementById('username-display');
+                if (usernameDisplay) {
+                  usernameDisplay.textContent = userInfo.username;
+                }
+                
+              } catch (error) {
+                console.error('Login error:', error);
+                loginError.textContent = error.message || 'Connection error. Please try again.';
+                
+                // Re-enable form
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<span class="btn-text">Begin Quiz Experience</span><span class="btn-icon"><i class="fas fa-arrow-right"></i></span>';
+              }
+            });
+          }
+        });
+      });
     });
   </script>
 </body>

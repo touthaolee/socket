@@ -1,4 +1,10 @@
 // client-side/client-socket/socket-client.js
+import { 
+  getUserIdentityFromCookie, 
+  setUserIdentityCookie, 
+  removeUserIdentityCookie 
+} from '../client-utils/storage-utils.js';
+
 const socketClient = {
     socket: null,
     username: '',
@@ -42,10 +48,28 @@ const socketClient = {
       }
       
       this.username = username;
-      this.userId = `user_${Date.now()}`;
       
-      // Set auth data with username
-      this.socket.auth = { username };
+      // Check for stored identity in cookies
+      const storedIdentity = getUserIdentityFromCookie();
+      
+      // If this username matches the stored identity, use the stored userId
+      // This allows the user to reclaim their previous identity
+      if (storedIdentity && storedIdentity.username === username) {
+        this.userId = storedIdentity.userId;
+        console.log('Reconnecting with stored identity:', this.userId);
+      } else {
+        // Generate new userId for new users
+        this.userId = `user_${Date.now()}`;
+        // Store the identity in a cookie for future use
+        setUserIdentityCookie(username, this.userId);
+      }
+      
+      // Set auth data with username and userId
+      this.socket.auth = { 
+        username,
+        userId: this.userId,
+        isPreviousUser: !!storedIdentity && storedIdentity.username === username
+      };
       
       // Connect to server
       this.socket.connect();
@@ -53,10 +77,12 @@ const socketClient = {
       // Once connected, share this user with admin panel
       this.socket.on('connect', () => {
         this.shareUserWithAdmins({
-          userId: this.socket.id,
+          userId: this.userId,
+          socketId: this.socket.id,
           username: username,
           status: 'online',
-          isRegularUser: true
+          isRegularUser: true,
+          isPreviousUser: !!storedIdentity && storedIdentity.username === username
         });
       });
       
@@ -99,10 +125,24 @@ const socketClient = {
       if (this.socket) {
         // Emit a user_logout event before disconnecting to properly remove user from online list
         if (this.socket.connected) {
-          this.socket.emit('user_logout', { username: this.username });
-          console.log('User logout event emitted');
+          // Send more comprehensive user logout data to ensure proper cleanup
+          this.socket.emit('user_logout', { 
+            username: this.username,
+            userId: this.userId || this.socket.id,
+            forceRemove: true  // Flag to force complete removal from activeUsers
+          });
+          console.log('User logout event emitted with force removal flag');
+          
+          // Remove the identity cookie on explicit logout
+          removeUserIdentityCookie();
+          
+          // Make sure we wait a moment for the server to process before disconnecting
+          setTimeout(() => {
+            this.socket.disconnect();
+          }, 200);
+        } else {
+          this.socket.disconnect();
         }
-        this.socket.disconnect();
       }
     },
     

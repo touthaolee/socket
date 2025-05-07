@@ -7,6 +7,76 @@ const USERNAME_KEY = 'username';
 const THEME_KEY = 'theme';
 const SETTINGS_KEY = 'app_settings';
 
+// Cookie keys
+const USER_COOKIE_KEY = 'user_identity';
+const TOKEN_COOKIE_KEY = 'user_session';
+
+// Cookie utility functions
+// Set a cookie with expiration
+export function setCookie(name, value, days = 7) {
+  const date = new Date();
+  date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+  const expires = `expires=${date.toUTCString()}`;
+  const sameSite = 'SameSite=Lax';  // Prevents CSRF while allowing normal navigation
+  const path = 'path=/';
+  document.cookie = `${name}=${value};${expires};${path};${sameSite}`;
+}
+
+// Get a cookie by name
+export function getCookie(name) {
+  const nameEQ = `${name}=`;
+  const cookies = document.cookie.split(';');
+  for (let i = 0; i < cookies.length; i++) {
+    let cookie = cookies[i];
+    while (cookie.charAt(0) === ' ') {
+      cookie = cookie.substring(1);
+    }
+    if (cookie.indexOf(nameEQ) === 0) {
+      return cookie.substring(nameEQ.length);
+    }
+  }
+  return null;
+}
+
+// Delete a cookie by name
+export function deleteCookie(name) {
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+}
+
+// Set user identity cookie (for persistent identity across sessions)
+export function setUserIdentityCookie(username, userId) {
+  try {
+    const userIdentity = {
+      username,
+      userId,
+      lastActive: new Date().toISOString()
+    };
+    setCookie(USER_COOKIE_KEY, btoa(JSON.stringify(userIdentity)), 30); // 30 days
+    return true;
+  } catch (error) {
+    console.error('Error setting user identity cookie:', error);
+    return false;
+  }
+}
+
+// Get user identity from cookie
+export function getUserIdentityFromCookie() {
+  try {
+    const cookieValue = getCookie(USER_COOKIE_KEY);
+    if (!cookieValue) return null;
+    
+    return JSON.parse(atob(cookieValue));
+  } catch (error) {
+    console.error('Error reading user identity cookie:', error);
+    return null;
+  }
+}
+
+// Remove user identity cookie
+export function removeUserIdentityCookie() {
+  deleteCookie(USER_COOKIE_KEY);
+}
+
 // Set auth token in storage
 export function setTokenInStorage(token) {
   if (!token) return false;
@@ -104,5 +174,7 @@ export {
   USER_KEY,
   USERNAME_KEY,
   THEME_KEY,
-  SETTINGS_KEY
+  SETTINGS_KEY,
+  USER_COOKIE_KEY,
+  TOKEN_COOKIE_KEY
 };
