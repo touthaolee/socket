@@ -74,6 +74,59 @@
     <!-- Main Content Area -->
     <main class="main-content">
       <div class="container">
+        <!-- New Chat Toggle Button in Header -->
+        <div class="chat-toggle-container">
+          <button id="chat-toggle-btn" class="btn btn-primary">
+            <i class="fas fa-comments"></i> <span>Show Chat</span>
+          </button>
+        </div>
+
+        <!-- Robust Chat Interface (Initially Hidden) -->
+        <section id="chat-section" class="view-section chat-section" style="display: none;">
+          <div class="chat-wrapper">
+            <div class="chat-card">
+              <div class="chat-header">
+                <h3><i class="fas fa-comments"></i> Live Chat</h3>
+                <div class="chat-controls">
+                  <button id="chat-minimize-btn" class="btn-icon" title="Minimize">
+                    <i class="fas fa-minus"></i>
+                  </button>
+                  <button id="chat-close-btn" class="btn-icon" title="Close">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+              </div>
+              
+              <div class="chat-container">
+                <div class="chat-sidebar">
+                  <div class="panel-header">
+                    <i class="fas fa-users panel-icon"></i>
+                    <h3 class="panel-title">Online Users</h3>
+                  </div>
+                  <ul id="chat-user-list" class="user-list">
+                    <!-- Users will be added here dynamically -->
+                    <div class="empty-chat-users">No users online</div>
+                  </ul>
+                </div>
+                <div class="chat-main">
+                  <div id="chat-messages" class="chat-messages">
+                    <div class="welcome-message">
+                      <i class="fas fa-info-circle"></i>
+                      <p>Welcome to the chat! This feature allows you to communicate with others during quizzes.</p>
+                    </div>
+                  </div>
+                  <div class="chat-input-container">
+                    <input id="chat-input" type="text" placeholder="Type a message..." autocomplete="off">
+                    <button id="chat-send-btn" class="btn btn-primary">
+                      <i class="fas fa-paper-plane"></i> Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- Quiz Selection View -->
         <section id="quiz-selection-view" class="view-section active">
           <div class="section-header">

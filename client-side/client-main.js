@@ -3,6 +3,11 @@ import { initAuthSystem } from './client-modules/auth-module.js';
 import { initSocketModule } from './client-modules/socket-module.js';
 import { initQuizModule } from './client-modules/quiz-module.js';
 import { showToast } from './client-utils/ui-utils.js';
+import ChatModule from './client-modules/chat-module.js';
+
+// Global state
+let socket = null;
+let chatModule = null;
 
 // Initialize application when DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {
@@ -191,7 +196,14 @@ socketClient.on('disconnect', (reason) => {
 window.startSocketAfterLogin = function(authOptions) {
   const socketClient = initSocketModule(authOptions);
   setupSocketEventHandlers(socketClient);
-  window.socketClient = socketClient; // Optional: make globally accessible
+  window.socketClient = socketClient; // Make globally accessible
+  
+  // Initialize chat module with the socket client
+  if (!window.chatModule) {
+    window.chatModule = new ChatModule(socketClient);
+    window.chatModule.init();
+    console.log('Chat module initialized');
+  }
 }
 
 // Modern, robust, and comprehensive post-login UI handler
@@ -227,3 +239,6 @@ window.showAuthenticatedUI = function() {
 
 // On load, set initial status to offline until socket connects
 updateSocketStatusUI('disconnected');
+
+// Initialize and integrate the new ChatModule when the app loads
+window.ChatModule = ChatModule;

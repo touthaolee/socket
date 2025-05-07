@@ -1501,5 +1501,396 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
   </script>
+<script>
+  /**
+   * Chat Adapter - Connects the robust chat system to the websocket-test.html implementation
+   */
+  document.addEventListener('DOMContentLoaded', () => {
+    // Common typos and corrections for error handling
+    const commonCorrections = {
+      'recieve': 'receive',
+      'alot': 'a lot',
+      'seperate': 'separate',
+      'definately': 'definitely',
+      'accomodate': 'accommodate',
+      'occured': 'occurred',
+      'tommorrow': 'tomorrow',
+      'wierd': 'weird',
+      'didnt': "didn't",
+      'dont': "don't",
+      'cant': "can't",
+      'wont': "won't",
+      'isnt': "isn't",
+      'shouldnt': "shouldn't",
+      'wouldnt': "wouldn't",
+      'couldnt': "couldn't",
+      'im': "I'm",
+      'theres': "there's",
+      'theyre': "they're",
+      'thats': "that's"
+    };
+    
+    // Typing indicators
+    let typingUsers = new Set();
+    let typingTimeout = null;
+    
+    // Override the socket.on for chat_message to include error correction
+    const originalHandlers = {};
+    
+    // Modify the existing send function to include typing indicators
+    const originalSendChatMessage = window.sendChatMessage;
+    window.sendChatMessage = function() {
+      const chatInput = document.getElementById('chat-input');
+      const message = chatInput.value.trim();
+      
+      if (message && socket && socket.connected) {
+        // Apply spelling corrections
+        const { correctedMessage, corrections } = correctSpelling(message);
+        
+        socket.emit('chat_message', {
+          message: correctedMessage,
+          timestamp: new Date().toISOString(),
+          corrections // Add corrections metadata
+        });
+        
+        // Cancel any typing indicators
+        cancelTypingIndicator();
+        
+        // Add to local chat display immediately (optimistic UI)
+        addChatMessage({
+          from: window.currentUsername,
+          message: correctedMessage,
+          timestamp: new Date().toISOString(),
+          isSelf: true,
+          corrections
+        });
+        
+        // Clear input
+        chatInput.value = '';
+        chatInput.focus();
+      }
+    };
+    
+    // Override the addChatMessage function to handle corrections
+    const originalAddChatMessage = window.addChatMessage;
+    window.addChatMessage = function(message) {
+      const chatMessagesEl = document.getElementById('chat-messages');
+      const welcomeMessage = chatMessagesEl.querySelector('.welcome-message');
+      
+      // Remove welcome message if present
+      if (welcomeMessage) {
+        welcomeMessage.remove();
+      }
+      
+      // Create message element
+      const messageEl = document.createElement('div');
+      messageEl.className = 'chat-message';
+      
+      // Determine message type
+      if (message.system) {
+        messageEl.classList.add('chat-message-system');
+        messageEl.textContent = message.message;
+      } else {
+        // User message
+        messageEl.classList.add(message.isSelf ? 'chat-message-self' : 'chat-message-other');
+        
+        // Message header with name and time
+        const messageHeader = document.createElement('div');
+        messageHeader.className = 'chat-message-header';
+        
+        const messageName = document.createElement('div');
+        messageName.className = 'chat-message-name';
+        messageName.textContent = message.from || 'Anonymous';
+        
+        const messageTime = document.createElement('div');
+        messageTime.className = 'chat-message-time';
+        messageTime.textContent = formatTime(message.timestamp);
+        
+        messageHeader.appendChild(messageName);
+        messageHeader.appendChild(messageTime);
+        
+        // Message content
+        const messageContent = document.createElement('div');
+        messageContent.className = 'chat-message-content';
+        
+        // If there are corrections, highlight them
+        if (message.corrections && Object.keys(message.corrections).length > 0) {
+          let content = message.message;
+          
+          // Add correction highlights
+          for (const [original, corrected] of Object.entries(message.corrections)) {
+            const regex = new RegExp(`\\b${corrected.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g');
+            content = content.replace(regex, `<span class="correction" 
+                       title="Corrected from: '${original}'">${corrected}</span>`);
+          }
+          
+          messageContent.innerHTML = content;
+        } else {
+          messageContent.textContent = message.message;
+        }
+        
+        messageEl.appendChild(messageHeader);
+        messageEl.appendChild(messageContent);
+      }
+      
+      // Add to DOM
+      chatMessagesEl.appendChild(messageEl);
+      
+      // Scroll to bottom
+      chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      
+      // Store in message history
+      if (window.chatMessages) {
+        window.chatMessages.push(message);
+        if (window.chatMessages.length > window.MAX_CHAT_HISTORY) {
+          window.chatMessages.shift();
+        }
+      }
+    };
+    
+    // Add CSS for corrections
+    const style = document.createElement('style');
+    style.textContent = `
+      .chat-message .correction {
+        text-decoration: underline;
+        text-decoration-style: wavy;
+        text-decoration-color: #4cc9f0;
+        position: relative;
+      }
+      
+      .chat-message .correction:hover::after {
+        content: attr(title);
+        position: absolute;
+        bottom: -20px;
+        left: 0;
+        background: #212529;
+        color: white;
+        font-size: 12px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        white-space: nowrap;
+        z-index: 10;
+      }
+      
+      .typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 12px;
+        background-color: rgba(67, 97, 238, 0.05);
+        border-radius: 16px;
+        margin-bottom: 8px;
+        width: fit-content;
+        font-size: 0.85rem;
+        font-style: italic;
+        color: #6c757d;
+      }
+      
+      .typing-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background-color: #4361ee;
+        opacity: 0.6;
+        animation: typingDot 1s infinite;
+      }
+      
+      .typing-dot:nth-child(1) { animation-delay: 0s; }
+      .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+      .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+      
+      @keyframes typingDot {
+        0%, 60%, 100% { transform: translateY(0); }
+        30% { transform: translateY(-4px); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Add event listener for typing indicator
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+      chatInput.addEventListener('input', sendTypingStatus);
+    }
+    
+    // Connect with socket.io handlers for typing
+    function setupEnhancedChatHandlers() {
+      if (!socket) return;
+      
+      // User typing handlers
+      socket.on('user_typing', (data) => {
+        if (data.username !== window.currentUsername) {
+          showTypingIndicator(data.username);
+        }
+      });
+      
+      socket.on('user_stop_typing', (data) => {
+        if (data.username !== window.currentUsername) {
+          hideTypingIndicator(data.username);
+        }
+      });
+    }
+    
+    // Helper functions
+    function correctSpelling(message) {
+      let correctedMessage = message;
+      const corrections = {};
+      
+      // Split message into words
+      const words = message.split(/\s+/);
+      
+      // Check each word against common corrections
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i].toLowerCase().replace(/[.,?!;:'"()]/g, '');
+        
+        if (commonCorrections[word]) {
+          // Save the original word and its correction
+          corrections[words[i]] = commonCorrections[word];
+          
+          // Replace the word in the corrected message
+          // Preserve original capitalization and punctuation
+          const punctuation = words[i].match(/[.,?!;:'"()]/g) || [];
+          const preserveCase = words[i][0] === words[i][0].toUpperCase();
+          
+          let correction = commonCorrections[word];
+          if (preserveCase) {
+            correction = correction.charAt(0).toUpperCase() + correction.slice(1);
+          }
+          
+          correctedMessage = correctedMessage.replace(
+            new RegExp(`\\b${words[i].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), 
+            correction + punctuation.join('')
+          );
+        }
+      }
+      
+      return { correctedMessage, corrections };
+    }
+    
+    function formatTime(timestamp) {
+      try {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return '—';
+      }
+    }
+    
+    function sendTypingStatus() {
+      if (!socket || !socket.connected) return;
+      
+      // Clear previous timeout
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+      }
+      
+      // Emit typing event
+      socket.emit('user_typing', { username: window.currentUsername });
+      
+      // Set timeout to emit stop typing after 2 seconds
+      typingTimeout = setTimeout(() => {
+        socket.emit('user_stop_typing', { username: window.currentUsername });
+        typingTimeout = null;
+      }, 2000);
+    }
+    
+    function cancelTypingIndicator() {
+      if (!socket || !socket.connected) return;
+      
+      if (typingTimeout) {
+        clearTimeout(typingTimeout);
+        typingTimeout = null;
+      }
+      
+      socket.emit('user_stop_typing', { username: window.currentUsername });
+    }
+    
+    function showTypingIndicator(username) {
+      const chatMessagesEl = document.getElementById('chat-messages');
+      if (!chatMessagesEl) return;
+      
+      // Add username to typing users set
+      typingUsers.add(username);
+      
+      // Update typing indicator
+      updateTypingIndicator();
+    }
+    
+    function hideTypingIndicator(username) {
+      // Remove username from typing users set
+      typingUsers.delete(username);
+      
+      // Update typing indicator
+      updateTypingIndicator();
+    }
+    
+    function updateTypingIndicator() {
+      const chatMessagesEl = document.getElementById('chat-messages');
+      if (!chatMessagesEl) return;
+      
+      // Remove any existing typing indicators
+      const existingIndicator = chatMessagesEl.querySelector('.typing-indicator');
+      if (existingIndicator) {
+        existingIndicator.remove();
+      }
+      
+      // If nobody is typing, return
+      if (typingUsers.size === 0) return;
+      
+      // Create typing indicator
+      const typingEl = document.createElement('div');
+      typingEl.className = 'typing-indicator';
+      
+      // Add text based on who is typing
+      let typingText = '';
+      if (typingUsers.size === 1) {
+        typingText = `${Array.from(typingUsers)[0]} is typing`;
+      } else if (typingUsers.size === 2) {
+        typingText = `${Array.from(typingUsers).join(' and ')} are typing`;
+      } else {
+        typingText = 'Several people are typing';
+      }
+      typingEl.textContent = typingText + ' ';
+      
+      // Add animated dots
+      for (let i = 0; i < 3; i++) {
+        const dot = document.createElement('span');
+        dot.className = 'typing-dot';
+        typingEl.appendChild(dot);
+      }
+      
+      // Add to DOM
+      chatMessagesEl.appendChild(typingEl);
+      
+      // Scroll to bottom if near bottom
+      if (chatMessagesEl.scrollHeight - chatMessagesEl.scrollTop < chatMessagesEl.clientHeight + 100) {
+        chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      }
+    }
+    
+    // Set up enhanced chat handlers when socket is connected
+    const originalSetupChatHandlers = window.setupChatHandlers || function() {};
+    window.setupChatHandlers = function(socket) {
+      originalSetupChatHandlers.apply(this, arguments);
+      setupEnhancedChatHandlers();
+    };
+    
+    // Initialize if socket is already connected
+    if (socket && socket.connected) {
+      setupEnhancedChatHandlers();
+    }
+    
+    // Monitor for new socket connections
+    const originalConnectSocket = window.connectSocket || function() {};
+    window.connectSocket = async function() {
+      await originalConnectSocket.apply(this, arguments);
+      
+      if (socket && socket.connected) {
+        setupEnhancedChatHandlers();
+      }
+    };
+    
+    log('Chat enhancements loaded with error correction and typing indicators');
+  });
+</script>
 </body>
 </html>
