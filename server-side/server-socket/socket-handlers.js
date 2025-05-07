@@ -513,15 +513,25 @@ function clearOfflineUsers() {
     
     // Iterate through all users in the activeUsers map
     for (const [userId, userData] of activeUsers.entries()) {
-        // If the user has no socket connections and is marked as offline
-        if (userData.socketIds.size === 0 || userData.status === 'offline') {
+        // Check multiple conditions that indicate a user should be removed:
+        // 1. No socket connections (disconnected)
+        // 2. Any offline/inactive/disconnecting status
+        // 3. Has not been active for more than 30 seconds
+        const now = Date.now();
+        const isInactive = userData.status === 'offline' || userData.status === 'inactive' || userData.status === 'disconnecting';
+        const inactiveTime = now - userData.lastActivity;
+        const staleTimeout = 30 * 1000; // 30 seconds
+        const isStale = inactiveTime > staleTimeout;
+        
+        // Remove user if any of these conditions are true
+        if (userData.socketIds.size === 0 || isInactive || isStale) {
             activeUsers.delete(userId);
             removedCount++;
-            logger.info(`Removed persistent offline user: ${userData.username}`);
+            logger.info(`Removed persistent user: ${userData.username} (Status: ${userData.status}, Connections: ${userData.socketIds.size}, Inactive for: ${Math.round(inactiveTime/1000)}s)`);
         }
     }
     
-    logger.info(`Cleaned up ${removedCount} offline users from memory`);
+    logger.info(`Cleaned up ${removedCount} offline/inactive users from memory`);
     return removedCount;
 }
 
