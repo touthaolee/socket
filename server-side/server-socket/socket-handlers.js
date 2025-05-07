@@ -298,8 +298,8 @@ function registerPresenceHandlers(io, socket) {
             // Remove this socket ID
             userData.socketIds.delete(socket.id);
             
-            // Mark as offline immediately without grace period since this is explicit logout
-            userData.status = 'offline';
+            // Immediately remove user from active users list on explicit logout
+            activeUsers.delete(userId);
             
             // Notify other users that this user logged out
             socket.broadcast.emit('user_disconnected', { username: data.username || username });
@@ -307,16 +307,7 @@ function registerPresenceHandlers(io, socket) {
             // Update the user list for all clients
             broadcastUserList(io);
             
-            // Remove user from active list after a short delay (no need for the full minute)
-            setTimeout(() => {
-                if (activeUsers.has(userId) && 
-                    activeUsers.get(userId).socketIds.size === 0 &&
-                    activeUsers.get(userId).status === 'offline') {
-                    activeUsers.delete(userId);
-                    broadcastUserList(io);
-                    logger.info(`User removed from active list after logout: ${username}`);
-                }
-            }, 5000); // Remove after 5 seconds
+            logger.info(`User removed from active list after logout: ${username}`);
         }
     });
     

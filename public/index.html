@@ -384,18 +384,14 @@
   <!-- Scripts -->
   <script src="/interac/socket.io/socket.io.js"></script>
   <script type="module" src="/interac/client-side/client-main.js"></script>
-  <script>
+  <script type="module">
+    // Import socket client
+    import socketClient from '/interac/client-side/client-socket/socket-client.js';
+    
     // Add logout handler
     document.getElementById('logout-btn').addEventListener('click', function() {
-      // Get current username from localStorage
-      const username = localStorage.getItem('username');
-      
-      // Emit a logout event before disconnecting
-      const socket = window.socket;
-      if (socket && socket.connected) {
-        socket.emit('user_logout', { username: username });
-        console.log('User logout event emitted');
-      }
+      // Use the proper socketClient disconnect method
+      socketClient.disconnect();
       
       // Proceed with regular logout process
       localStorage.removeItem('auth_token');
@@ -414,11 +410,6 @@
       const passwordInput = document.getElementById('password');
       if (usernameInput) usernameInput.value = '';
       if (passwordInput) passwordInput.value = '';
-      
-      // Disconnect the socket
-      if (socket) {
-        socket.disconnect();
-      }
     });
   </script>
 </body>
