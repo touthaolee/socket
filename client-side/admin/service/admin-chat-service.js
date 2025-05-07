@@ -8,6 +8,7 @@
 export class AdminChatService {
   constructor() {
     this.socket = null;
+    this.socketClient = null;
     this.username = 'Admin';
     this.userId = '';
     this.users = [];
@@ -60,29 +61,41 @@ export class AdminChatService {
       import('/interac/client-side/client-socket/socket-client.js')
         .then(module => {
           const socketClient = module.default;
-          this.socket = socketClient.socket;
+          this.socketClient = socketClient;
+          
+          // Store socket reference
+          this.socket = socketClient.getSocket();
+          
           if (!this.socket) {
             console.error('Failed to get socket instance');
             this._connecting = false;
             return;
           }
+          
           // Only connect if not already connected
           if (!this.socket.connected) {
+            // Connect with proper user identification
             socketClient.connectWithUsername(this.username);
+            
+            // Update our userId to match what the socketClient assigns
+            this.userId = socketClient.userId;
           }
+          
           // Register socket events only once
           if (!this._eventsRegistered) {
             this.registerSocketEvents();
             this._eventsRegistered = true;
           }
+          
           // Join admin room and global room for communication with all clients
           this.rooms.forEach(room => {
             if (!this._joinedRooms.has(room)) {
-              this.socket.emit('join_room', room);
+              socketClient.joinRoom(room);
               this._joinedRooms.add(room);
               console.log(`Joining room: ${room}`);
             }
           });
+          
           this.isConnected = true;
           this._connecting = false;
         })
@@ -104,16 +117,14 @@ export class AdminChatService {
     
     // When receiving the user list
     this.socket.on('users_online', (users) => {
-      this.users = users;
-      this.onlineUsers = users.length;
-      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
+      console.log('Received users_online event:', users);
+      this.processUserList(users);
     });
 
-    // Also listen for user_list event from websocket-test.html
+    // Also listen for user_list event from socket-client.js
     this.socket.on('user_list', (users) => {
-      this.users = users;
-      this.onlineUsers = users.length;
-      this.triggerEvent('usersUpdated', { users: this.users, onlineUsers: this.onlineUsers });
+      console.log('Received user_list event:', users);
+      this.processUserList(users);
     });
     
     // When receiving a new message from index.html
@@ -123,8 +134,8 @@ export class AdminChatService {
       this.messages.push({
         id: Date.now().toString(),
         text: message,
-        username,
-        userId,
+        username: username || 'Unknown User',
+        userId: userId || 'unknown_user',
         timestamp: new Date().toISOString(),
         isSystem: false
       });
@@ -142,8 +153,8 @@ export class AdminChatService {
         this.messages.push({
           id: Date.now().toString(),
           text: message,
-          username: user,
-          userId: 'client_' + user,
+          username: typeof user === 'object' ? (user.username || user.name || 'Unknown User') : user,
+          userId: typeof user === 'object' ? (user.userId || user.id || 'client_unknown') : ('client_' + user),
           timestamp: new Date().toISOString(),
           isSystem: false
         });
@@ -243,6 +254,50 @@ export class AdminChatService {
   }
   
   /**
+   * Process user list data from socket events
+   * @param {Array} users - Array of user objects or strings
+   */
+  processUserList(users) {
+    if (!Array.isArray(users)) {
+      console.warn('Received invalid user list format:', users);
+      return;
+    }
+    
+    this.users = users.map(user => {
+      // Handle different user data formats
+      if (typeof user === 'string') {
+        return { 
+          userId: 'user_' + user, 
+          username: user, 
+          status: 'online' 
+        };
+      } else if (typeof user === 'object' && user !== null) {
+        return {
+          userId: user.userId || user.id || 'unknown_' + Date.now(),
+          username: user.username || user.name || 'Anonymous',
+          status: user.status || 'online'
+        };
+      }
+      return { 
+        userId: 'unknown', 
+        username: 'Unknown User', 
+        status: 'online' 
+      };
+    });
+    
+    this.onlineUsers = this.users.length;
+    
+    // Log processed users for debugging
+    console.log('Processed user list:', this.users);
+    
+    // Trigger UI update
+    this.triggerEvent('usersUpdated', { 
+      users: this.users, 
+      onlineUsers: this.onlineUsers 
+    });
+  }
+  
+  /**
    * Send a message to the chat
    * @param {string} message - The message to send
    * @param {string} room - The room to send the message to (optional)
@@ -260,6 +315,37 @@ export class AdminChatService {
       return false;
     }
     
+    // If we have the socketClient, use its sendChatMessage method
+    if (this.socketClient) {
+      if (userId) {
+        // Direct message
+        this.socket.emit('direct_message', {
+          to: userId,
+          message: message,
+          from: this.userId,
+          fromUsername: this.username
+        });
+        
+        // Add message to our local messages array
+        this.messages.push({
+          id: Date.now().toString(),
+          text: message,
+          username: this.username,
+          userId: this.userId,
+          timestamp: new Date().toISOString(),
+          isSystem: false,
+          isDirect: true,
+          toUserId: userId
+        });
+        this.triggerEvent('messageReceived', { messages: this.messages });
+      } else {
+        // Regular message
+        this.socketClient.sendChatMessage(message, room || 'global');
+      }
+      return true;
+    }
+    
+    // Fallback to direct socket emit if socketClient not available
     // Create message data
     const messageData = {
       username: this.username,
@@ -361,87 +447,4 @@ export class AdminChatService {
     }
     
     const user = this.users.find(u => u.userId === userId);
-    if (user) {
-      this.selectedUser = user;
-      this.addSystemMessage(`Selected user: ${user.username}`);
-    } else {
-      console.error('Selected user not found:', userId);
-    }
-  }
-  
-  /**
-   * Get all messages
-   * @returns {Array} - List of chat messages
-   */
-  getMessages() {
-    return this.messages;
-  }
-  
-  /**
-   * Get all users
-   * @returns {Array} - List of users
-   */
-  getUsers() {
-    return this.users;
-  }
-  
-  /**
-   * Get user by ID
-   * @param {string} userId - The user ID to find
-   * @returns {Object|null} - The user object or null
-   */
-  getUserById(userId) {
-    return this.users.find(u => u.userId === userId) || null;
-  }
-  
-  /**
-   * Register an event handler
-   * @param {string} event - The event name
-   * @param {Function} callback - The callback function
-   */
-  on(event, callback) {
-    if (!this.eventHandlers[event]) {
-      this.eventHandlers[event] = [];
-    }
-    
-    this.eventHandlers[event].push(callback);
-  }
-  
-  /**
-   * Trigger an event
-   * @param {string} event - The event name
-   * @param {Object} data - The event data
-   */
-  triggerEvent(event, data) {
-    if (!this.eventHandlers[event]) return;
-    
-    this.eventHandlers[event].forEach(callback => {
-      try {
-        callback(data);
-      } catch (error) {
-        console.error(`Error in event handler for ${event}:`, error);
-      }
-    });
-  }
-  
-  /**
-   * Clean up resources and disconnect
-   */
-  cleanup() {
-    if (this.socket) {
-      this.socket.disconnect();
-    }
-    this.messages = [];
-    this.users = [];
-    this.eventHandlers = {};
-    this._eventsRegistered = false;
-    this._connecting = false;
-    this.isConnected = false;
-    this._joinedRooms = new Set();
-    this._roomJoinMessagesShown = new Set();
-  }
-}
-
-// Export a singleton instance
-const adminChatService = new AdminChatService();
-export default adminChatService;
+    if

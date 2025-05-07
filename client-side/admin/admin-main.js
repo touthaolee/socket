@@ -345,13 +345,28 @@ function updateUsersList(users, onlineCount) {
     } else {
       users.forEach(user => {
         // Handle different user object formats from the server
-        // Server sends objects with userId and username properties
-        const userId = typeof user === 'string' ? user : (user.userId || user.id || 'unknown');
-        const username = typeof user === 'string' ? user : (user.username || 'Anonymous');
-        const userStatus = typeof user === 'string' ? 'online' : (user.status || 'online');
-        console.log('Rendering username:', username);
+        let userId, username, userStatus;
+        
+        if (typeof user === 'object' && user !== null) {
+          // Handle object format with userId and username
+          userId = user.userId || user.id || 'unknown';
+          username = user.username || user.name || 'Anonymous';
+          userStatus = user.status || 'online';
+        } else if (typeof user === 'string') {
+          // Handle string format (older API)
+          userId = 'user_' + user;
+          username = user;
+          userStatus = 'online';
+        } else {
+          // Handle unexpected format
+          console.warn('Received user in unexpected format:', user);
+          userId = 'unknown';
+          username = 'Unknown User';
+          userStatus = 'online';
+        }
+        
         userList.innerHTML += `
-          <div class="user-pill" data-user-id="${userId}">
+          <div class="user-pill ${userStatus}" data-user-id="${userId}" title="${username} (${userStatus})">
             ${username}
           </div>
         `;
