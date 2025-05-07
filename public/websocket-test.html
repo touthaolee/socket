@@ -2,7 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <title>Socket.IO Modern Test Suite</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
   <style>
@@ -32,7 +35,8 @@
       color: var(--dark);
       line-height: 1.6;
       min-height: 100vh;
-      padding: 20px;
+      padding: 10px;
+      overflow-x: hidden;
     }
 
     .container {
@@ -42,19 +46,22 @@
       border-radius: var(--border-radius);
       box-shadow: var(--shadow);
       overflow: hidden;
+      width: 100%;
     }
 
     .header {
       background: linear-gradient(90deg, #4361ee 0%, #4cc9f0 100%);
       color: white;
-      padding: 24px;
+      padding: 16px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
     }
 
     .header h1 {
-      font-size: 1.5rem;
+      font-size: 1.3rem;
       font-weight: 600;
       margin: 0;
     }
@@ -106,7 +113,7 @@
     }
 
     .content {
-      padding: 24px;
+      padding: 16px;
     }
 
     .panel {
@@ -121,6 +128,7 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
     .panel-title {
@@ -146,7 +154,7 @@
     .input-group {
       display: flex;
       flex: 1;
-      min-width: 200px;
+      min-width: 150px;
       position: relative;
     }
 
@@ -236,7 +244,7 @@
 
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
       gap: 12px;
     }
 
@@ -265,11 +273,15 @@
       color: #f8f9fa;
       padding: 16px;
       border-radius: var(--border-radius);
-      height: 300px;
+      height: 250px;
       overflow-y: auto;
       font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
       font-size: 0.85rem;
       line-height: 1.5;
+      max-width: 100%;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
     #log div {
@@ -293,6 +305,8 @@
       list-style: none;
       margin: 0;
       padding: 0;
+      overflow-y: auto;
+      max-height: 300px;
     }
 
     .user-item {
@@ -341,17 +355,27 @@
       display: flex;
       gap: 2px;
       margin-bottom: 12px;
+      flex-wrap: wrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      padding-bottom: 4px;
+    }
+
+    .tabs::-webkit-scrollbar {
+      display: none;
     }
 
     .tab {
-      padding: 12px 20px;
+      padding: 10px 16px;
       cursor: pointer;
       background: var(--light);
       border-radius: var(--border-radius) var(--border-radius) 0 0;
       font-weight: 500;
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--gray);
       transition: var(--transition);
+      flex-shrink: 0;
     }
 
     .tab:hover {
@@ -373,177 +397,220 @@
     }
 
     /* Chat Room Styles */
-.chat-container {
-  display: flex;
-  height: 500px;
-  background-color: var(--light);
-  border-radius: var(--border-radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-}
+    .chat-container {
+      display: flex;
+      height: 500px;
+      background-color: var(--light);
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      flex-direction: column;
+    }
 
-.chat-sidebar {
-  width: 250px;
-  background-color: white;
-  border-right: 1px solid #eee;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
+    .chat-sidebar {
+      width: 100%;
+      background-color: white;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      max-height: 150px;
+    }
 
-.chat-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  background-color: white;
-}
+    .chat-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: white;
+    }
 
-.chat-messages {
-  flex: 1;
-  padding: 16px;
-  overflow-y: auto;
-  background-color: #f8f9fa;
-}
+    .chat-messages {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+      background-color: #f8f9fa;
+    }
 
-.chat-message {
-  margin-bottom: 12px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  max-width: 80%;
-  animation: fadeIn 0.3s;
-}
+    .chat-message {
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      max-width: 85%;
+      animation: fadeIn 0.3s;
+    }
 
-.chat-message-self {
-  background-color: #4361ee;
-  color: white;
-  align-self: flex-end;
-  margin-left: auto;
-}
+    .chat-message-self {
+      background-color: #4361ee;
+      color: white;
+      align-self: flex-end;
+      margin-left: auto;
+    }
 
-.chat-message-other {
-  background-color: white;
-  border: 1px solid #eee;
-  align-self: flex-start;
-}
+    .chat-message-other {
+      background-color: white;
+      border: 1px solid #eee;
+      align-self: flex-start;
+    }
 
-.chat-message-system {
-  background-color: #f8f9fa;
-  border: 1px solid #eee;
-  color: #6c757d;
-  font-style: italic;
-  text-align: center;
-  max-width: 100%;
-  margin: 8px auto;
-}
+    .chat-message-system {
+      background-color: #f8f9fa;
+      border: 1px solid #eee;
+      color: #6c757d;
+      font-style: italic;
+      text-align: center;
+      max-width: 100%;
+      margin: 8px auto;
+    }
 
-.chat-message-header {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
+    .chat-message-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
 
-.chat-message-name {
-  font-weight: 600;
-  margin-right: 8px;
-}
+    .chat-message-name {
+      font-weight: 600;
+      margin-right: 8px;
+    }
 
-.chat-message-time {
-  font-size: 0.8em;
-  color: rgba(255, 255, 255, 0.7);
-}
+    .chat-message-time {
+      font-size: 0.8em;
+      color: rgba(255, 255, 255, 0.7);
+    }
 
-.chat-message-other .chat-message-time {
-  color: #6c757d;
-}
+    .chat-message-other .chat-message-time {
+      color: #6c757d;
+    }
 
-.chat-message-content {
-  word-break: break-word;
-}
+    .chat-message-content {
+      word-break: break-word;
+    }
 
-.chat-input-container {
-  display: flex;
-  padding: 12px;
-  border-top: 1px solid #eee;
-}
+    .chat-input-container {
+      display: flex;
+      padding: 12px;
+      border-top: 1px solid #eee;
+    }
 
-.chat-input-container input {
-  flex: 1;
-  margin-right: 8px;
-}
+    .chat-input-container input {
+      flex: 1;
+      margin-right: 8px;
+    }
 
-.welcome-message {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 20px;
-  color: var(--gray);
-  text-align: center;
-  height: 100%;
-}
+    .welcome-message {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 20px;
+      color: var(--gray);
+      text-align: center;
+      height: 100%;
+    }
 
-.welcome-message i {
-  font-size: 1.5rem;
-  color: var(--primary);
-}
+    .welcome-message i {
+      font-size: 1.5rem;
+      color: var(--primary);
+    }
 
-.empty-chat-users {
-  padding: 15px;
-  text-align: center;
-  color: var(--gray);
-}
+    .empty-chat-users {
+      padding: 15px;
+      text-align: center;
+      color: var(--gray);
+    }
 
-/* Responsive design for chat */
-@media (max-width: 768px) {
-  .chat-container {
-    flex-direction: column;
-    height: 600px;
-  }
-  
-  .chat-sidebar {
-    width: 100%;
-    height: 150px;
-    border-right: none;
-    border-bottom: 1px solid #eee;
-  }
-}
+    /* User status styles */
+    .user-offline {
+      opacity: 0.5;
+    }
 
-/* Add right after the CSS styling section, before the closing </style> tag */
-.user-offline {
-  opacity: 0.5;
-}
+    .user-offline .user-avatar {
+      background-color: var(--gray);
+    }
 
-.user-offline .user-avatar {
-  background-color: var(--gray);
-}
+    .user-offline .user-name::after {
+      content: " (Offline)";
+      font-style: italic;
+      font-size: 0.8em;
+      color: var(--gray);
+    }
 
-.user-offline .user-name::after {
-  content: " (Offline)";
-  font-style: italic;
-  font-size: 0.8em;
-  color: var(--gray);
-}
+    .user-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+      background-color: var(--success);
+      display: inline-block;
+      margin-right: 4px;
+    }
 
-.user-status {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-right: 8px;
-  background-color: var(--success);
-  display: inline-block;
-  margin-right: 4px;
-}
+    .user-offline .user-status {
+      background-color: var(--gray);
+    }
 
-.user-offline .user-status {
-  background-color: var(--gray);
-}
+    .chat-message-disconnected {
+      text-align: center;
+      color: var(--gray);
+      font-style: italic;
+      margin: 10px 0;
+    }
 
-.chat-message-disconnected {
-  text-align: center;
-  color: var(--gray);
-  font-style: italic;
-  margin: 10px 0;
-}
+    /* Mobile responsive styles */
+    .filter-select, .filter-input {
+      padding: 6px 8px;
+      border-radius: var(--border-radius);
+      border: 1px solid #ddd;
+      font-size: 0.85rem;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        padding: 20px;
+      }
+
+      .header {
+        padding: 24px;
+      }
+
+      .header h1 {
+        font-size: 1.5rem;
+      }
+
+      .content {
+        padding: 24px;
+      }
+      
+      .chat-container {
+        flex-direction: row;
+      }
+      
+      .chat-sidebar {
+        width: 250px;
+        max-height: none;
+        border-right: 1px solid #eee;
+        border-bottom: none;
+      }
+      
+      .tabs {
+        flex-wrap: nowrap;
+      }
+      
+      .tab {
+        padding: 12px 20px;
+        font-size: 0.9rem;
+      }
+      
+      #log {
+        height: 300px;
+      }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
@@ -1500,24 +1567,20 @@ function updateChatUserList(users) {
 
 // Fix: Connect all Socket.IO event handlers properly
 function setupChatHandlers(socket) {
+  // Clear existing chat_message handlers to prevent duplicates
+  socket.off('chat_message');
+  
   // Chat message received
   socket.on('chat_message', (data) => {
     log(`Chat message from ${data.from}: ${data.message}`);
     
-    // Add to chat display
+    // Add to chat display - but only once
     addChatMessage({
       from: data.from,
       message: data.message,
       timestamp: data.timestamp || new Date().toISOString(),
       isSelf: data.from === window.currentUsername
     });
-  });
-  
-  // System message when connected
-  addChatMessage({
-    system: true,
-    message: 'You have connected to the chat room.',
-    timestamp: new Date().toISOString()
   });
   
   // Enable chat inputs
