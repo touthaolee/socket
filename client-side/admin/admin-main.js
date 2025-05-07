@@ -332,7 +332,7 @@ function updateConnectionStatus(connected) {
 
 // Update the users list in the UI
 function updateUsersList(users, onlineCount) {
-  const userList = document.getElementById('chat-user-list');
+  const userList = document.getElementById('online-users-list');
   const onlineCountElement = document.getElementById('online-count');
   
   if (userList) {
@@ -340,10 +340,7 @@ function updateUsersList(users, onlineCount) {
     
     if (!Array.isArray(users) || users.length === 0) {
       userList.innerHTML = `
-        <div class="user-item">
-          <span class="user-status offline"></span>
-          <span class="user-name">No users online</span>
-        </div>
+        <div class="user-pill">No users online</div>
       `;
     } else {
       users.forEach(user => {
@@ -354,9 +351,8 @@ function updateUsersList(users, onlineCount) {
         const userStatus = typeof user === 'string' ? 'online' : (user.status || 'online');
         console.log('Rendering username:', username);
         userList.innerHTML += `
-          <div class="user-item" data-user-id="${userId}">
-            <span class="user-status ${userStatus}"></span>
-            <span class="user-name">${username}</span>
+          <div class="user-pill" data-user-id="${userId}">
+            ${username}
           </div>
         `;
       });
