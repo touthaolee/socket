@@ -8,8 +8,8 @@
   <!-- Restore the /interac/ prefix in the CSS path -->
   <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  <!-- Add Socket.IO client library - using CDN to ensure availability -->
-  <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+  <!-- Using local Socket.IO file for consistency with index.html instead of CDN -->
+  <script src="/interac/socket.io/socket.io.js"></script>
   <style>
     /* Improved styles for login modal */
     #admin-login-container.modal {
@@ -631,5 +631,308 @@
   
   <!-- Restore the /interac/ prefix in the JavaScript path -->
   <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
+  
+  <!-- Socket.IO Integration -->
+  <script type="module">
+    // Import socket client and storage utilities
+    import socketClient from '/interac/client-side/client-socket/socket-client.js';
+    import { 
+      getUserIdentityFromCookie, 
+      setUserIdentityCookie, 
+      removeUserIdentityCookie 
+    } from '/interac/client-side/client-utils/storage-utils.js';
+    
+    // Function to update connection status UI
+    function updateConnectionStatus(isConnected) {
+      const onlineIndicator = document.querySelector('.dot');
+      
+      if (isConnected) {
+        onlineIndicator.style.backgroundColor = '#10b981'; // Green for connected
+      } else {
+        onlineIndicator.style.backgroundColor = '#ef4444'; // Red for disconnected
+      }
+    }
+    
+    // Handle admin login
+    document.addEventListener('DOMContentLoaded', function() {
+      const adminLoginBtn = document.getElementById('admin-login-btn');
+      const adminLoginError = document.getElementById('admin-login-error');
+      const adminLoginContainer = document.getElementById('admin-login-container');
+      const adminContainer = document.querySelector('.admin-container');
+      const logoutBtn = document.getElementById('logout-btn');
+      
+      // Show login modal on page load
+      adminLoginContainer.classList.add('active');
+      
+      // Admin login handler
+      if (adminLoginBtn) {
+        adminLoginBtn.addEventListener('click', async function() {
+          const usernameInput = document.getElementById('admin-username');
+          const passwordInput = document.getElementById('admin-password');
+          
+          if (!usernameInput.value.trim()) {
+            adminLoginError.textContent = 'Please enter a username';
+            return;
+          }
+          
+          // Disable button during login attempt
+          adminLoginBtn.disabled = true;
+          adminLoginBtn.textContent = 'Logging in...';
+          adminLoginError.textContent = '';
+          
+          try {
+            // Check for existing identity cookie
+            const storedIdentity = getUserIdentityFromCookie();
+            let isReturningUser = false;
+            
+            if (storedIdentity && storedIdentity.username === usernameInput.value.trim()) {
+              console.log('Detected returning admin with matching cookie identity');
+              isReturningUser = true;
+            }
+            
+            // Connect to socket server with admin role
+            const username = `admin_${usernameInput.value.trim()}`;
+            const connected = socketClient.connectWithUsername(username);
+            
+            if (!connected) {
+              throw new Error('Failed to connect to server');
+            }
+            
+            // Wait for connection confirmation
+            await new Promise((resolve, reject) => {
+              // Set a timeout for connection attempt
+              const timeout = setTimeout(() => {
+                reject(new Error('Connection timeout'));
+              }, 5000);
+              
+              // Listen for connect event
+              socketClient.socket.once('connect', () => {
+                clearTimeout(timeout);
+                // Emit admin authentication event
+                socketClient.socket.emit('admin:authenticate', {
+                  username: usernameInput.value.trim(),
+                  password: passwordInput.value,
+                  isReturningUser
+                });
+                
+                // Listen for authentication response
+                socketClient.socket.once('admin:auth_result', (result) => {
+                  if (result.success) {
+                    resolve(result);
+                  } else {
+                    reject(new Error(result.message || 'Authentication failed'));
+                  }
+                });
+              });
+              
+              // Listen for connect_error event
+              socketClient.socket.once('connect_error', (err) => {
+                clearTimeout(timeout);
+                reject(new Error(err.message || 'Connection error'));
+              });
+            });
+            
+            // Store admin info in cookie
+            setUserIdentityCookie(username, socketClient.userId);
+            
+            // Hide login modal, show admin container
+            adminLoginContainer.classList.remove('active');
+            adminContainer.style.display = '';
+            
+            // Update connection status
+            updateConnectionStatus(true);
+            
+            // Set up socket event handlers
+            setupSocketEvents();
+            
+          } catch (error) {
+            console.error('Login error:', error);
+            adminLoginError.textContent = error.message || 'Authentication failed. Please try again.';
+            
+            // Disconnect socket on failed login
+            socketClient.disconnect();
+          } finally {
+            // Re-enable login button
+            adminLoginBtn.disabled = false;
+            adminLoginBtn.textContent = 'Login';
+          }
+        });
+      }
+      
+      // Logout handler
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+          // Disable logout button to prevent multiple clicks
+          logoutBtn.disabled = true;
+          logoutBtn.textContent = 'Logging out...';
+          
+          // Clean disconnect from socket
+          socketClient.disconnect();
+          
+          // Reset any persistent data
+          removeUserIdentityCookie();
+          localStorage.removeItem('admin_auth');
+          sessionStorage.clear();
+          
+          // Update UI
+          setTimeout(() => {
+            // Show login container, hide admin container
+            adminLoginContainer.classList.add('active');
+            adminContainer.style.display = 'none';
+            
+            // Clear the login form
+            document.getElementById('admin-username').value = '';
+            document.getElementById('admin-password').value = '';
+            
+            // Re-enable the logout button
+            logoutBtn.disabled = false;
+            logoutBtn.textContent = 'Logout';
+          }, 500);
+        });
+      }
+    });
+    
+    // Set up socket event handlers
+    function setupSocketEvents() {
+      const socket = socketClient.getSocket();
+      const onlineCountElement = document.getElementById('online-count');
+      const onlineUsersList = document.getElementById('online-users-list');
+      const chatMessages = document.getElementById('chat-messages');
+      const chatInput = document.getElementById('chat-input');
+      const sendMessageBtn = document.getElementById('send-message-btn');
+      
+      // Handle connection events
+      socket.on('connect', () => {
+        updateConnectionStatus(true);
+        // Add system message for connection
+        addSystemMessage('Connected to server');
+      });
+      
+      socket.on('disconnect', () => {
+        updateConnectionStatus(false);
+        // Add system message for disconnection
+        addSystemMessage('Disconnected from server');
+      });
+      
+      socket.on('reconnect', (attemptNumber) => {
+        updateConnectionStatus(true);
+        // Add system message for reconnection
+        addSystemMessage(`Reconnected after ${attemptNumber} attempts`);
+      });
+      
+      // Handle user events
+      socket.on('users:update', (users) => {
+        // Update online users count
+        if (onlineCountElement) {
+          onlineCountElement.textContent = users.length;
+        }
+        
+        // Update online users list
+        if (onlineUsersList) {
+          onlineUsersList.innerHTML = '';
+          
+          if (users.length === 0) {
+            onlineUsersList.innerHTML = '<div class="user-pill">No users online</div>';
+          } else {
+            users.forEach(user => {
+              const userPill = document.createElement('div');
+              userPill.className = 'user-pill';
+              userPill.textContent = user.username.replace(/^admin_/, ''); // Remove admin_ prefix if present
+              onlineUsersList.appendChild(userPill);
+            });
+          }
+        }
+      });
+      
+      // Handle chat messages
+      socket.on('chat:message', (message) => {
+        addChatMessage(message);
+      });
+      
+      // Handle admin broadcast events
+      socket.on('admin:broadcast', (data) => {
+        addSystemMessage(`Broadcast: ${data.message}`);
+      });
+      
+      // Send message handler
+      if (sendMessageBtn && chatInput) {
+        sendMessageBtn.addEventListener('click', sendMessage);
+        chatInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            sendMessage();
+          }
+        });
+      }
+      
+      // Function to send chat message
+      function sendMessage() {
+        const messageText = chatInput.value.trim();
+        
+        if (messageText) {
+          // Emit message event
+          socket.emit('chat:message', {
+            content: messageText,
+            isAdmin: true // Mark as admin message
+          });
+          
+          // Clear input
+          chatInput.value = '';
+          
+          // Focus back on input
+          chatInput.focus();
+        }
+      }
+      
+      // Function to add chat message to UI
+      function addChatMessage(message) {
+        if (!chatMessages) return;
+        
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message';
+        
+        // Check if this is from the current user
+        if (message.userId === socketClient.userId) {
+          messageDiv.classList.add('self');
+        }
+        
+        messageDiv.innerHTML = `
+          <div class="message-content-wrapper">
+            <div class="message-header">
+              <span class="message-sender">${message.username}${message.isAdmin ? ' (Admin)' : ''}</span>
+              <span class="message-time">${formatMessageTime(message.timestamp)}</span>
+            </div>
+            <div class="message-content">${message.content}</div>
+          </div>
+        `;
+        
+        chatMessages.appendChild(messageDiv);
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      
+      // Function to add system message
+      function addSystemMessage(message) {
+        if (!chatMessages) return;
+        
+        const systemDiv = document.createElement('div');
+        systemDiv.className = 'system-message';
+        systemDiv.innerHTML = `
+          <div class="message-content">${message}</div>
+        `;
+        
+        chatMessages.appendChild(systemDiv);
+        
+        // Scroll to bottom
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+      
+      // Function to format message time
+      function formatMessageTime(timestamp) {
+        const date = new Date(timestamp);
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+    }
+  </script>
 </body>
 </html>
