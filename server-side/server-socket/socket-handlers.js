@@ -3,6 +3,9 @@
 const jwt = require('jsonwebtoken');
 const config = require('../../config/app-config');
 
+// Store active users with their last activity timestamp
+const activeUsers = new Map(); // Map<userId, {username, lastActivity, socketIds: Set<socketId}>
+
 function registerQuizHandlers(io, socket) {
     const backgroundProcessingService = require('../server-services/background-processing-service');
     const logger = require('../../logger');
@@ -215,9 +218,131 @@ function handleDisconnect(io, socket) {
     }
 }
 
+/**
+ * Handle user presence and activity tracking
+ * This ensures accurate online user lists and handles multiple connections from same user
+ */
+function registerPresenceHandlers(io, socket) {
+    const logger = require('../../logger');
+    
+    if (!socket.user) return;
+    
+    const userId = socket.user.id || `guest_${socket.user.username}`;
+    const username = socket.user.username;
+    
+    // Update or add user to active users
+    if (activeUsers.has(userId)) {
+        // User already exists, just add this socket ID
+        const userData = activeUsers.get(userId);
+        userData.lastActivity = Date.now();
+        userData.socketIds.add(socket.id);
+        userData.username = username; // In case username changed
+    } else {
+        // New user
+        activeUsers.set(userId, {
+            username,
+            lastActivity: Date.now(),
+            socketIds: new Set([socket.id])
+        });
+    }
+
+    // Emit updated user list to all clients
+    broadcastUserList(io);
+    
+    // Setup heartbeat to verify active status
+    socket.on('user:heartbeat', () => {
+        if (activeUsers.has(userId)) {
+            activeUsers.get(userId).lastActivity = Date.now();
+        }
+    });
+    
+    // Handle activity events to update last activity time
+    const activityEvents = ['chat_message', 'join_room', 'leave_room', 'room_message'];
+    activityEvents.forEach(event => {
+        const originalHandler = socket.listeners(event)[0]; // Store original handler if exists
+        
+        socket.removeAllListeners(event); // Remove any existing handlers
+        
+        // Add new handler that updates activity time then calls original handler
+        socket.on(event, (...args) => {
+            if (activeUsers.has(userId)) {
+                activeUsers.get(userId).lastActivity = Date.now();
+            }
+            
+            // Call original handler if it exists
+            if (originalHandler) originalHandler.apply(socket, args);
+        });
+    });
+    
+    // Handle disconnect
+    socket.on('disconnect', () => {
+        if (activeUsers.has(userId)) {
+            const userData = activeUsers.get(userId);
+            
+            // Remove this socket ID
+            userData.socketIds.delete(socket.id);
+            
+            // If no more sockets, remove user after a grace period
+            // This allows for brief disconnections without showing user as offline
+            if (userData.socketIds.size === 0) {
+                setTimeout(() => {
+                    // Double check if user has reconnected
+                    if (activeUsers.has(userId) && activeUsers.get(userId).socketIds.size === 0) {
+                        activeUsers.delete(userId);
+                        broadcastUserList(io);
+                        logger.info(`User removed from active list after grace period: ${username}`);
+                    }
+                }, 10000); // 10-second grace period
+            }
+            
+            // Always broadcast immediately to show accurate count
+            broadcastUserList(io);
+        }
+    });
+
+    // Setup periodic cleanup to remove inactive users
+    if (!global.presenceCleanupInterval) {
+        global.presenceCleanupInterval = setInterval(() => {
+            const now = Date.now();
+            let changed = false;
+            
+            activeUsers.forEach((userData, uid) => {
+                // If inactive for more than 5 minutes and has no active connections
+                if (now - userData.lastActivity > 5 * 60 * 1000 && userData.socketIds.size === 0) {
+                    activeUsers.delete(uid);
+                    changed = true;
+                    logger.info(`Removed inactive user: ${userData.username}`);
+                }
+            });
+            
+            // Only broadcast if list changed
+            if (changed) {
+                broadcastUserList(io);
+            }
+        }, 60000); // Check every minute
+    }
+}
+
+/**
+ * Broadcast the current user list to all connected clients
+ */
+function broadcastUserList(io) {
+    // Create array of unique active users
+    const users = Array.from(activeUsers.values()).map(userData => ({
+        userId: userData.username, // Use username as ID for backward compatibility
+        username: userData.username,
+        connections: userData.socketIds.size,
+        lastActive: userData.lastActivity
+    }));
+
+    // Broadcast to all connected clients
+    io.emit('user_list', users);
+}
+
 module.exports = {
     registerQuizHandlers,
     setupAuthMiddleware,
     registerChatHandlers,
-    handleDisconnect
+    handleDisconnect,
+    registerPresenceHandlers
 };

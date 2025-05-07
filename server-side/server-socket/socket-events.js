@@ -1,6 +1,6 @@
 // server-side/server-socket/socket-events.js
 const { Server } = require('socket.io');
-const { setupAuthMiddleware, handleDisconnect, registerQuizHandlers, registerChatHandlers } = require('./socket-handlers');
+const { setupAuthMiddleware, handleDisconnect, registerQuizHandlers, registerChatHandlers, registerPresenceHandlers } = require('./socket-handlers');
 
 let io;
 
@@ -30,25 +30,18 @@ function initSocketServer(server) {
   // Set up authentication middleware
   setupAuthMiddleware(io);
   
-  // Helper to emit the user list to all clients
-  function emitUserList() {
-    const users = Array.from(io.sockets.sockets.values()).map(s => ({
-      userId: s.user?.id || s.id,
-      username: s.user?.username || 'Anonymous'
-    }));
-    io.emit('user_list', users);
-  }
-
   // Connection handling
   io.on('connection', (socket) => {
     registerQuizHandlers(io, socket);
-    registerChatHandlers(io, socket); // Register chat handlers
-    emitUserList(); // Emit on connect
-
+    registerChatHandlers(io, socket);
+    registerPresenceHandlers(io, socket); // Register presence handlers
+    
+    // Emit the user list is now handled by presence system
+    
     // Handle disconnect
     socket.on('disconnect', () => {
       handleDisconnect(io, socket);
-      emitUserList(); // Emit on disconnect
+      // User list update is now handled by presence system
     });
   });
   

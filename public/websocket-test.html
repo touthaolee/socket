@@ -1039,6 +1039,16 @@
         startUptime();
         setStatusIndicator('CONNECTED');
         socket.emit('user_join', window.currentUsername);
+
+        // Enable chat UI when connected
+        initChatUI();
+        
+        // Important: System message about connection
+        addChatMessage({
+          system: true,
+          message: 'You have connected to the chat room.',
+          timestamp: new Date().toISOString()
+        });
       });
       
       socket.on('disconnect', reason => {
@@ -1104,6 +1114,23 @@
         socket.io.engine.on('ping', () => log('Engine.IO ping sent'));
         socket.io.engine.on('pong', () => log('Engine.IO pong received'));
       }
+      
+      // CRITICAL FIX: Add the chat_message handler directly here
+      socket.on('chat_message', (data) => {
+        log(`Chat message from ${data.from || 'System'}: ${data.message}`);
+        
+        // Only add message to chat display if it's not from self (already added optimistically)
+        // or if it's a system message
+        if (data.system || data.from !== window.currentUsername) {
+          addChatMessage({
+            from: data.from,
+            message: data.message,
+            timestamp: data.timestamp || new Date().toISOString(),
+            isSelf: data.from === window.currentUsername,
+            system: data.system
+          });
+        }
+      });
     }
 
     function disconnectSocket() {
