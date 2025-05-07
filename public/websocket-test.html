@@ -1236,7 +1236,7 @@ function initChatUI() {
   const chatInput = document.getElementById('chat-input');
   const chatSendBtn = document.getElementById('chat-send-btn');
   
-  // Enable/disable chat inputs based on connection status
+  // Fix: Check socket connection status directly
   if (socket && socket.connected) {
     chatInput.disabled = false;
     chatSendBtn.disabled = false;
@@ -1398,25 +1398,44 @@ function updateChatUserList(users) {
 
 // ----- Modify the existing socket.on handlers to add chat support -----
 
+// Fix: Connect all Socket.IO event handlers properly
+function setupChatHandlers(socket) {
+  // Chat message received
+  socket.on('chat_message', (data) => {
+    log(`Chat message from ${data.from}: ${data.message}`);
+    
+    // Add to chat display
+    addChatMessage({
+      from: data.from,
+      message: data.message,
+      timestamp: data.timestamp || new Date().toISOString(),
+      isSelf: data.from === window.currentUsername
+    });
+  });
+  
+  // System message when connected
+  addChatMessage({
+    system: true,
+    message: 'You have connected to the chat room.',
+    timestamp: new Date().toISOString()
+  });
+  
+  // Enable chat inputs
+  const chatInput = document.getElementById('chat-input');
+  const chatSendBtn = document.getElementById('chat-send-btn');
+  if (chatInput) chatInput.disabled = false;
+  if (chatSendBtn) chatSendBtn.disabled = false;
+  if (chatInput) chatInput.placeholder = "Type a message...";
+}
+
 // Modify the connectSocket function to add chat handlers
 const originalConnectSocket = connectSocket;
 connectSocket = async function() {
   await originalConnectSocket.apply(this, arguments);
   
-  if (socket) {
-    // Chat message received
-    socket.on('chat_message', (data) => {
-      log(`Chat message from ${data.from}: ${data.message}`);
-      
-      // Add to chat display
-      addChatMessage({
-        from: data.from,
-        message: data.message,
-        timestamp: data.timestamp || new Date().toISOString(),
-        isSelf: data.from === window.currentUsername
-      });
-    });
-    
+  if (socket && socket.connected) {
+    // Fix: Set up chat handlers immediately after connection
+    setupChatHandlers(socket);
     // Update chat UI
     initChatUI();
   }
@@ -1431,32 +1450,28 @@ updateOnlineUsers = function(users) {
   updateChatUserList(users);
 };
 
-// Patch socket connect/disconnect events to enable/disable chat
-socket?.on('connect', () => {
-  initChatUI();
-  
-  // Add system message
-  addChatMessage({
-    system: true,
-    message: 'You have connected to the chat room.',
-    timestamp: new Date().toISOString()
-  });
-});
-
-socket?.on('disconnect', () => {
-  initChatUI();
-  
-  // Add system message
-  addChatMessage({
-    system: true,
-    message: 'You have been disconnected from the chat room.',
-    timestamp: new Date().toISOString()
-  });
-});
+// Fix: Remove redundant connect/disconnect handlers that might conflict
+// and instead attach them directly in the socket connection flow
 
 // Initialize chat UI on page load
 document.addEventListener('DOMContentLoaded', () => {
   initChatUI();
+  
+  // Also fix: If socket is already connected when viewing the chat tab, enable chat
+  document.querySelectorAll('.tab').forEach(tab => {
+    if (tab.dataset.tab === 'chat') {
+      tab.addEventListener('click', () => {
+        // When user clicks on chat tab, check if we're already connected
+        if (socket && socket.connected) {
+          const chatInput = document.getElementById('chat-input');
+          const chatSendBtn = document.getElementById('chat-send-btn');
+          if (chatInput) chatInput.disabled = false;
+          if (chatSendBtn) chatSendBtn.disabled = false;
+          if (chatInput) chatInput.placeholder = "Type a message...";
+        }
+      });
+    }
+  });
 });
   </script>
 </body>
