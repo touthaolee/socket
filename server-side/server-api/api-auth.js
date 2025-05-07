@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { authService } = require('../service-registry');
+const authMiddleware = require('../middleware/auth-middleware');
 
 // Rate limiting to prevent brute force attacks
 const loginLimiter = rateLimit({
@@ -181,6 +182,29 @@ router.get('/check-username/:username', async (req, res) => {
     console.error('Username check error:', error);
     res.status(500).json({ error: 'Server error checking username' });
   }
+});
+
+// Add an endpoint to clear offline users
+router.post('/clear-offline-users', async (req, res) => {
+    try {
+        const socketHandlers = require('../server-socket/socket-handlers');
+        const removedCount = socketHandlers.clearOfflineUsers();
+        
+        console.log(`API request: Cleared ${removedCount} offline users`);
+        
+        return res.status(200).json({
+            success: true,
+            message: `Successfully cleared ${removedCount} offline users`,
+            count: removedCount
+        });
+    } catch (error) {
+        console.error('Error clearing offline users:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to clear offline users',
+            error: error.message
+        });
+    }
 });
 
 module.exports = router;

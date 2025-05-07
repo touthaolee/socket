@@ -506,6 +506,25 @@ function checkUsernameAvailability(username) {
     return !isUsernameActive(username);
 }
 
+// Add this function to manually clean up persistent offline users
+function clearOfflineUsers() {
+    const logger = require('../../logger');
+    let removedCount = 0;
+    
+    // Iterate through all users in the activeUsers map
+    for (const [userId, userData] of activeUsers.entries()) {
+        // If the user has no socket connections and is marked as offline
+        if (userData.socketIds.size === 0 || userData.status === 'offline') {
+            activeUsers.delete(userId);
+            removedCount++;
+            logger.info(`Removed persistent offline user: ${userData.username}`);
+        }
+    }
+    
+    logger.info(`Cleaned up ${removedCount} offline users from memory`);
+    return removedCount;
+}
+
 module.exports = {
     registerQuizHandlers,
     setupAuthMiddleware,
@@ -513,5 +532,6 @@ module.exports = {
     handleDisconnect,
     registerPresenceHandlers,
     isUsernameActive, // Export the username checking function
-    checkUsernameAvailability
+    checkUsernameAvailability,
+    clearOfflineUsers // Export the cleanup function
 };

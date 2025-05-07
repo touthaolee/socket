@@ -1574,13 +1574,16 @@ function setupChatHandlers(socket) {
   socket.on('chat_message', (data) => {
     log(`Chat message from ${data.from}: ${data.message}`);
     
-    // Add to chat display - but only once
-    addChatMessage({
-      from: data.from,
-      message: data.message,
-      timestamp: data.timestamp || new Date().toISOString(),
-      isSelf: data.from === window.currentUsername
-    });
+    // Only add messages from others to chat display
+    // Messages from self are already added in sendChatMessage function
+    if (data.from !== window.currentUsername) {
+      addChatMessage({
+        from: data.from,
+        message: data.message,
+        timestamp: data.timestamp || new Date().toISOString(),
+        isSelf: false
+      });
+    }
   });
   
   // Enable chat inputs
@@ -2055,5 +2058,17 @@ function stopUserHeartbeat() {
   }
 }
   </script>
+<!-- Add this panel to your HTML before the closing of the connection panel div -->
+<div class="panel">
+  <div class="panel-header">
+    <i class="fas fa-user-slash panel-icon"></i>
+    <h3 class="panel-title">User Presence Management</h3>
+  </div>
+  <div class="row">
+    <button class="btn btn-danger" onclick="clearOfflineUsers()">
+      <i class="fas fa-trash-alt"></i> Clear Offline Users
+    </button>
+  </div>
+</div>
 </body>
 </html>
