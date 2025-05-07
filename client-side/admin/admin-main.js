@@ -718,12 +718,15 @@ async function createQuiz() {
   let quizData;
   
   if (activeTab === 'ai-generate') {
+    const quizName = document.getElementById('quiz-name').value.trim();
+    const aiTopic = document.getElementById('ai-topic').value.trim();
+    
     quizData = {
-      name: document.getElementById('quiz-name').value.trim(),
+      name: quizName,
       description: document.getElementById('quiz-description').value.trim(),
       timePerQuestion: parseInt(document.getElementById('time-per-question').value) || 30,
       aiOptions: {
-        topic: document.getElementById('ai-topic').value.trim(),
+        topic: aiTopic,
         numQuestions: parseInt(document.getElementById('num-questions').value) || 10,
         difficulty: document.getElementById('difficulty').value,
         rationaleTone: document.getElementById('rationale-tone').value,
@@ -733,9 +736,16 @@ async function createQuiz() {
       }
     };
     
-    // Validate
-    if (!quizData.name || !quizData.aiOptions.topic) {
-      alert('Please enter a quiz name and topic');
+    // Validate with specific error messages
+    if (!quizName) {
+      alert('Please enter a quiz name');
+      document.getElementById('quiz-name').focus();
+      return;
+    }
+    
+    if (!aiTopic) {
+      alert('Please enter an AI topic in the "Topic/Prompt" field to generate questions');
+      document.getElementById('ai-topic').focus();
       return;
     }
     
@@ -743,16 +753,25 @@ async function createQuiz() {
     startQuizGeneration(quizData);
   } else {
     // Manual creation
+    const quizName = document.getElementById('manual-quiz-name').value.trim();
+    const questions = getQuestionsFromForm();
+    
     quizData = {
-      name: document.getElementById('manual-quiz-name').value.trim(),
+      name: quizName,
       description: document.getElementById('manual-quiz-description').value.trim(),
       timePerQuestion: parseInt(document.getElementById('manual-time-per-question').value) || 30,
-      questions: getQuestionsFromForm()
+      questions: questions
     };
     
-    // Validate
-    if (!quizData.name || !quizData.questions.length) {
-      alert('Please enter a quiz name and at least one question');
+    // Validate with specific error messages
+    if (!quizName) {
+      alert('Please enter a quiz name');
+      document.getElementById('manual-quiz-name').focus();
+      return;
+    }
+    
+    if (questions.length === 0) {
+      alert('Please add at least one question with options and a correct answer');
       return;
     }
     

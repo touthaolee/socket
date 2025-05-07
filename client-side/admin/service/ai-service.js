@@ -86,6 +86,97 @@ export const aiService = {
       }
     },
     
+    // Generate quiz questions with progress callbacks
+    async generateQuizQuestions(options, callbacks) {
+      try {
+        const { 
+          topic, 
+          numQuestions, 
+          difficulty, 
+          optionsPerQuestion, 
+          rationaleTone,
+          specificFocuses,
+          batchSize = 5
+        } = options;
+        
+        const { 
+          onProgress, 
+          onBatchComplete, 
+          onComplete, 
+          onError,
+          shouldContinue = () => true 
+        } = callbacks;
+        
+        // Initialize results array
+        const questions = [];
+        const totalBatches = Math.ceil(numQuestions / batchSize);
+        let currentBatch = 1;
+        let generatedCount = 0;
+        
+        // Process in batches for better UX
+        while (generatedCount < numQuestions) {
+          // Check if generation should continue
+          if (!shouldContinue()) {
+            onError(new Error('Generation cancelled by user'));
+            return;
+          }
+          
+          // Calculate how many to generate in this batch
+          const batchCount = Math.min(batchSize, numQuestions - generatedCount);
+          
+          try {
+            // Generate this batch
+            const config = {
+              difficulty,
+              rationaleTone,
+              optionsPerQuestion,
+              specificFocuses: specificFocuses ? specificFocuses.split(',').map(f => f.trim()) : []
+            };
+            
+            // Report start of batch generation
+            onProgress(
+              (generatedCount / numQuestions) * 100,
+              generatedCount,
+              numQuestions
+            );
+            
+            // Use existing method to generate a batch
+            const batchQuestions = await this.generateQuestions(topic, batchCount, config);
+            
+            // Add to results
+            questions.push(...batchQuestions);
+            generatedCount += batchQuestions.length;
+            
+            // Report batch completion
+            onBatchComplete(batchQuestions, currentBatch, totalBatches);
+            
+            // Report progress
+            onProgress(
+              (generatedCount / numQuestions) * 100,
+              generatedCount,
+              numQuestions
+            );
+            
+            currentBatch++;
+          } catch (error) {
+            console.error(`Error in batch ${currentBatch}:`, error);
+            // Continue with next batch despite errors
+          }
+          
+          // Add small delay between batches
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+        
+        // Complete
+        onComplete(questions);
+        return questions;
+      } catch (error) {
+        console.error('Error generating quiz questions:', error);
+        onError(error);
+        throw error;
+      }
+    },
+    
     // Generate with retry logic
     async generateWithRetry(generationFn, maxRetries = 3, baseDelay = 1000) {
       let lastError;
