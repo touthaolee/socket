@@ -1408,6 +1408,7 @@ function sendChatMessage() {
   
   if (message && socket && socket.connected) {
     socket.emit('chat_message', { 
+      from: window.currentUsername, // Always include sender username
       message,
       timestamp: new Date().toISOString()
     });
@@ -1429,16 +1430,13 @@ function sendChatMessage() {
 function addChatMessage(message) {
   const chatMessagesEl = document.getElementById('chat-messages');
   const welcomeMessage = chatMessagesEl.querySelector('.welcome-message');
-  
   // Remove welcome message if present
   if (welcomeMessage) {
     welcomeMessage.remove();
   }
-  
   // Create message element
   const messageEl = document.createElement('div');
   messageEl.className = 'chat-message';
-  
   // Determine message type
   if (message.system) {
     messageEl.classList.add('chat-message-system');
@@ -1446,41 +1444,43 @@ function addChatMessage(message) {
   } else {
     // User message
     messageEl.classList.add(message.isSelf ? 'chat-message-self' : 'chat-message-other');
-    
     // Message header with name and time
     const messageHeader = document.createElement('div');
     messageHeader.className = 'chat-message-header';
-    
     const messageName = document.createElement('div');
     messageName.className = 'chat-message-name';
-    messageName.textContent = message.from || 'Anonymous';
-    
+    messageName.textContent = message.from || message.username || message.user || 'Anonymous';
     const messageTime = document.createElement('div');
     messageTime.className = 'chat-message-time';
     messageTime.textContent = formatTime(message.timestamp);
-    
     messageHeader.appendChild(messageName);
     messageHeader.appendChild(messageTime);
-    
     // Message content
     const messageContent = document.createElement('div');
     messageContent.className = 'chat-message-content';
-    messageContent.textContent = message.message;
-    
+    if (message.corrections && Object.keys(message.corrections).length > 0) {
+      let content = message.message;
+      for (const [original, corrected] of Object.entries(message.corrections)) {
+        const regex = new RegExp(`\\b${corrected.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\b`, 'g');
+        content = content.replace(regex, `<span class="correction" title="Corrected from: '${original}'">${corrected}</span>`);
+      }
+      messageContent.innerHTML = content;
+    } else {
+      messageContent.textContent = message.message;
+    }
     messageEl.appendChild(messageHeader);
     messageEl.appendChild(messageContent);
   }
-  
   // Add to DOM
   chatMessagesEl.appendChild(messageEl);
-  
   // Scroll to bottom
   chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-  
   // Store in message history
-  chatMessages.push(message);
-  if (chatMessages.length > MAX_CHAT_HISTORY) {
-    chatMessages.shift();
+  if (window.chatMessages) {
+    window.chatMessages.push(message);
+    if (window.chatMessages.length > window.MAX_CHAT_HISTORY) {
+      window.chatMessages.shift();
+    }
   }
 }
 
@@ -1547,13 +1547,10 @@ function setupChatHandlers(socket) {
   
   // Chat message received
   socket.on('chat_message', (data) => {
-    log(`Chat message from ${data.from}: ${data.message}`);
-    
-    // Only add messages from others to chat display
-    // Messages from self are already added in sendChatMessage function
-    if (data.from !== window.currentUsername) {
+    log(`Chat message from ${data.from || data.username || data.user || 'Anonymous'}: ${data.message}`);
+    if ((data.from || data.username || data.user) !== window.currentUsername) {
       addChatMessage({
-        from: data.from,
+        from: data.from || data.username || data.user || 'Anonymous',
         message: data.message,
         timestamp: data.timestamp || new Date().toISOString(),
         isSelf: false
@@ -1714,7 +1711,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const messageName = document.createElement('div');
         messageName.className = 'chat-message-name';
-        messageName.textContent = message.from || 'Anonymous';
+        messageName.textContent = message.from || message.username || message.user || 'Anonymous';
         
         const messageTime = document.createElement('div');
         messageTime.className = 'chat-message-time';

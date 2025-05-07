@@ -364,8 +364,9 @@ class ChatModule {
     // Apply spelling corrections
     const { correctedMessage, corrections } = this.correctSpelling(message);
     
-    // Send message to server
+    // Send message to server with username
     this.socket.emit('chat_message', {
+      from: this.currentUsername,
       message: correctedMessage,
       timestamp: new Date().toISOString()
     });
