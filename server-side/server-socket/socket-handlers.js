@@ -319,31 +319,27 @@ function registerPresenceHandlers(io, socket) {
     // Handle explicit user logout event
     socket.on('user_logout', (data) => {
         logger.info(`User logout event received for: ${data.username || username}`);
-        
-        if (activeUsers.has(userId)) {
+        // Always force remove if requested, regardless of socket state
+        if (data && data.forceRemove && data.userId) {
+            if (activeUsers.has(data.userId)) {
+                activeUsers.delete(data.userId);
+                logger.info(`User force removed from active list after logout: ${data.username}`);
+            }
+        } else if (activeUsers.has(userId)) {
             const userData = activeUsers.get(userId);
-            
             // Remove this socket ID
             userData.socketIds.delete(socket.id);
-            
-            // Check if this is a force remove request (from explicit logout)
-            if (data.forceRemove) {
-                // Immediately remove user from active users list on explicit logout
-                activeUsers.delete(userId);
-                logger.info(`User force removed from active list after logout: ${username}`);
-            } else {
-                // If no more sockets, mark as offline
-                if (userData.socketIds.size === 0) {
-                    userData.status = 'offline';
-                }
+            // If no more sockets, mark as offline
+            if (userData.socketIds.size === 0) {
+                userData.status = 'offline';
             }
-            
             // Notify other users that this user logged out
             socket.broadcast.emit('user_disconnected', { username: data.username || username });
-            
             // Update the user list for all clients
             broadcastUserList(io);
         }
+        // Always update user list after any removal
+        broadcastUserList(io);
     });
     
     // Handle explicit presence updates from client
