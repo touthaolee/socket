@@ -16,6 +16,9 @@ try {
   logoutChannel = null;
 }
 
+// Singleton instance for socket
+let socketInstance = null;
+
 const socketClient = {
     socket: null,
     username: '',
@@ -27,9 +30,31 @@ const socketClient = {
     heartbeatInterval: null,
     reconnectAttempts: 0,
     maxReconnectAttempts: 5,
+    isInitialized: false,
+    
+    // Get or create the socket client instance (singleton pattern)
+    getSocket() {
+      if (!this.isInitialized) {
+        this.init();
+      }
+      return this.socket;
+    },
     
     // Initialize the socket client
     init() {
+      // Prevent multiple initializations
+      if (this.isInitialized && this.socket) {
+        console.log('Socket already initialized, reusing existing socket');
+        return this.socket;
+      }
+      
+      console.log('Initializing new socket connection');
+      
+      // Properly clean up any existing socket before creating a new one
+      if (this.socket) {
+        this.cleanupSocket();
+      }
+      
       this.socket = io({
         path: '/interac/socket.io',
         autoConnect: false, // Don't connect automatically
@@ -40,13 +65,40 @@ const socketClient = {
         timeout: 10000
       });
       
+      // Store global reference to prevent duplication
+      socketInstance = this.socket;
+      
       // Setup default event handlers
       this.setupDefaultHandlers();
       
       // Setup cross-tab synchronization for logout
       this.setupCrossTabSync();
       
+      this.isInitialized = true;
       return this.socket;
+    },
+    
+    // Clean up socket resources properly
+    cleanupSocket() {
+      if (!this.socket) return;
+      
+      // Remove all listeners to prevent memory leaks
+      this.socket.removeAllListeners();
+      
+      // Disconnect if connected
+      if (this.socket.connected) {
+        this.socket.disconnect();
+      }
+      
+      // Stop any ongoing heartbeat
+      this.stopHeartbeat();
+      
+      // Clear the socket instance
+      this.socket = null;
+      socketInstance = null;
+      
+      // Reset initialization flag
+      this.isInitialized = false;
     },
     
     // Setup cross-tab synchronization
@@ -87,6 +139,9 @@ const socketClient = {
       this.isLoggingOut = false;
       this.logoutPromise = null;
       
+      // Always ensure we have a socket instance
+      this.getSocket();
+      
       // Set auth data with token
       this.socket.auth = { token };
       
@@ -103,10 +158,6 @@ const socketClient = {
     
     // Connect with username only (simplified auth)
     async connectWithUsername(username) {
-      if (!this.socket) {
-        this.init();
-      }
-      
       if (!username) {
         console.error('Username required');
         return false;
@@ -130,6 +181,9 @@ const socketClient = {
       // Clear any existing logout state
       this.isLoggingOut = false;
       this.logoutPromise = null;
+      
+      // Always ensure we have a socket instance using getSocket()
+      this.getSocket();
       
       this.username = username;
       
@@ -376,6 +430,7 @@ const socketClient = {
       this.username = '';
       this.userId = '';
       this.activeUsers = [];
+      this.isInitialized = false;
       
       // Notify other tabs about logout if broadcasting is enabled
       if (broadcast) {
@@ -500,12 +555,12 @@ const socketClient = {
       // Reset reconnection attempts
       this.reconnectAttempts = 0;
       
-      // If socket exists, disconnect
+      // If socket exists, properly clean up
       if (this.socket) {
-        this.socket.disconnect();
+        this.cleanupSocket();
       }
       
-      // Reinitialize socket
+      // Reinitialize socket with a clean slate
       this.init();
       
       // Reconnect with existing identity

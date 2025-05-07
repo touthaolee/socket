@@ -483,13 +483,13 @@
                   }, 5000);
                   
                   // Listen for connect event
-                  socketClient.getSocket().once('connect', () => {
+                  socketClient.socket.once('connect', () => {
                     clearTimeout(timeout);
                     resolve();
                   });
                   
                   // Listen for connect_error event
-                  socketClient.getSocket().once('connect_error', (err) => {
+                  socketClient.socket.once('connect_error', (err) => {
                     clearTimeout(timeout);
                     reject(new Error(err.message || 'Connection error'));
                   });
