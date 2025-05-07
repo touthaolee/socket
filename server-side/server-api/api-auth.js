@@ -64,13 +64,25 @@ router.post('/login', loginLimiter, async (req, res) => {
     // Check if username is already active (for regular users only, not admin)
     if (username !== ADMIN_USERNAME) {
       const socketHandlers = require('../server-socket/socket-handlers');
-      
       // Check if username is already in use by an active user
       if (socketHandlers.isUsernameActive(username)) {
-        return res.status(409).json({ 
-          error: 'Username already in use', 
-          message: 'This username is already logged in. Please choose a different username or try again later.'
-        });
+        // --- PATCH: Allow login if the userId matches the one in the JWT (same user, not a different browser) ---
+        let userIdFromToken = null;
+        if (req.headers && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+          const token = req.headers.authorization.substring(7);
+          const decoded = authService.verifyToken(token);
+          if (decoded && decoded.username === username && decoded.id) {
+            userIdFromToken = decoded.id;
+          }
+        }
+        // If the username is active, but the userId matches, allow login
+        if (!userIdFromToken || !socketHandlers.hasMatchingUserIdForUsername(username, userIdFromToken)) {
+          return res.status(409).json({ 
+            error: 'Username already in use', 
+            message: 'This username is already logged in. Please choose a different username or try again later.'
+          });
+        }
+        // else: allow login to continue
       }
     }
     
