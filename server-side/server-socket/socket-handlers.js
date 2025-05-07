@@ -57,6 +57,62 @@ function registerQuizHandlers(io, socket) {
     });
 }
 
+function registerChatHandlers(io, socket) {
+    const logger = require('../../logger');
+    
+    // Handle incoming chat messages
+    socket.on('chat_message', (data) => {
+        if (!socket.user) {
+            socket.emit('error', { message: 'Authentication required for chat' });
+            return;
+        }
+        
+        // Validate message
+        if (!data.message || typeof data.message !== 'string') {
+            socket.emit('error', { message: 'Invalid message format' });
+            return;
+        }
+        
+        // Rate limiting could be added here
+        
+        // Format the message for broadcasting
+        const messageToSend = {
+            from: socket.user.username,
+            userId: socket.user.id,
+            message: data.message.substring(0, 500), // Limit message length
+            timestamp: data.timestamp || new Date().toISOString()
+        };
+        
+        logger.info('Chat message received', {
+            from: socket.user.username,
+            messageLength: data.message.length
+        });
+        
+        // Broadcast to all clients
+        io.emit('chat_message', messageToSend);
+    });
+    
+    // Notify others when a user joins chat
+    if (socket.user) {
+        socket.broadcast.emit('chat_message', {
+            system: true,
+            message: `${socket.user.username} has joined the chat`,
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    // Setup disconnect handler to notify on leave
+    socket.on('disconnect', () => {
+        if (socket.user) {
+            socket.broadcast.emit('chat_message', {
+                system: true,
+                message: `${socket.user.username} has left the chat`,
+                timestamp: new Date().toISOString()
+            });
+        }
+    });
+}
+
 function setupAuthMiddleware(io, options = {}) {
     const logger = require('../../logger');
     const rateLimit = {};
@@ -132,7 +188,36 @@ function setupAuthMiddleware(io, options = {}) {
     });
 }
 
+// Handle user disconnect
+function handleDisconnect(io, socket) {
+    const logger = require('../../logger');
+    if (socket.user) {
+        logger.info('User disconnected', {
+            username: socket.user.username,
+            id: socket.user.id,
+            socketId: socket.id
+        });
+    } else {
+        logger.info('Socket disconnected', {
+            socketId: socket.id
+        });
+    }
+    
+    // Any cleanup for rooms the user was in
+    if (socket.rooms) {
+        // Leave all rooms
+        Array.from(socket.rooms)
+            .filter(room => room !== socket.id) // Socket.IO adds the socket ID as a room
+            .forEach(room => {
+                socket.to(room).emit('room_announcement', 
+                    `${socket.user?.username || 'A user'} has left the room.`);
+            });
+    }
+}
+
 module.exports = {
     registerQuizHandlers,
-    setupAuthMiddleware
+    setupAuthMiddleware,
+    registerChatHandlers,
+    handleDisconnect
 };
