@@ -98,6 +98,26 @@ function setupMainUI() {
   }
 }
 
+// --- Socket.IO Connection Status UI ---
+function updateSocketStatusUI(status) {
+  // Update the server status text in the footer
+  const statusText = document.getElementById('server-status-text');
+  const indicator = document.querySelector('.connection-indicator');
+  if (statusText) {
+    if (status === 'connected') {
+      statusText.textContent = 'Online';
+      statusText.style.color = 'var(--success)';
+      if (indicator) indicator.classList.add('online');
+      if (indicator) indicator.classList.remove('offline');
+    } else {
+      statusText.textContent = 'Offline';
+      statusText.style.color = 'var(--danger)';
+      if (indicator) indicator.classList.add('offline');
+      if (indicator) indicator.classList.remove('online');
+    }
+  }
+}
+
 /**
 * Set up socket event handlers for quiz events
 * @param {Object} socketClient - Socket client interface
@@ -151,11 +171,13 @@ socketClient.on('user_list', (data) => {
 socketClient.on('connect', () => {
   console.log('Socket connected');
   showToast('Connected to server', 'success');
+  updateSocketStatusUI('connected');
 });
 
 socketClient.on('disconnect', (reason) => {
   console.log('Socket disconnected:', reason);
   showToast('Disconnected from server', 'error');
+  updateSocketStatusUI('disconnected');
 });
 }
 
@@ -197,33 +219,5 @@ window.showAuthenticatedUI = function() {
   }
 };
 
-// --- Offline/Online and Server Status UI ---
-function updateServerStatus(online) {
-  const statusEl = document.getElementById('server-status-text');
-  if (statusEl) {
-    statusEl.textContent = online ? 'Online' : 'Offline';
-    statusEl.style.color = online ? '#06d6a0' : '#ef476f'; // Use CSS variable fallback
-  }
-}
-
-window.addEventListener('online', () => {
-  updateServerStatus(true);
-  showToast('You are back online!', 'success');
-});
-
-window.addEventListener('offline', () => {
-  updateServerStatus(false);
-  showToast('You are offline. Some features may not work.', 'warning');
-});
-
-// On load, set initial status
-updateServerStatus(navigator.onLine);
-
-// Optionally, check server health every 30 seconds
-function checkServerHealth() {
-  fetch('/', { method: 'HEAD' })
-    .then(() => updateServerStatus(true))
-    .catch(() => updateServerStatus(false));
-}
-setInterval(checkServerHealth, 30000);
-checkServerHealth();
+// On load, set initial status to offline until socket connects
+updateSocketStatusUI('disconnected');
