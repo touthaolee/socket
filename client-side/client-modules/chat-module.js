@@ -364,12 +364,30 @@ class ChatModule {
     // Apply spelling corrections
     const { correctedMessage, corrections } = this.correctSpelling(message);
     
-    // Get userId from storage or default to anonymous
-    const userId = localStorage.getItem('userId') || 'anonymous';
+    // Get user information securely from storage
+    let userId = 'anonymous';
+    let username = this.currentUsername;
     
-    // Send message to server with standardized format
+    // Try to get user info from storage securely
+    try {
+      const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
+      // Make sure we're using the correct username that matches the current session
+      if (userInfo && userInfo.username === this.currentUsername) {
+        userId = userInfo.userId || this.socket.id || 'anonymous';
+      } else {
+        console.warn('User info in storage does not match current username, using current username only');
+        // Force the username to be the current one to prevent identity spoofing
+        userId = this.socket.id || 'anonymous';
+      }
+    } catch (error) {
+      console.error('Error parsing user info from storage:', error);
+      // Force safe defaults
+      userId = this.socket.id || 'anonymous';
+    }
+    
+    // Send message to server with standardized format and validated identity
     this.socket.emit('chat_message', {
-      username: this.currentUsername,
+      username: username, // Always use current username
       userId: userId,
       message: correctedMessage,
       roomId: 'global',
@@ -378,7 +396,7 @@ class ChatModule {
     
     // Add to local display with self flag (optimistic UI)
     this.addMessage({
-      username: this.currentUsername,
+      username: username,
       userId: userId,
       message: correctedMessage,
       corrections,
