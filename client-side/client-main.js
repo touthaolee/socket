@@ -100,21 +100,27 @@ function setupMainUI() {
 
 // --- Socket.IO Connection Status UI ---
 function updateSocketStatusUI(status) {
-  // Update the server status text in the footer
+  // Update status text (footer)
   const statusText = document.getElementById('server-status-text');
-  const indicator = document.querySelector('.connection-indicator');
   if (statusText) {
-    if (status === 'connected') {
-      statusText.textContent = 'Online';
-      statusText.style.color = 'var(--success)';
-      if (indicator) indicator.classList.add('online');
-      if (indicator) indicator.classList.remove('offline');
-    } else {
-      statusText.textContent = 'Offline';
-      statusText.style.color = 'var(--danger)';
-      if (indicator) indicator.classList.add('offline');
-      if (indicator) indicator.classList.remove('online');
+    statusText.textContent = status === 'connected' ? 'Online' : 'Offline';
+    statusText.style.color = status === 'connected' ? 'var(--success)' : 'var(--danger)';
+  }
+  // Update all indicators robustly (header and footer)
+  ['connection-indicator', 'footer-connection-indicator'].forEach(id => {
+    const indicator = document.getElementById(id);
+    if (indicator) {
+      indicator.classList.toggle('online', status === 'connected');
+      indicator.classList.toggle('offline', status !== 'connected');
+      // Fallback color if CSS variables are not applied
+      indicator.style.backgroundColor = status === 'connected' ? '#06d6a0' : '#ef476f';
     }
+  });
+  // Also update header text if present
+  const headerText = document.getElementById('connection-text');
+  if (headerText) {
+    headerText.textContent = status === 'connected' ? 'Online' : 'Offline';
+    headerText.style.color = status === 'connected' ? 'var(--success)' : 'var(--danger)';
   }
 }
 
