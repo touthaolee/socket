@@ -97,6 +97,11 @@ const socketClient = {
     // Disconnect from server
     disconnect() {
       if (this.socket) {
+        // Emit a user_logout event before disconnecting to properly remove user from online list
+        if (this.socket.connected) {
+          this.socket.emit('user_logout', { username: this.username });
+          console.log('User logout event emitted');
+        }
         this.socket.disconnect();
       }
     },

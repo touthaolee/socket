@@ -286,4 +286,43 @@
       margin-right: 0;
     }
   }
+
+  /* Username availability styling */
+#login-username.success {
+    border: 2px solid #2ecc71;
+    background-color: rgba(46, 204, 113, 0.05);
+}
+
+#login-username.error {
+    border: 2px solid #e74c3c;
+    background-color: rgba(231, 76, 60, 0.05);
+}
+
+/* Add animation for availability check */
+@keyframes checking {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+#login-username.checking {
+    background: linear-gradient(90deg, rgba(52, 152, 219, 0.1), rgba(52, 152, 219, 0.2), rgba(52, 152, 219, 0.1));
+    background-size: 200% 100%;
+    animation: checking 1.5s ease infinite;
+    border: 1px solid #3498db;
+}
+
+/* Style for the username availability message */
+.availability-status {
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+    transition: all 0.3s ease;
+}
+
+.availability-status.available {
+    color: #2ecc71;
+}
+
+.availability-status.unavailable {
+    color: #e74c3c;
 }

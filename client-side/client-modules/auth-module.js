@@ -61,10 +61,8 @@ async function handleLogin(e) {
       setState('user', data.user || { username });
       setState('isAuthenticated', true);
       showToast(`Welcome, ${username}!`, 'success');
-      // Immediately start socket connection after login (like websocket-test.html)
-      if (typeof window.startSocketAfterLogin === 'function') {
-        window.startSocketAfterLogin({ auth: { token: data.token, username } });
-      }
+      
+      // FIXED: Don't call startSocketAfterLogin here, let showAuthenticatedUI handle it
       window.showAuthenticatedUI();
       return;
     } else if (data.error) {

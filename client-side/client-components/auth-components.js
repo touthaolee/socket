@@ -8,17 +8,66 @@ export function setupAuthUI(callbacks) {
   const loginForm = document.getElementById('login-form');
   const loginBtn = document.getElementById('login-btn');
   const loginError = document.getElementById('login-error');
+  const usernameInput = document.getElementById('login-username');
+  
+  // Add debounced username availability checker
+  let usernameCheckTimeout;
+  usernameInput.addEventListener('input', function() {
+    const username = this.value.trim();
+    
+    // Clear previous timeout
+    if (usernameCheckTimeout) {
+      clearTimeout(usernameCheckTimeout);
+    }
+    
+    // Clear previous error/success indicators
+    loginError.textContent = '';
+    usernameInput.classList.remove('error', 'success');
+    
+    // Don't check if username is empty
+    if (!username || username.length < 2) {
+      return;
+    }
+    
+    // Set new timeout for checking (500ms delay to avoid too many requests)
+    usernameCheckTimeout = setTimeout(async () => {
+      try {
+        // Check username availability
+        const response = await fetch(`/interac/api/auth/check-username/${encodeURIComponent(username)}`);
+        const data = await response.json();
+        
+        if (data.available) {
+          // Username is available
+          usernameInput.classList.add('success');
+          usernameInput.classList.remove('error');
+        } else {
+          // Username is already in use
+          usernameInput.classList.add('error');
+          usernameInput.classList.remove('success');
+          loginError.textContent = 'This username is already in use. Please choose a different one.';
+        }
+      } catch (error) {
+        console.error('Error checking username availability:', error);
+      }
+    }, 500);
+  });
   
   // Handle login form submission
   loginBtn.addEventListener('click', async (e) => {
     e.preventDefault();
     
     // Get username value
-    const username = document.getElementById('login-username').value.trim();
+    const username = usernameInput.value.trim();
     
     // Basic validation
     if (!username) {
       loginError.textContent = 'Please enter a username';
+      return;
+    }
+    
+    // Check if username is already flagged as in use
+    if (usernameInput.classList.contains('error')) {
+      loginError.textContent = 'This username is already in use. Please choose a different one.';
       return;
     }
     
@@ -36,7 +85,7 @@ export function setupAuthUI(callbacks) {
     
     // Handle result
     if (!result.success) {
-      loginError.textContent = result.error;
+      loginError.textContent = result.error || 'Failed to login. Please try again.';
     }
   });
 }

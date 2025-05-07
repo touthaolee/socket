@@ -1204,6 +1204,11 @@ function completeConnection(token, username) {
 
     function disconnectSocket() {
       if (socket) {
+        // Emit a user_logout event before disconnecting
+        if (socket.connected) {
+          socket.emit('user_logout', { username: window.currentUsername });
+          log('User logout event emitted.');
+        }
         socket.disconnect();
         log('Socket disconnected by user.');
         setStatusIndicator('DISCONNECTED');

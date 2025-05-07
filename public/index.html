@@ -384,5 +384,26 @@
   <!-- Scripts -->
   <script src="/interac/socket.io/socket.io.js"></script>
   <script type="module" src="/interac/client-side/client-main.js"></script>
+  <script>
+    // Add logout handler
+    document.getElementById('logout-btn').addEventListener('click', function() {
+      // Emit a logout event before disconnecting
+      if (socket && socket.connected) {
+        socket.emit('user_logout', { username: userInfo.username });
+        console.log('User logout event emitted');
+      }
+      
+      // Proceed with regular logout process
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('user_info');
+      showView('auth-container');
+      hideView('app-container');
+      
+      // Disconnect the socket
+      if (socket) {
+        socket.disconnect();
+      }
+    });
+  </script>
 </body>
 </html>

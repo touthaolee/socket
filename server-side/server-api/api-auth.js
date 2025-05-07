@@ -55,9 +55,24 @@ router.post('/login', loginLimiter, async (req, res) => {
     console.log(`Login attempt for user: ${username}`);
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+    
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
     }
+    
+    // Check if username is already active (for regular users only, not admin)
+    if (username !== ADMIN_USERNAME) {
+      const socketHandlers = require('../server-socket/socket-handlers');
+      
+      // Check if username is already in use by an active user
+      if (socketHandlers.isUsernameActive(username)) {
+        return res.status(409).json({ 
+          error: 'Username already in use', 
+          message: 'This username is already logged in. Please choose a different username or try again later.'
+        });
+      }
+    }
+    
     // Admin login always requires password
     if (username === ADMIN_USERNAME) {
       if (!password) {
@@ -71,12 +86,14 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(401).json({ error: 'Invalid admin credentials' });
       }
     }
+    
     // For non-admin users, allow username-only login
     let user = await authService.findUserByUsername(username);
     if (!user) {
       // Optionally auto-register the user if not found
       user = await authService.createUser({ username, password: '', email: null });
     }
+    
     // If password is provided, verify it (for legacy users)
     if (password && user.password) {
       const isPasswordValid = await authService.verifyPassword(password, user.password);
@@ -84,6 +101,7 @@ router.post('/login', loginLimiter, async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
     }
+    
     // Issue JWT for the user
     const token = authService.generateToken(user);
     res.json({ token, user: { id: user.id, username: user.username, role: user.role || 'user' } });
@@ -140,6 +158,28 @@ router.get('/verify', async (req, res) => {
   } catch (error) {
     console.error('Token verification error:', error);
     res.status(500).json({ error: 'Server error during token verification' });
+  }
+});
+
+// Add a new endpoint to check username availability
+router.get('/check-username/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+    
+    if (!username) {
+      return res.status(400).json({ error: 'Username is required' });
+    }
+    
+    // Get the socket handlers to check if username is active
+    const socketHandlers = require('../server-socket/socket-handlers');
+    
+    // Check if username is already in use by an active user
+    const isAvailable = !socketHandlers.isUsernameActive(username);
+    
+    res.json({ available: isAvailable });
+  } catch (error) {
+    console.error('Username check error:', error);
+    res.status(500).json({ error: 'Server error checking username' });
   }
 });
 

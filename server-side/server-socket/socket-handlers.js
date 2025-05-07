@@ -149,9 +149,16 @@ function setupAuthMiddleware(io, options = {}) {
 
             const token = socket.handshake.auth?.token || socket.handshake.query?.token;
             const username = socket.handshake.auth?.username || socket.handshake.query?.username;
+            
             if (!token) {
                 // Allow guest/test connections with just a username
                 if (username) {
+                    // Check if the username is already active
+                    if (isUsernameActive(username)) {
+                        logger.warn('Username already active', username, ip);
+                        return next(new Error('Username already in use. Please choose a different username.'));
+                    }
+                    
                     socket.user = {
                         id: `guest_${Date.now()}_${Math.floor(Math.random()*10000)}`,
                         username,
@@ -166,6 +173,8 @@ function setupAuthMiddleware(io, options = {}) {
                     return next(new Error('Authentication token missing'));
                 }
             }
+            
+            // Process token-based authentication
             let decoded;
             try {
                 decoded = await new Promise((resolve, reject) => {
@@ -174,15 +183,34 @@ function setupAuthMiddleware(io, options = {}) {
                         else resolve(decoded);
                     });
                 });
+                
+                // Check if the username from the token is already active (but not by this user's ID)
+                // This prevents someone else from using a registered user's username
+                if (decoded.username && isUsernameActive(decoded.username)) {
+                    // Check if it's not the same user with a different connection
+                    const activeUsers = Array.from(global.activeUsers?.values() || []);
+                    const sameUserDifferentConnection = activeUsers.some(user => 
+                        user.username.toLowerCase() === decoded.username.toLowerCase() && 
+                        user.userId === decoded.id
+                    );
+                    
+                    if (!sameUserDifferentConnection) {
+                        logger.warn('Username from token already active', decoded.username, ip);
+                        return next(new Error('This account is already logged in elsewhere.'));
+                    }
+                }
+                
             } catch (err) {
                 rl.count++;
                 logger.warn('Invalid authentication token', ip, err.message, token);
                 return next(new Error('Invalid authentication token: ' + err.message));
             }
+            
             if (allowedRoles && !allowedRoles.includes(decoded.role)) {
                 logger.warn('User role not permitted', ip, decoded.role);
                 return next(new Error('User role not permitted'));
             }
+            
             socket.user = decoded;
             rl.count = 0; // Reset on success
             logger.info('Authentication successful', ip, decoded.username || decoded.id || '');
@@ -259,6 +287,38 @@ function registerPresenceHandlers(io, socket) {
 
     // Emit updated user list to all clients
     broadcastUserList(io);
+    
+    // Handle explicit user logout event
+    socket.on('user_logout', (data) => {
+        logger.info(`User logout event received for: ${data.username || username}`);
+        
+        if (activeUsers.has(userId)) {
+            const userData = activeUsers.get(userId);
+            
+            // Remove this socket ID
+            userData.socketIds.delete(socket.id);
+            
+            // Mark as offline immediately without grace period since this is explicit logout
+            userData.status = 'offline';
+            
+            // Notify other users that this user logged out
+            socket.broadcast.emit('user_disconnected', { username: data.username || username });
+            
+            // Update the user list for all clients
+            broadcastUserList(io);
+            
+            // Remove user from active list after a short delay (no need for the full minute)
+            setTimeout(() => {
+                if (activeUsers.has(userId) && 
+                    activeUsers.get(userId).socketIds.size === 0 &&
+                    activeUsers.get(userId).status === 'offline') {
+                    activeUsers.delete(userId);
+                    broadcastUserList(io);
+                    logger.info(`User removed from active list after logout: ${username}`);
+                }
+            }, 5000); // Remove after 5 seconds
+        }
+    });
     
     // Handle explicit presence updates from client
     socket.on('user:presence', (data) => {
@@ -425,10 +485,33 @@ function broadcastUserList(io) {
     io.emit('user_list', users);
 }
 
+// New function to check if a username is already active
+function isUsernameActive(username) {
+    // Convert both to lowercase for case-insensitive comparison
+    const lowerUsername = username.toLowerCase();
+    
+    // Check all active users
+    for (const userData of activeUsers.values()) {
+        if (userData.username.toLowerCase() === lowerUsername && 
+            (userData.status === 'online' || userData.status === 'inactive')) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// New function to expose active username checking
+function checkUsernameAvailability(username) {
+    return !isUsernameActive(username);
+}
+
 module.exports = {
     registerQuizHandlers,
     setupAuthMiddleware,
     registerChatHandlers,
     handleDisconnect,
-    registerPresenceHandlers
+    registerPresenceHandlers,
+    isUsernameActive, // Export the username checking function
+    checkUsernameAvailability
 };
