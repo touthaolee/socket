@@ -585,10 +585,10 @@
                 <input id="username" placeholder="Username for auth middleware" />
               </div>
               <button class="btn btn-primary" onclick="connectSocket()">
-                <i class="fas fa-plug"></i> Connect
+                <i class="fas fa-sign-in-alt"></i> Login
               </button>
               <button class="btn btn-danger" onclick="disconnectSocket()">
-                <i class="fas fa-times-circle"></i> Disconnect
+                <i class="fas fa-sign-out-alt"></i> Logout
               </button>
             </div>
             <div class="row">
@@ -1219,14 +1219,31 @@ function completeConnection(token, username) {
 
     function disconnectSocket() {
       if (socket) {
-        // Emit a user_logout event before disconnecting
+        // Robust logout: emit user_logout, wait for ack, then disconnect (with timeout fallback)
         if (socket.connected) {
+          let logoutAcked = false;
+          const logoutTimeout = setTimeout(() => {
+            if (!logoutAcked) {
+              log('Logout ack not received, disconnecting anyway.', 'warn');
+              socket.disconnect();
+              setStatusIndicator('DISCONNECTED');
+            }
+          }, 2000); // 2 seconds fallback
+
+          socket.once('user_logout_ack', () => {
+            logoutAcked = true;
+            clearTimeout(logoutTimeout);
+            log('User logout acknowledged by server. Disconnecting.');
+            socket.disconnect();
+            setStatusIndicator('DISCONNECTED');
+          });
+
           socket.emit('user_logout', { username: window.currentUsername });
           log('User logout event emitted.');
+        } else {
+          socket.disconnect();
+          setStatusIndicator('DISCONNECTED');
         }
-        socket.disconnect();
-        log('Socket disconnected by user.');
-        setStatusIndicator('DISCONNECTED');
       }
     }
 
