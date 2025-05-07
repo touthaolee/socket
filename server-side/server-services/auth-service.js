@@ -5,14 +5,26 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const config = require('../../config/app-config');
 const fileUtils = require('./file-utils');
+const { logger } = require('../../logger');
 
 // Path to the users data file
 const DB_FILE = path.join(__dirname, '../../data/users.json');
+// Path to token blacklist file
+const BLACKLIST_FILE = path.join(__dirname, '../../data/token-blacklist.json');
 
 // Ensure the data directory exists
 const dataDir = path.dirname(DB_FILE);
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Initialize token blacklist if not exists
+if (!fs.existsSync(BLACKLIST_FILE)) {
+  fileUtils.atomicWriteFileSync(BLACKLIST_FILE, JSON.stringify({
+    tokens: [],
+    // Auto-cleanup by storing expiration timestamps
+    expirations: {}
+  }, null, 2));
 }
 
 // Load admin credentials from environment variables
@@ -59,6 +71,15 @@ function logUserDataFormat() {
 
 // Log the format on startup
 logUserDataFormat();
+
+// Auto-cleanup for the token blacklist (runs every hour)
+setInterval(() => {
+  try {
+    cleanupBlacklistedTokens();
+  } catch (error) {
+    logger.error('Error during blacklist cleanup:', error);
+  }
+}, 60 * 60 * 1000); // Every hour
 
 const authService = {
   // Find user by username
@@ -133,8 +154,87 @@ const authService = {
     try {
       return jwt.verify(token, config.jwt.secret);
     } catch (error) {
-      console.error('Token verification error:', error);
+      logger.warn(`Token verification error: ${error.message}`);
       return null;
+    }
+  },
+  
+  // Blacklist a token (used for logout)
+  async blacklistToken(token) {
+    try {
+      // Get expiration from token without verifying signature
+      const decoded = jwt.decode(token);
+      if (!decoded || !decoded.exp) {
+        throw new Error('Invalid token format');
+      }
+      
+      // Read blacklist
+      const rawData = fs.readFileSync(BLACKLIST_FILE, 'utf8');
+      const blacklist = JSON.parse(rawData);
+      
+      // Add token to blacklist if not already there
+      if (!blacklist.tokens.includes(token)) {
+        blacklist.tokens.push(token);
+        // Store expiration for auto-cleanup
+        blacklist.expirations[token] = decoded.exp;
+        
+        fileUtils.atomicWriteFileSync(BLACKLIST_FILE, JSON.stringify(blacklist, null, 2));
+        logger.info(`Token blacklisted for user: ${decoded.username}`);
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error blacklisting token:', error);
+      return false;
+    }
+  },
+  
+  // Check if a token is blacklisted
+  async isTokenBlacklisted(token) {
+    try {
+      // Read blacklist
+      const rawData = fs.readFileSync(BLACKLIST_FILE, 'utf8');
+      const blacklist = JSON.parse(rawData);
+      
+      return blacklist.tokens.includes(token);
+    } catch (error) {
+      logger.error('Error checking blacklisted token:', error);
+      // If there's an error, assume the token is not blacklisted
+      return false;
+    }
+  },
+  
+  // Update user's last active timestamp
+  async updateLastActive(userId) {
+    try {
+      const rawData = fs.readFileSync(DB_FILE, 'utf8');
+      let data = JSON.parse(rawData);
+      const users = Array.isArray(data) ? data : (data.users || []);
+      const idx = users.findIndex(u => u.id === userId);
+      
+      if (idx === -1) {
+        logger.warn(`Attempted to update last active for non-existent user ID: ${userId}`);
+        return false;
+      }
+      
+      users[idx].lastActive = new Date().toISOString();
+      
+      // Don't write to disk on every update; use a debounce mechanism
+      // Only update the file if the last update was more than 5 minutes ago
+      const lastUpdate = users[idx].lastUpdateTime || 0;
+      const now = Date.now();
+      if (now - lastUpdate > 5 * 60 * 1000) {
+        users[idx].lastUpdateTime = now;
+        fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(
+          Array.isArray(data) ? users : { ...data, users }, 
+          null, 2
+        ));
+      }
+      
+      return true;
+    } catch (error) {
+      logger.error('Error updating last active timestamp:', error);
+      return false;
     }
   },
   
@@ -216,7 +316,74 @@ const authService = {
       console.error('Error updating user:', error);
       throw error;
     }
+  },
+  
+  // Get all active/inactive users
+  async getActiveUsers(thresholdMinutes = 15) {
+    try {
+      const rawData = fs.readFileSync(DB_FILE, 'utf8');
+      let data = JSON.parse(rawData);
+      const users = Array.isArray(data) ? data : (data.users || []);
+      
+      const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000).toISOString();
+      
+      return users.filter(user => 
+        user.lastActive && user.lastActive > thresholdTime
+      ).map(({ password, ...user }) => user); // Remove passwords from results
+    } catch (error) {
+      logger.error('Error getting active users:', error);
+      return [];
+    }
+  },
+  
+  // Get user permissions
+  async getUserPermissions(userId) {
+    try {
+      const user = await this.findUserById(userId);
+      if (!user) return [];
+      
+      // Admin has all permissions
+      if (user.role === 'admin') return ['*'];
+      
+      // Return user's explicit permissions or empty array
+      return user.permissions || [];
+    } catch (error) {
+      logger.error('Error getting user permissions:', error);
+      return [];
+    }
   }
 };
+
+// Helper function to clean up expired blacklisted tokens
+function cleanupBlacklistedTokens() {
+  try {
+    const rawData = fs.readFileSync(BLACKLIST_FILE, 'utf8');
+    const blacklist = JSON.parse(rawData);
+    
+    const now = Math.floor(Date.now() / 1000); // Current time in seconds
+    let tokensRemoved = 0;
+    
+    // Filter out expired tokens
+    const validTokens = blacklist.tokens.filter(token => {
+      const exp = blacklist.expirations[token];
+      // Keep tokens with no expiration or future expiration
+      if (!exp || exp > now) return true;
+      
+      // Token is expired, remove it
+      delete blacklist.expirations[token];
+      tokensRemoved++;
+      return false;
+    });
+    
+    // If we removed any tokens, update the blacklist file
+    if (tokensRemoved > 0) {
+      blacklist.tokens = validTokens;
+      fileUtils.atomicWriteFileSync(BLACKLIST_FILE, JSON.stringify(blacklist, null, 2));
+      logger.info(`Cleaned up ${tokensRemoved} expired tokens from blacklist`);
+    }
+  } catch (error) {
+    logger.error('Error cleaning up token blacklist:', error);
+  }
+}
 
 module.exports = authService;

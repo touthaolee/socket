@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { authService } = require('../service-registry');
-const authMiddleware = require('../middleware/auth-middleware');
+const { authMiddleware, adminMiddleware } = require('../middleware/auth-middleware');
 
 // Rate limiting to prevent brute force attacks
 const loginLimiter = rateLimit({
@@ -206,5 +206,59 @@ router.post('/clear-offline-users', async (req, res) => {
         });
     }
 });
+
+// Logout route
+router.post('/logout', async (req, res) => {
+  try {
+    // Get token from multiple sources
+    const token = extractTokenFromRequest(req);
+    
+    if (!token) {
+      return res.status(400).json({ error: 'No token provided' });
+    }
+    
+    // Add token to blacklist
+    await authService.blacklistToken(token);
+    
+    // Clear cookie if present
+    if (req.cookies && req.cookies.token) {
+      res.clearCookie('token');
+    }
+    
+    res.status(200).json({ 
+      success: true, 
+      message: 'Logged out successfully' 
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ error: 'Server error during logout' });
+  }
+});
+
+/**
+ * Extract JWT token from request
+ * Checks Authorization header, cookies, and query parameters
+ * @param {Object} req - Express request object
+ * @returns {string|null} JWT token or null if not found
+ */
+function extractTokenFromRequest(req) {
+  // Check Authorization header
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7); // Remove 'Bearer ' prefix
+  }
+  
+  // Check cookies (if cookie-parser middleware is used)
+  if (req.cookies && req.cookies.token) {
+    return req.cookies.token;
+  }
+  
+  // Check query parameters (less secure, but sometimes needed)
+  if (req.query && req.query.token) {
+    return req.query.token;
+  }
+  
+  return null;
+}
 
 module.exports = router;
