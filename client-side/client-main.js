@@ -221,7 +221,7 @@ updateServerStatus(navigator.onLine);
 
 // Optionally, check server health every 30 seconds
 function checkServerHealth() {
-  fetch('/interac/api/quiz/quizzes', { method: 'HEAD' })
+  fetch('/', { method: 'HEAD' })
     .then(() => updateServerStatus(true))
     .catch(() => updateServerStatus(false));
 }
