@@ -221,6 +221,20 @@ window.showAuthenticatedUI = function() {
   const usernameDisplay = document.getElementById('username-display');
   if (usernameDisplay && username) usernameDisplay.textContent = username;
 
+  // Update userId display
+  const userIdDisplay = document.getElementById('user-id-display');
+  let userId = '';
+  if (window.socketClient && window.socketClient.userId) {
+    userId = window.socketClient.userId;
+  } else {
+    // Try to get from cookie or localStorage as fallback
+    try {
+      const stored = localStorage.getItem('userId');
+      if (stored) userId = stored;
+    } catch (e) {}
+  }
+  if (userIdDisplay) userIdDisplay.textContent = userId ? `ID: ${userId}` : '';
+
   // Start socket connection with correct auth (token or username)
   const token = localStorage.getItem('auth_token');
   window.startSocketAfterLogin({
