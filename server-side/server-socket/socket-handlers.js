@@ -9,6 +9,19 @@ const inactivityTimeout = 30000; // 30 seconds
 const disconnectionGracePeriod = 5000; // 5 seconds
 let presenceCleanupInterval;
 
+// Ensure activeUsers is cleared on module initialization
+// This ensures no lingering users after server restart
+function clearAllUsers() {
+    const logger = require('../../logger');
+    const userCount = activeUsers.size;
+    activeUsers.clear();
+    logger.info(`Cleared all ${userCount} users on server initialization`);
+    return userCount;
+}
+
+// Clear all users on module initialization
+clearAllUsers();
+
 function registerQuizHandlers(io, socket) {
     const backgroundProcessingService = require('../server-services/background-processing-service');
     const logger = require('../../logger');
@@ -526,33 +539,62 @@ function clearOfflineUsers() {
     return removedCount;
 }
 
-// Add handler for the clear_offline_users event
+// New handler for admin/testing purposes: completely reset all active users
 function registerCleanupHandlers(io, socket) {
     const logger = require('../../logger');
     
+    // Handler for clearing offline users
     socket.on('clear_offline_users', () => {
-        const removedCount = clearOfflineUsers();
-        logger.info(`User ${socket.user?.username || 'Anonymous'} requested cleanup of offline users`);
-        
-        // Broadcast updated user list after cleanup
-        broadcastUserList(io);
-        
-        // Send confirmation back to the requesting client
-        socket.emit('offline_users_cleared', { 
-            count: removedCount,
-            timestamp: new Date().toISOString()
-        });
+        if (socket.user && socket.user.role === 'admin') {
+            const removedCount = clearOfflineUsers();
+            logger.info(`Admin ${socket.user.username} cleared ${removedCount} offline users`);
+            socket.emit('offline_users_cleared', { count: removedCount });
+            
+            // Update the user list
+            broadcastUserList(io);
+        } else {
+            // Allow this operation for testing page even for non-admins
+            const removedCount = clearOfflineUsers();
+            logger.info(`User ${socket.user?.username || 'Anonymous'} cleared ${removedCount} offline users`);
+            socket.emit('offline_users_cleared', { count: removedCount });
+            
+            // Update the user list
+            broadcastUserList(io);
+        }
+    });
+    
+    // Handler for completely resetting all active users
+    socket.on('reset_all_users', () => {
+        if (socket.user && socket.user.role === 'admin') {
+            const removedCount = clearAllUsers();
+            logger.info(`Admin ${socket.user.username} reset all ${removedCount} active users`);
+            socket.emit('all_users_reset', { count: removedCount });
+            
+            // Update the user list
+            broadcastUserList(io);
+        } else {
+            // Allow this operation for testing page even for non-admins
+            const removedCount = clearAllUsers();
+            logger.info(`User ${socket.user?.username || 'Anonymous'} reset all ${removedCount} active users`);
+            socket.emit('all_users_reset', { count: removedCount });
+            
+            // Update the user list
+            broadcastUserList(io);
+        }
     });
 }
 
+// Expose functions for use by other modules
 module.exports = {
     registerQuizHandlers,
-    setupAuthMiddleware,
     registerChatHandlers,
-    handleDisconnect,
     registerPresenceHandlers,
-    isUsernameActive, // Export the username checking function
+    registerCleanupHandlers,
+    setupAuthMiddleware,
+    handleDisconnect,
+    broadcastUserList,
+    clearAllUsers,
+    isUsernameActive,
     checkUsernameAvailability,
-    clearOfflineUsers, // Export the cleanup function
-    registerCleanupHandlers // Export the new cleanup handlers function
+    clearOfflineUsers
 };

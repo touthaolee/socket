@@ -596,6 +596,14 @@
                 <i class="fas fa-sync"></i> Force Reconnect
               </button>
             </div>
+            <div class="row">
+              <button class="btn btn-danger" onclick="resetAllUsers()">
+                <i class="fas fa-trash"></i> Reset All Users
+              </button>
+              <button class="btn btn-warning" onclick="clearOfflineUsers()">
+                <i class="fas fa-user-slash"></i> Clear Offline Users
+              </button>
+            </div>
           </div>
 
           <div class="panel">
@@ -2015,10 +2023,24 @@ function stopUserHeartbeat() {
     <h3 class="panel-title">User Presence Management</h3>
   </div>
   <div class="row">
-    <button class="btn btn-danger" onclick="clearOfflineUsers()">
-      <i class="fas fa-trash-alt"></i> Clear Offline Users
+    <button class="btn btn-warning" onclick="clearOfflineUsers()">
+      <i class="fas fa-user-times"></i> Clear Offline Users
+    </button>
+    <button class="btn btn-danger" onclick="resetAllUsers()">
+      <i class="fas fa-trash-alt"></i> Reset All Users
     </button>
   </div>
 </div>
+<script>
+// Add this function to reset all users
+function resetAllUsers() {
+  if (socket && socket.connected) {
+    socket.emit('reset_all_users');
+    log('Requested complete reset of all active users');
+  } else {
+    log('Socket not connected. Cannot reset all users.', 'error');
+  }
+}
+</script>
 </body>
 </html>
