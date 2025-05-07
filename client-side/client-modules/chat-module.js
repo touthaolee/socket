@@ -364,18 +364,25 @@ class ChatModule {
     // Apply spelling corrections
     const { correctedMessage, corrections } = this.correctSpelling(message);
     
-    // Send message to server with username
+    // Get userId from storage or default to anonymous
+    const userId = localStorage.getItem('userId') || 'anonymous';
+    
+    // Send message to server with standardized format
     this.socket.emit('chat_message', {
-      from: this.currentUsername,
+      username: this.currentUsername,
+      userId: userId,
       message: correctedMessage,
+      roomId: 'global',
       timestamp: new Date().toISOString()
     });
     
     // Add to local display with self flag (optimistic UI)
     this.addMessage({
-      from: this.currentUsername,
+      username: this.currentUsername,
+      userId: userId,
       message: correctedMessage,
       corrections,
+      roomId: 'global',
       timestamp: new Date().toISOString(),
       isSelf: true
     });

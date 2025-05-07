@@ -142,13 +142,25 @@ export class AdminChatService {
     
     // When receiving a new message from index.html
     this.socket.on('chat_message', data => {
-      const { message, username, userId } = data;
+      console.log('Received chat message:', data);
+      // Improved extraction of user information with better fallbacks
+      const { message, username, userId, sender } = data;
+      
+      // Handle different message formats
+      const messageUsername = username || (sender ? (typeof sender === 'object' ? sender.username : sender) : null);
+      const messageUserId = userId || (sender ? (typeof sender === 'object' ? sender.userId : 'user_'+sender) : null);
+      
+      // Find user in our users list for more details if available
+      let userDetails = null;
+      if (messageUserId) {
+        userDetails = this.users.find(u => u.userId === messageUserId);
+      }
       
       this.messages.push({
         id: Date.now().toString(),
         text: message,
-        username: username || 'Unknown User',
-        userId: userId || 'unknown_user',
+        username: userDetails ? userDetails.username : (messageUsername || 'Unknown User'),
+        userId: userDetails ? userDetails.userId : (messageUserId || 'unknown_user'),
         timestamp: new Date().toISOString(),
         isSystem: false
       });
@@ -160,14 +172,35 @@ export class AdminChatService {
     // Handle room messages for communication with websocket-test.html
     this.socket.on('room_message', data => {
       const { message, user, room } = data;
+      console.log('Received room message:', data);
       
       // Accept messages only from the global room
       if (room === 'global') {
+        // Extract user information consistently
+        let messageUsername, messageUserId;
+        
+        if (typeof user === 'object' && user !== null) {
+          messageUsername = user.username || user.name;
+          messageUserId = user.userId || user.id;
+        } else if (typeof user === 'string') {
+          messageUsername = user;
+          messageUserId = 'client_' + user;
+        } else {
+          messageUsername = 'Unknown User';
+          messageUserId = 'unknown_user';
+        }
+        
+        // Find user in our users list for more details if available
+        let userDetails = null;
+        if (messageUserId) {
+          userDetails = this.users.find(u => u.userId === messageUserId);
+        }
+        
         this.messages.push({
           id: Date.now().toString(),
           text: message,
-          username: typeof user === 'object' ? (user.username || user.name || 'Unknown User') : user,
-          userId: typeof user === 'object' ? (user.userId || user.id || 'client_unknown') : ('client_' + user),
+          username: userDetails ? userDetails.username : messageUsername,
+          userId: userDetails ? userDetails.userId : messageUserId,
           timestamp: new Date().toISOString(),
           isSystem: false
         });
@@ -179,6 +212,7 @@ export class AdminChatService {
     // Listen for broadcast messages (for websocket-test.html compat)
     this.socket.on('broadcast_message', data => {
       const { message, sender } = data;
+      console.log('Received broadcast message:', data);
       
       this.messages.push({
         id: Date.now().toString(),
@@ -228,6 +262,7 @@ export class AdminChatService {
     // Listen for direct messages
     this.socket.on('direct_message', data => {
       const { message, from, fromUsername } = data;
+      console.log('Received direct message:', data);
       
       this.messages.push({
         id: Date.now().toString(),

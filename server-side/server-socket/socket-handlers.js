@@ -250,6 +250,9 @@ function handleDisconnect(io, socket) {
         socket.broadcast.emit('chat_message', {
             system: true,
             message: `${socket.user.username} has left the chat`,
+            username: "System",
+            userId: "system",
+            roomId: 'global',
             timestamp: new Date().toISOString()
         });
     }
@@ -561,11 +564,12 @@ function registerChatHandlers(io, socket) {
         
         // Rate limiting could be added here
         
-        // Format the message for broadcasting
+        // Format the message using standardized format
         const messageToSend = {
-            from: socket.user.username,
+            username: socket.user.username,
             userId: socket.user.id,
             message: data.message.substring(0, 500), // Limit message length
+            roomId: data.roomId || 'global',
             timestamp: data.timestamp || new Date().toISOString()
         };
         
@@ -583,19 +587,16 @@ function registerChatHandlers(io, socket) {
         socket.broadcast.emit('chat_message', {
             system: true,
             message: `${socket.user.username} has joined the chat`,
+            username: "System",
+            userId: "system",
+            roomId: 'global',
             timestamp: new Date().toISOString()
         });
     }
     
-    // Setup disconnect handler to notify on leave
+    // Handle disconnect event in chat handlers
     socket.on('disconnect', () => {
-        if (socket.user) {
-            socket.broadcast.emit('chat_message', {
-                system: true,
-                message: `${socket.user.username} has left the chat`,
-                timestamp: new Date().toISOString()
-            });
-        }
+        handleDisconnect(io, socket);
     });
 }
 

@@ -344,11 +344,11 @@ function updateUsersList(users, onlineCount) {
       `;
     } else {
       users.forEach(user => {
-        // Handle different user object formats from the server
+        // Enhanced user identification
         let userId, username, userStatus;
         
         if (typeof user === 'object' && user !== null) {
-          // Handle object format with userId and username
+          // Handle object format with proper property fallbacks
           userId = user.userId || user.id || 'unknown';
           username = user.username || user.name || 'Anonymous';
           userStatus = user.status || 'online';
@@ -358,9 +358,9 @@ function updateUsersList(users, onlineCount) {
           username = user;
           userStatus = 'online';
         } else {
-          // Handle unexpected format
-          console.warn('Received user in unexpected format:', user);
-          userId = 'unknown';
+          // Handle unexpected format with better logging
+          console.warn('Unexpected user format:', user);
+          userId = 'unknown_' + Date.now();
           username = 'Unknown User';
           userStatus = 'online';
         }
@@ -370,6 +370,25 @@ function updateUsersList(users, onlineCount) {
             ${username}
           </div>
         `;
+      });
+      
+      // Add click handlers for direct messaging
+      const userPills = userList.querySelectorAll('.user-pill');
+      userPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+          const userId = pill.dataset.userId;
+          adminChatService.setSelectedUser(userId);
+          
+          // Update UI to show selected user
+          userPills.forEach(p => p.classList.remove('selected'));
+          pill.classList.add('selected');
+          
+          // Update chat input placeholder
+          const chatInput = document.getElementById('chat-input');
+          if (chatInput) {
+            chatInput.placeholder = `Message to ${pill.textContent.trim()}...`;
+          }
+        });
       });
     }
   }
