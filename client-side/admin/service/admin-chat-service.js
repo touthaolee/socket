@@ -87,14 +87,27 @@ export class AdminChatService {
             this._eventsRegistered = true;
           }
           
-          // Join admin room and global room for communication with all clients
-          this.rooms.forEach(room => {
-            if (!this._joinedRooms.has(room)) {
-              socketClient.joinRoom(room);
-              this._joinedRooms.add(room);
-              console.log(`Joining room: ${room}`);
-            }
-          });
+          // Add a connection event handler to join rooms AFTER connection is established
+          const joinRoomsAfterConnect = () => {
+            // Join admin room and global room for communication with all clients
+            this.rooms.forEach(room => {
+              if (!this._joinedRooms.has(room)) {
+                socketClient.joinRoom(room);
+                this._joinedRooms.add(room);
+                console.log(`Joining room: ${room}`);
+              }
+            });
+            // Remove this one-time listener
+            this.socket.off('connect', joinRoomsAfterConnect);
+          };
+          
+          // If already connected, join rooms immediately
+          if (this.socket.connected) {
+            joinRoomsAfterConnect();
+          } else {
+            // Otherwise wait for connection before joining rooms
+            this.socket.once('connect', joinRoomsAfterConnect);
+          }
           
           this.isConnected = true;
           this._connecting = false;
