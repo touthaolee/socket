@@ -1154,8 +1154,52 @@ function completeConnection(token, username) {
     });
   });
   
-  // Set up the remaining event handlers
-  setupSocketEventHandlers();
+  // Set up other socket event handlers
+  socket.on('test_event', (data) => {
+    log('Received test event: ' + JSON.stringify(data));
+  });
+  
+  socket.on('custom_pong', (data) => {
+    if (lastPingTime) {
+      const latency = Date.now() - lastPingTime;
+      log(`Custom pong received. Latency: ${latency}ms`);
+      lastPingTime = null;
+    } else {
+      log('Custom pong received: ' + JSON.stringify(data));
+    }
+  });
+  
+  socket.on('broadcast_message', (data) => {
+    log('Broadcast received: ' + JSON.stringify(data));
+  });
+  
+  socket.on('room_joined', (data) => {
+    log('Room joined: ' + data.room);
+  });
+  
+  socket.on('room_left', (data) => {
+    log('Room left: ' + data.room);
+  });
+  
+  socket.on('room_message', (data) => {
+    log(`Room message in ${data.room}: ${data.message} (from: ${data.from})`);
+  });
+  
+  socket.on('user_list', (users) => {
+    log('Received user list: ' + users.length + ' users');
+    updateOnlineUsers(users);
+  });
+  
+  socket.on('error', (err) => {
+    log('Error: ' + err, 'error');
+  });
+  
+  socket.on('connect_error', (err) => {
+    log('Connection error: ' + err.message, 'error');
+  });
+  
+  // Set up chat-specific event handlers
+  setupChatHandlers(socket);
 }
 
     function disconnectSocket() {
