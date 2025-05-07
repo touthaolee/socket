@@ -55,14 +55,21 @@ const socketClient = {
         this.cleanupSocket();
       }
       
+      // Determine if we're in production (using wss://) or development
+      const isProduction = window.location.protocol === 'https:';
+      const host = isProduction ? window.location.host : (window.location.hostname + ':8080');
+      
+      // Create socket with improved connection settings
       this.socket = io({
         path: '/interac/socket.io',
         autoConnect: false, // Don't connect automatically
         reconnection: true,
-        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionAttempts: 10, // Increased reconnection attempts
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
-        timeout: 10000
+        timeout: 20000, // Increased timeout for slower connections
+        transports: ['websocket', 'polling'], // Try WebSocket first, fall back to polling
+        forceNew: true // Force a new connection to avoid issues with stale connections
       });
       
       // Store global reference to prevent duplication
