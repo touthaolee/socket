@@ -166,6 +166,11 @@ function setupAuthMiddleware(io, options = {}) {
             const userId = socket.handshake.auth?.userId || socket.handshake.query?.userId;
             const isPreviousUser = socket.handshake.auth?.isPreviousUser || socket.handshake.query?.isPreviousUser;
             
+            // Always force-remove any previous session for this username before allowing login
+            if (username) {
+                forceRemoveUserByUsername(username);
+            }
+            
             if (!token) {
                 // Allow guest/test connections with just a username
                 if (username) {
@@ -211,6 +216,20 @@ function setupAuthMiddleware(io, options = {}) {
                         else resolve(decoded);
                     });
                 });
+                
+                // After decoding token, also force-remove any previous session for this username (except this userId)
+                if (decoded && decoded.username) {
+                    for (const [userId, userData] of activeUsers.entries()) {
+                        if (
+                            userData.username.toLowerCase() === decoded.username.toLowerCase() &&
+                            userId !== decoded.id
+                        ) {
+                            activeUsers.delete(userId);
+                            require('../../logger').info(`[FORCE REMOVE] Token login: removed previous session for username: ${decoded.username} (userId: ${userId})`);
+                        }
+                    }
+                }
+                
                 // PATCH: Allow connection if username is active but userId matches (same user/session)
                 if (decoded.username && isUsernameActive(decoded.username)) {
                     // If the userId matches the active session, allow connection
