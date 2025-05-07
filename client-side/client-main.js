@@ -33,8 +33,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('[DEBUG] Session restore: token', token);
     console.log('[DEBUG] Session restore: username', username);
     if (token && username) {
-      // Restore authenticated state and UI
-      window.showAuthenticatedUI();
+      // Verify token with server before restoring session
+      try {
+        const verifyResp = await fetch('/interac/api/auth/verify', {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (verifyResp.ok) {
+          // Token is valid, restore authenticated state and UI
+          window.showAuthenticatedUI();
+        } else {
+          // Invalid token, clear session and show login
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('username');
+          if (typeof window.showLoginUI === 'function') {
+            window.showLoginUI();
+          } else {
+            const authContainer = document.getElementById('auth-container');
+            const appContainer = document.getElementById('app-container');
+            if (authContainer) authContainer.style.display = '';
+            if (appContainer) appContainer.style.display = 'none';
+          }
+        }
+      } catch (e) {
+        // On error, clear session and show login
+        localStorage.removeItem('auth_token');
+        localStorage.removeItem('username');
+        if (typeof window.showLoginUI === 'function') {
+          window.showLoginUI();
+        } else {
+          const authContainer = document.getElementById('auth-container');
+          const appContainer = document.getElementById('app-container');
+          if (authContainer) authContainer.style.display = '';
+          if (appContainer) appContainer.style.display = 'none';
+        }
+      }
     } else {
       // Show login UI if not authenticated
       if (typeof window.showLoginUI === 'function') {

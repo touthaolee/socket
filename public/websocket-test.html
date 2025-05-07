@@ -1148,25 +1148,22 @@ function completeConnection(token, username) {
     lastDisconnectTime = Date.now();
     updateDashboard();
     stopUptime();
-    
     // Stop the heartbeat mechanism
     stopUserHeartbeat();
-    
     setStatusIndicator('DISCONNECTED');
-    
     // Disable chat UI
     const chatInput = document.getElementById('chat-input');
     const chatSendBtn = document.getElementById('chat-send-btn');
     if (chatInput) chatInput.disabled = true;
     if (chatSendBtn) chatSendBtn.disabled = true;
     if (chatInput) chatInput.placeholder = "Connect to start chatting...";
-    
     // Add system message about disconnection
     addChatMessage({
       system: true,
       message: 'You have been disconnected from the chat.',
       timestamp: new Date().toISOString()
     });
+    clearUserLists(); // Clear user lists on disconnect
   });
   
   // Set up other socket event handlers
@@ -1227,6 +1224,7 @@ function completeConnection(token, username) {
               log('Logout ack not received, disconnecting anyway.', 'warn');
               socket.disconnect();
               setStatusIndicator('DISCONNECTED');
+              clearUserLists(); // Clear user lists on fallback
             }
           }, 2000); // 2 seconds fallback
 
@@ -1236,6 +1234,7 @@ function completeConnection(token, username) {
             log('User logout acknowledged by server. Disconnecting.');
             socket.disconnect();
             setStatusIndicator('DISCONNECTED');
+            clearUserLists(); // Clear user lists on ack
           });
 
           socket.emit('user_logout', { username: window.currentUsername });
@@ -1243,6 +1242,7 @@ function completeConnection(token, username) {
         } else {
           socket.disconnect();
           setStatusIndicator('DISCONNECTED');
+          clearUserLists(); // Clear user lists if already disconnected
         }
       }
     }
