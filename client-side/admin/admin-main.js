@@ -459,21 +459,46 @@ function setupModalHandlers() {
   const closeModalBtn = document.querySelector('.close-modal');
   const cancelCreateBtn = document.getElementById('cancel-create-btn');
   
+  console.log('Setting up modal handlers');
+  console.log('Create Quiz Button found:', !!createQuizBtn);
+  console.log('Create Quiz Modal found:', !!createQuizModal);
+  
   if (createQuizBtn && createQuizModal) {
-    createQuizBtn.addEventListener('click', () => {
+    createQuizBtn.addEventListener('click', function() {
+      console.log('Create Quiz Button clicked');
+      
+      // Set both display and add active class to ensure visibility
       createQuizModal.style.display = 'flex';
+      
+      // Force browser reflow
+      void createQuizModal.offsetWidth;
+      
+      // Add custom class for additional styling if needed
+      createQuizModal.classList.add('active');
+      
+      console.log('Modal display style set to:', createQuizModal.style.display);
+      console.log('Modal classList:', createQuizModal.className);
     });
   }
   
+  // Close modal buttons
   if (closeModalBtn) {
-    closeModalBtn.addEventListener('click', () => {
-      if (createQuizModal) createQuizModal.style.display = 'none';
+    closeModalBtn.addEventListener('click', function() {
+      console.log('Close modal button clicked');
+      if (createQuizModal) {
+        createQuizModal.classList.remove('active');
+        createQuizModal.style.display = 'none';
+      }
     });
   }
   
   if (cancelCreateBtn) {
-    cancelCreateBtn.addEventListener('click', () => {
-      if (createQuizModal) createQuizModal.style.display = 'none';
+    cancelCreateBtn.addEventListener('click', function() {
+      console.log('Cancel create button clicked');
+      if (createQuizModal) {
+        createQuizModal.classList.remove('active');
+        createQuizModal.style.display = 'none';
+      }
     });
   }
   
