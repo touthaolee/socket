@@ -22,12 +22,12 @@ export async function initAuthSystem() {
 // Handle login form submission
 async function handleLogin(e) {
   e.preventDefault();
-  
+
   const loginBtn = document.getElementById('login-btn');
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const errorElem = document.getElementById('login-error');
-  
+
   // Clear any previous errors
   if (errorElem) errorElem.textContent = '';
   
@@ -48,7 +48,7 @@ async function handleLogin(e) {
   }
   
   try {
-    // Always attempt login, even if password is blank
+    // Always POST to /login with username (and password if provided)
     const response = await fetch('/interac/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -56,11 +56,15 @@ async function handleLogin(e) {
     });
     const data = await response.json();
     if (response.ok && data.token) {
-      localStorage.setItem('auth_token', data.token); // Always save the token
-      localStorage.setItem('username', username); // Save username for session restore
+      localStorage.setItem('auth_token', data.token);
+      localStorage.setItem('username', username);
       setState('user', data.user || { username });
       setState('isAuthenticated', true);
       showToast(`Welcome, ${username}!`, 'success');
+      // Immediately start socket connection after login (like websocket-test.html)
+      if (typeof window.startSocketAfterLogin === 'function') {
+        window.startSocketAfterLogin({ auth: { token: data.token, username } });
+      }
       window.showAuthenticatedUI();
       return;
     } else if (data.error) {

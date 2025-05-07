@@ -202,7 +202,7 @@ function updateServerStatus(online) {
   const statusEl = document.getElementById('server-status-text');
   if (statusEl) {
     statusEl.textContent = online ? 'Online' : 'Offline';
-    statusEl.style.color = online ? 'var(--success)' : 'var(--danger)';
+    statusEl.style.color = online ? '#06d6a0' : '#ef476f'; // Use CSS variable fallback
   }
 }
 
