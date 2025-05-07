@@ -309,11 +309,13 @@ function registerPresenceHandlers(io, socket) {
     // Handle explicit user logout event
     socket.on('user_logout', (data) => {
         logger.info(`User logout event received for: ${data.username || username}`);
+        let removed = false;
         // Always force remove if requested, regardless of socket state
         if (data && data.forceRemove && data.userId) {
             if (activeUsers.has(data.userId)) {
                 activeUsers.delete(data.userId);
                 logger.info(`User force removed from active list after logout: ${data.username}`);
+                removed = true;
             }
         } else if (activeUsers.has(userId)) {
             const userData = activeUsers.get(userId);
@@ -327,9 +329,12 @@ function registerPresenceHandlers(io, socket) {
             socket.broadcast.emit('user_disconnected', { username: data.username || username });
             // Update the user list for all clients
             broadcastUserList(io);
+            removed = true;
         }
         // Always update user list after any removal
         broadcastUserList(io);
+        // Send ack to client
+        socket.emit('user_logout_ack', { success: true, removed });
     });
     
     // Handle explicit presence updates from client

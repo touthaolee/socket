@@ -130,13 +130,13 @@ const socketClient = {
         // Emit a user_logout event before disconnecting to properly remove user from online list
         if (this.socket.connected) {
           // Send more comprehensive user logout data to ensure proper cleanup
-          this.socket.emit('user_logout', { 
+          this.socket.emit('user_logout', {
             username: this.username,
             userId: this.userId || this.socket.id,
             forceRemove: true  // Flag to force complete removal from activeUsers
           });
           console.log('User logout event emitted with force removal flag');
-          
+
           // Remove the identity cookie on explicit logout
           removeUserIdentityCookie();
           // Clear all client cache on logout
@@ -148,10 +148,16 @@ const socketClient = {
           } catch (e) {
             console.warn('Could not clear localStorage username/userId:', e);
           }
-          // Wait longer for the server to process before disconnecting
-          setTimeout(() => {
+
+          // Wait for server ack before disconnecting
+          const logoutTimeout = setTimeout(() => {
             this.socket.disconnect();
-          }, 500); // Increased from 200ms to 500ms
+          }, 1200); // Fallback: disconnect after 1.2s if no ack
+
+          this.socket.once('user_logout_ack', () => {
+            clearTimeout(logoutTimeout);
+            this.socket.disconnect();
+          });
         } else {
           clearClientCache();
           try {
