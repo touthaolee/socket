@@ -138,12 +138,25 @@ const socketClient = {
           removeUserIdentityCookie();
           // Clear all client cache on logout
           clearClientCache();
+          // Also clear username and userId from localStorage for extra safety
+          try {
+            localStorage.removeItem('username');
+            localStorage.removeItem('userId');
+          } catch (e) {
+            console.warn('Could not clear localStorage username/userId:', e);
+          }
           // Wait longer for the server to process before disconnecting
           setTimeout(() => {
             this.socket.disconnect();
           }, 500); // Increased from 200ms to 500ms
         } else {
           clearClientCache();
+          try {
+            localStorage.removeItem('username');
+            localStorage.removeItem('userId');
+          } catch (e) {
+            console.warn('Could not clear localStorage username/userId:', e);
+          }
           this.socket.disconnect();
         }
       }
