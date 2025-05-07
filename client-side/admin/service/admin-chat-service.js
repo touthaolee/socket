@@ -447,4 +447,86 @@ export class AdminChatService {
     }
     
     const user = this.users.find(u => u.userId === userId);
-    if
+    if (user) {
+      this.selectedUser = user;
+    } else {
+      console.warn(`User with ID ${userId} not found`);
+      this.selectedUser = null;
+    }
+  }
+  
+  /**
+   * Register an event handler
+   * @param {string} event - The event to register for
+   * @param {Function} callback - The callback to execute when the event occurs
+   */
+  on(event, callback) {
+    if (!this.eventHandlers[event]) {
+      this.eventHandlers[event] = [];
+    }
+    this.eventHandlers[event].push(callback);
+  }
+  
+  /**
+   * Trigger an event
+   * @param {string} event - The event to trigger
+   * @param {Object} data - The data to pass to the event handlers
+   */
+  triggerEvent(event, data) {
+    if (this.eventHandlers[event]) {
+      this.eventHandlers[event].forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`Error in ${event} event handler:`, error);
+        }
+      });
+    }
+  }
+  
+  /**
+   * Get the message history
+   * @returns {Array} - The message history
+   */
+  getMessages() {
+    return this.messages;
+  }
+  
+  /**
+   * Get the list of online users
+   * @returns {Array} - The list of online users
+   */
+  getUsers() {
+    return this.users;
+  }
+  
+  /**
+   * Get the number of online users
+   * @returns {number} - The number of online users
+   */
+  getOnlineUserCount() {
+    return this.onlineUsers;
+  }
+  
+  /**
+   * Check if the socket is connected
+   * @returns {boolean} - Whether the socket is connected
+   */
+  isSocketConnected() {
+    return this.isConnected;
+  }
+  
+  /**
+   * Disconnect from the socket server
+   */
+  disconnect() {
+    if (this.socketClient) {
+      this.socketClient.disconnect();
+    }
+    this.isConnected = false;
+  }
+}
+
+// Create and export a singleton instance
+const adminChatService = new AdminChatService();
+export default adminChatService;
