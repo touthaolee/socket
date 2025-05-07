@@ -2,7 +2,8 @@
 import { 
   getUserIdentityFromCookie, 
   setUserIdentityCookie, 
-  removeUserIdentityCookie 
+  removeUserIdentityCookie,
+  clearClientCache 
 } from '../client-utils/storage-utils.js';
 
 const socketClient = {
@@ -135,12 +136,14 @@ const socketClient = {
           
           // Remove the identity cookie on explicit logout
           removeUserIdentityCookie();
-          
-          // Make sure we wait a moment for the server to process before disconnecting
+          // Clear all client cache on logout
+          clearClientCache();
+          // Wait longer for the server to process before disconnecting
           setTimeout(() => {
             this.socket.disconnect();
-          }, 200);
+          }, 500); // Increased from 200ms to 500ms
         } else {
+          clearClientCache();
           this.socket.disconnect();
         }
       }

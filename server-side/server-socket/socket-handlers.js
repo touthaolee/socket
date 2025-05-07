@@ -537,28 +537,23 @@ function checkUsernameAvailability(username) {
 function clearOfflineUsers() {
     const logger = require('../../logger');
     let removedCount = 0;
-    
+    const now = Date.now();
     // Iterate through all users in the activeUsers map
     for (const [userId, userData] of activeUsers.entries()) {
-        // Check multiple conditions that indicate a user should be removed:
-        // 1. No socket connections (disconnected)
-        // 2. Any offline/inactive/disconnecting status
-        // 3. Has not been active for more than 30 seconds
-        const now = Date.now();
-        const isInactive = userData.status === 'offline' || userData.status === 'inactive' || userData.status === 'disconnecting';
+        // Aggressive cleanup: Remove if no sockets, or if status is offline/inactive/disconnecting, or stale
+        const isNoSockets = userData.socketIds.size === 0;
+        const isInactiveStatus = userData.status === 'offline' || userData.status === 'inactive' || userData.status === 'disconnecting';
         const inactiveTime = now - userData.lastActivity;
         const staleTimeout = 30 * 1000; // 30 seconds
         const isStale = inactiveTime > staleTimeout;
-        
-        // Remove user if any of these conditions are true
-        if (userData.socketIds.size === 0 || isInactive || isStale) {
+
+        if (isNoSockets || isInactiveStatus || isStale) {
+            logger.info(`[CLEANUP] Removing user: ${userData.username} | userId: ${userId} | status: ${userData.status} | sockets: ${userData.socketIds.size} | inactive for: ${Math.round(inactiveTime/1000)}s`);
             activeUsers.delete(userId);
             removedCount++;
-            logger.info(`Removed persistent user: ${userData.username} (Status: ${userData.status}, Connections: ${userData.socketIds.size}, Inactive for: ${Math.round(inactiveTime/1000)}s)`);
         }
     }
-    
-    logger.info(`Cleaned up ${removedCount} offline/inactive users from memory`);
+    logger.info(`[CLEANUP] Total users removed: ${removedCount}`);
     return removedCount;
 }
 

@@ -168,6 +168,28 @@ export function getAppSettings() {
   }
 }
 
+// Clear all relevant client cache (localStorage, sessionStorage, cookies)
+export function clearClientCache() {
+  try {
+    // Remove all known keys from localStorage
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(USERNAME_KEY);
+    localStorage.removeItem(THEME_KEY);
+    localStorage.removeItem(SETTINGS_KEY);
+    localStorage.removeItem('socketId');
+    // Remove all sessionStorage
+    sessionStorage.clear();
+    // Remove cookies
+    deleteCookie(USER_COOKIE_KEY);
+    deleteCookie(TOKEN_COOKIE_KEY);
+    // Optionally clear all cookies (uncomment if needed)
+    // document.cookie.split(';').forEach(c => document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/'));
+  } catch (e) {
+    console.error('Error clearing client cache:', e);
+  }
+}
+
 // Export additional storage functions as needed
 export {
   TOKEN_KEY,
