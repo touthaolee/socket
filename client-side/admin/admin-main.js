@@ -986,6 +986,8 @@ function startQuizGeneration(quizData) {
       // Handle continue button - make sure this works!
       continueBtn.addEventListener('click', async () => {
         try {
+          console.log('SAVE QUIZ button clicked');
+          
           // Show a saving message
           addLogEntry('Saving quiz...');
           
@@ -998,41 +1000,96 @@ function startQuizGeneration(quizData) {
           };
           
           // Log the final data structure
-          console.log('Final quiz data to be saved:', finalQuizData);
+          console.log('Final quiz data structure:', finalQuizData);
+          console.log('Number of questions:', finalQuizData.questions.length);
           
           // Delete the AI options before saving
           delete finalQuizData.aiOptions;
           
-          // First close the generation progress modal
-          if (progressModal) {
-            progressModal.style.display = 'none';
-          }
+          // Force close ALL modals - very important!
+          document.querySelectorAll('.modal').forEach(modal => {
+            console.log('Closing modal:', modal.id);
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+          });
           
-          // Close the quiz creation modal too
+          // Specifically handle the create quiz modal
           const createQuizModal = document.getElementById('create-quiz-modal');
           if (createQuizModal) {
+            console.log('Explicitly closing create quiz modal');
             createQuizModal.classList.remove('active');
             createQuizModal.style.display = 'none';
           }
           
-          // Save the quiz and handle the result
-          await saveQuiz(finalQuizData);
+          // Specifically handle the generation progress modal
+          if (progressModal) {
+            console.log('Explicitly closing generation progress modal');
+            progressModal.style.display = 'none';
+          }
           
-          // Force refresh the quiz list to show new quiz
+          // Save the quiz directly here instead of calling saveQuiz
+          console.log('Making direct API call to save quiz');
+          const token = getTokenFromStorage();
+          if (!token) {
+            throw new Error('No authentication token found');
+          }
+          
+          // Fix property names to match what the server expects
+          const serverQuizData = {
+            title: finalQuizData.name, // Convert 'name' to 'title' for server
+            description: finalQuizData.description,
+            questions: finalQuizData.questions.map(q => ({
+              text: q.text,
+              options: Array.isArray(q.options) ? 
+                // Map options to the expected format
+                q.options.map((opt, index) => ({
+                  text: typeof opt === 'string' ? opt : opt.text,
+                  isCorrect: typeof opt === 'string' ? 
+                    (index === q.correctIndex) : 
+                    opt.isCorrect
+                })) : [],
+            })),
+            timePerQuestion: finalQuizData.timePerQuestion,
+            status: finalQuizData.status || 'draft'
+          };
+          
+          console.log('Formatted server quiz data:', serverQuizData);
+          
+          // Make direct API call
+          const response = await fetch('/interac/api/quiz/quizzes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(serverQuizData)
+          });
+          
+          console.log('Server response status:', response.status);
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error response:', errorText);
+            throw new Error('Failed to save quiz: ' + errorText);
+          }
+          
+          const responseData = await response.json();
+          console.log('Quiz saved successfully with ID:', responseData.id || 'unknown');
+          
+          // Force reload quizzes with explicit delay
+          console.log('Forcing quiz list refresh');
           setTimeout(() => {
+            console.log('Executing delayed loadQuizzes() call');
             loadQuizzes();
-          }, 500);
+          }, 1000);
           
           // Show success alert after saving
           alert('Quiz created successfully!');
         } catch (error) {
-          console.error('Error in save process:', error);
+          console.error('Error in complete save process:', error);
           alert(`Error saving quiz: ${error.message}`);
           
-          // If there's an error, show the modal again with the error
-          if (progressModal) {
-            progressModal.style.display = 'flex';
-          }
+          // If there's an error, show the error but don't reshow modals
           addLogEntry(`Error saving quiz: ${error.message}`, true);
         }
       });
