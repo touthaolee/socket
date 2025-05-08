@@ -630,10 +630,27 @@ function setupQuizManagement() {
     });
   }
   
-  // Create quiz submit
+  // Create quiz submit button - add direct click handler with logging
   const createQuizSubmitBtn = document.getElementById('create-quiz-submit-btn');
   if (createQuizSubmitBtn) {
-    createQuizSubmitBtn.addEventListener('click', createQuiz);
+    // Remove any existing event listeners first
+    createQuizSubmitBtn.removeEventListener('click', handleCreateQuizSubmit);
+    
+    // Add our new event listener with named function for better debugging
+    createQuizSubmitBtn.addEventListener('click', handleCreateQuizSubmit);
+    
+    // Define the handler function
+    function handleCreateQuizSubmit(event) {
+      console.log('Create Quiz Submit button clicked');
+      // Prevent default form submission behavior if in a form
+      event.preventDefault();
+      // Call the createQuiz function
+      createQuiz();
+    }
+    
+    console.log('Set up Create Quiz Submit button handler');
+  } else {
+    console.warn('Create Quiz Submit button not found');
   }
 }
 
@@ -1125,28 +1142,87 @@ function startQuizGeneration(quizData) {
               } catch (error) {
                 console.error('Error refreshing quiz list:', error);
                 if (retryCount < 3) {
-                                    console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
-                                    setTimeout(() => refreshQuizzes(retryCount + 1), 1000);
-                                  }
-                                }
-                              };
-                              await refreshQuizzes();
-                              alert('Quiz saved successfully!');
-                            } catch (error) {
-                              console.error('Failed to save quiz:', error);
-                              alert('Failed to save quiz: ' + error.message);
-                            }
-                          } catch (error) {
-                            console.error('Error during quiz save:', error);
-                          }
-                        });
-                      },
-                      onError: (error) => {
-                        clearInterval(elapsedTimeInterval);
-                        addLogEntry('Error during quiz generation: ' + error.message, true);
-                      }
-                    });
-                  }
+                  console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
+                  setTimeout(() => refreshQuizzes(retryCount + 1), 1000);
+                }
+              }
+            };
+            await refreshQuizzes();
+            alert('Quiz saved successfully!');
+          } catch (error) {
+            console.error('Failed to save quiz:', error);
+            alert('Failed to save quiz: ' + error.message);
+          }
+        } catch (error) {
+          console.error('Error during quiz save:', error);
+          alert('Error saving quiz: ' + error.message);
+        }
+      });
+      
+      // NEW: Add the same questions and save button to the create quiz modal
+      // This ensures users can see a clear save button in the original modal too
+      const createModalFooter = document.querySelector('.modal-content .modal-footer');
+      if (createModalFooter) {
+        // Remove any existing "Save Generated Quiz" button
+        const existingSaveButtons = createModalFooter.querySelectorAll('.generated-save-btn');
+        existingSaveButtons.forEach(btn => btn.remove());
+        
+        // Add the summary to the create modal body
+        const createModalBody = document.querySelector('.modal-content .modal-body');
+        if (createModalBody) {
+          // Display a summary of the generated questions in the main modal
+          const summaryDiv = document.createElement('div');
+          summaryDiv.className = 'questions-summary';
+          summaryDiv.innerHTML = `
+            <div class="summary-header" style="margin-top: 15px; padding: 10px; background-color: #e9f7ef; border-radius: 5px; border-left: 4px solid #28a745;">
+              <h3 style="margin: 0; color: #155724; font-size: 16px;">
+                <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                ${questions.length} Questions Generated Successfully!
+              </h3>
+              <p style="margin: 5px 0 0 0; color: #1e7e34; font-size: 14px;">
+                Click "Save Generated Quiz" to save your quiz.
+              </p>
+            </div>
+          `;
+          
+          // Remove any existing summary
+          const existingSummary = createModalBody.querySelector('.questions-summary');
+          if (existingSummary) {
+            existingSummary.remove();
+          }
+          
+          createModalBody.appendChild(summaryDiv);
+        }
+        
+        // Create the "Save Generated Quiz" button for the original modal
+        const saveGeneratedBtn = document.createElement('button');
+        saveGeneratedBtn.className = 'btn generated-save-btn';
+        saveGeneratedBtn.innerHTML = '<i class="fas fa-save"></i> Save Generated Quiz';
+        saveGeneratedBtn.style.backgroundColor = '#28a745';
+        saveGeneratedBtn.style.color = 'white';
+        saveGeneratedBtn.style.fontWeight = 'bold';
+        saveGeneratedBtn.style.marginLeft = '10px';
+        
+        // Add click handler that mirrors the continueBtn handler
+        saveGeneratedBtn.addEventListener('click', async () => {
+          console.log('Save Generated Quiz button clicked from main modal');
+          // Call the same save function by triggering the continue button click
+          continueBtn.click();
+        });
+        
+        // Add the button to the modal footer
+        createModalFooter.appendChild(saveGeneratedBtn);
+        
+        console.log('Added Save Generated Quiz button to create modal footer');
+      } else {
+        console.warn('Could not find modal footer to add save button');
+      }
+    } catch (error) {
+      console.error('Error during quiz save:', error);
+      alert('Error saving quiz: ' + error.message);
+    }
+  });
+}
 
 // Generate quiz questions using AI service
 function generateQuizQuestions(quizData, callbacks) {
