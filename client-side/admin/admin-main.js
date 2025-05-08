@@ -894,7 +894,7 @@ function startQuizGeneration(quizData) {
   addLogEntry('Connecting to AI service...');
   
   // Generate questions in batches
-  generateQuizQuestions(quizData, {
+  aiService.generateQuizQuestions(quizData, {
     onProgress: (progress, generatedCount, totalCount) => {
       // Update progress bar
       document.getElementById('generation-progress-fill').style.width = `${progress}%`;
