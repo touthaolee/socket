@@ -58,6 +58,7 @@ function initModernQuizUI() {
       if (currentStep === 1) {
         quiz.title = document.getElementById('va-quiz-title').value.trim();
         quiz.description = document.getElementById('va-quiz-description').value.trim();
+        quiz.context = document.getElementById('va-quiz-context').value.trim();
         quiz.time = parseInt(document.getElementById('va-quiz-time').value, 10) || 30;
         quiz.tags = document.getElementById('va-quiz-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
         if (!quiz.title) return showToast('Quiz title required');
@@ -129,7 +130,7 @@ function initModernQuizUI() {
       // AI generate questions for the quiz
       try {
         const token = getTokenFromStorage();
-        const topic = quiz.title || 'General Knowledge';
+        const topic = quiz.context || quiz.title || 'General Knowledge';
         
         showToast('Generating questions with AI...');
         
