@@ -923,303 +923,310 @@ function startQuizGeneration(quizData) {
       }
     },
     onComplete: async (questions) => {
-      const mockCount = questions.filter(q => q.text.includes('Sample question about')).length;
-      if (mockCount > 0) {
-        addLogEntry(`Generation complete: ${questions.length} questions generated (${mockCount} fallback questions due to server issues)`, mockCount === questions.length);
-      } else {
-        addLogEntry(`Generation complete: ${questions.length} questions generated`);
-      }
-      
-      // Clean up
-      clearInterval(elapsedTimeInterval);
-      
-      // Add completion message that stands out
-      const completionMsg = document.createElement('div');
-      completionMsg.className = 'log-entry log-success';
-      completionMsg.style.fontWeight = 'bold';
-      completionMsg.style.padding = '15px';
-      completionMsg.style.margin = '15px 0';
-      completionMsg.style.backgroundColor = '#d4edda';
-      completionMsg.style.color = '#155724';
-      completionMsg.style.borderRadius = '4px';
-      completionMsg.style.textAlign = 'center';
-      completionMsg.style.border = '2px solid #28a745';
-      completionMsg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-      completionMsg.textContent = '✅ Quiz generation completed! Click the button below to save your quiz:';
-      
-      // Add option to continue with the generated questions
-      const generateAgainBtn = document.createElement('button');
-      generateAgainBtn.className = 'btn-outline';
-      generateAgainBtn.textContent = 'Try Generating Again';
-      generateAgainBtn.style.marginRight = '10px';
-      
-      const continueBtn = document.createElement('button');
-      continueBtn.className = 'btn';
-      continueBtn.innerHTML = '<i class="fas fa-save"></i> SAVE QUIZ';
-      continueBtn.style.fontWeight = 'bold';
-      continueBtn.style.backgroundColor = '#28a745';
-      continueBtn.style.color = 'white';
-      continueBtn.style.padding = '12px 24px';
-      continueBtn.style.fontSize = '16px';
-      continueBtn.style.animation = 'pulse 2s infinite';
-      
-      // Add animation style
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes pulse {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.05); }
-          100% { transform: scale(1); }
-        }
-      `;
-      document.head.appendChild(style);
-      
-      const actionContainer = document.createElement('div');
-      actionContainer.className = 'generation-actions';
-      actionContainer.style.marginTop = '20px';
-      actionContainer.style.display = 'flex';
-      actionContainer.style.justifyContent = 'center';
-      actionContainer.style.gap = '15px';
-      
-      // Add the completion message
-      const logContainer = document.getElementById('generation-log-container');
-      if (logContainer) {
-        logContainer.appendChild(completionMsg);
-      }
-      
-      // Always add both buttons, but disable the "try again" if no mock questions
-      if (mockCount > 0) {
-        actionContainer.appendChild(generateAgainBtn);
-      }
-      actionContainer.appendChild(continueBtn);
-      
-      if (logContainer) {
-        logContainer.appendChild(actionContainer);
-      }
-      
-      // Handle try again button
-      generateAgainBtn.addEventListener('click', () => {
-        // Hide the action buttons
-        actionContainer.style.display = 'none';
-        
-        // Start generation again
-        addLogEntry('Retrying generation...');
-        startQuizGeneration(quizData);
-      });
-      
-      // Handle continue button - make sure this works!
-      continueBtn.addEventListener('click', async () => {
-        try {
-          console.log('========== SAVE QUIZ BUTTON CLICKED ==========');
-          
-          // Show a saving message
-          addLogEntry('Saving quiz...');
-          
-          // Create final quiz object with proper formatting
-          const finalQuizData = {
-            ...quizData,
-            questions,
-            status: 'draft',
-            createdAt: new Date().toISOString()
-          };
-          
-          // Log the final data structure
-          console.log('Quiz name:', finalQuizData.name);
-          console.log('Questions count:', finalQuizData.questions.length);
-          console.log('First question:', finalQuizData.questions[0]?.text);
-          
-          // Delete the AI options before saving
-          delete finalQuizData.aiOptions;
-          
-          console.log('Step 1: Attempting to close all modals');
-          
-          // Force close ALL modals - very important!
-          document.querySelectorAll('.modal').forEach(modal => {
-            if (modal) {
-              console.log(`Found modal: ${modal.id || 'unnamed modal'}, current display: ${modal.style.display}`);
-              modal.style.display = 'none';
-              modal.classList.remove('active');
-            }
-          });
-          
-          // Specifically handle the create quiz modal
-          const createQuizModal = document.getElementById('create-quiz-modal');
-          if (createQuizModal) {
-            console.log('Explicitly closing create quiz modal');
-            createQuizModal.classList.remove('active');
-            createQuizModal.style.display = 'none';
-          } else {
-            console.log('Warning: Could not find create-quiz-modal element');
-          }
-          
-          // Specifically handle the generation progress modal
-          if (progressModal) {
-            console.log('Explicitly closing generation progress modal');
-            progressModal.style.display = 'none';
-          } else {
-            console.log('Warning: progressModal is not available');
-          }
-          
-          console.log('Step 2: Preparing API call');
-          
-          // Save the quiz directly here
-          const token = getTokenFromStorage();
-          if (!token) {
-            console.error('No auth token found!');
-            throw new Error('No authentication token found');
-          }
-          
-          console.log('Auth token exists:', !!token);
-          
-          // Fix property names to match what the server expects
-          const serverQuizData = {
-            title: finalQuizData.name, // Convert 'name' to 'title' for server
-            description: finalQuizData.description || '',
-            questions: finalQuizData.questions.map(q => ({
-              text: q.text,
-              options: Array.isArray(q.options) ? 
-                q.options.map((opt, index) => ({
-                  text: typeof opt === 'string' ? opt : opt.text,
-                  isCorrect: typeof opt === 'string' ? 
-                    (index === q.correctIndex) : 
-                    opt.isCorrect
-                })) : []
-            })),
-            timePerQuestion: finalQuizData.timePerQuestion || 30,
-            status: finalQuizData.status || 'draft'
-          };
-          
-          console.log('Step 3: Sending API request');
-          console.log('Request URL:', '/interac/api/quiz/quizzes');
-          console.log('Request method:', 'POST');
-          
-          // Make direct API call with comprehensive error handling
-          try {
-            const response = await fetch('/interac/api/quiz/quizzes', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify(serverQuizData)
-            });
-            
-            console.log('Step 4: Received API response');
-            console.log('Response status:', response.status);
-            console.log('Response status text:', response.statusText);
-            
-            // Get full response text for analysis
-            const responseText = await response.text();
-            console.log('Response text:', responseText);
-            
-            if (!response.ok) {
-              console.error('Error response from server');
-              throw new Error('Failed to save quiz: ' + responseText);
-            }
-            
-            // Try to parse response as JSON
-            let responseData;
-            try {
-              responseData = JSON.parse(responseText);
-              console.log('Successfully parsed response JSON:', responseData);
-            } catch (parseError) {
-              console.warn('Could not parse response as JSON:', parseError);
-            }
-            
-            console.log('Step 5: Quiz saved successfully');
-            if (responseData && responseData.id) {
-              console.log('New quiz ID:', responseData.id);
-            }
-            
-            // Force reload quizzes with explicit delay and retries
-            console.log('Step 6: Forcing quiz list refresh');
-            
-            const refreshQuizzes = async (retryCount = 0) => {
-              console.log(`Refreshing quiz list (attempt ${retryCount + 1})`);
-              try {
-                await loadQuizzes();
-                console.log('Quiz list refreshed successfully');
-              } catch (error) {
-                console.error('Error refreshing quiz list:', error);
-                if (retryCount < 3) {
-                  console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
-                  setTimeout(() => refreshQuizzes(retryCount + 1), 1000);
-                }
-              }
-            };
-            await refreshQuizzes();
-            alert('Quiz saved successfully!');
-          } catch (error) {
-            console.error('Failed to save quiz:', error);
-            alert('Failed to save quiz: ' + error.message);
-          }
-        } catch (error) {
-          console.error('Error during quiz save:', error);
-          alert('Error saving quiz: ' + error.message);
-        }
-      });
-      
-      // NEW: Add the same questions and save button to the create quiz modal
-      // This ensures users can see a clear save button in the original modal too
-      const createModalFooter = document.querySelector('.modal-content .modal-footer');
-      if (createModalFooter) {
-        // Remove any existing "Save Generated Quiz" button
-        const existingSaveButtons = createModalFooter.querySelectorAll('.generated-save-btn');
-        existingSaveButtons.forEach(btn => btn.remove());
-        
-        // Add the summary to the create modal body
-        const createModalBody = document.querySelector('.modal-content .modal-body');
-        if (createModalBody) {
-          // Display a summary of the generated questions in the main modal
-          const summaryDiv = document.createElement('div');
-          summaryDiv.className = 'questions-summary';
-          summaryDiv.innerHTML = `
-            <div class="summary-header" style="margin-top: 15px; padding: 10px; background-color: #e9f7ef; border-radius: 5px; border-left: 4px solid #28a745;">
-              <h3 style="margin: 0; color: #155724; font-size: 16px;">
-                <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
-                ${questions.length} Questions Generated Successfully!
-              </h3>
-              <p style="margin: 5px 0 0 0; color: #1e7e34; font-size: 14px;">
-                Click "Save Generated Quiz" to save your quiz.
-              </p>
-            </div>
-          `;
-          
-          // Remove any existing summary
-          const existingSummary = createModalBody.querySelector('.questions-summary');
-          if (existingSummary) {
-            existingSummary.remove();
-          }
-          
-          createModalBody.appendChild(summaryDiv);
+      try {
+        const mockCount = questions.filter(q => q.text.includes('Sample question about')).length;
+        if (mockCount > 0) {
+          addLogEntry(`Generation complete: ${questions.length} questions generated (${mockCount} fallback questions due to server issues)`, mockCount === questions.length);
+        } else {
+          addLogEntry(`Generation complete: ${questions.length} questions generated`);
         }
         
-        // Create the "Save Generated Quiz" button for the original modal
-        const saveGeneratedBtn = document.createElement('button');
-        saveGeneratedBtn.className = 'btn generated-save-btn';
-        saveGeneratedBtn.innerHTML = '<i class="fas fa-save"></i> Save Generated Quiz';
-        saveGeneratedBtn.style.backgroundColor = '#28a745';
-        saveGeneratedBtn.style.color = 'white';
-        saveGeneratedBtn.style.fontWeight = 'bold';
-        saveGeneratedBtn.style.marginLeft = '10px';
+        // Clean up
+        clearInterval(elapsedTimeInterval);
         
-        // Add click handler that mirrors the continueBtn handler
-        saveGeneratedBtn.addEventListener('click', async () => {
-          console.log('Save Generated Quiz button clicked from main modal');
-          // Call the same save function by triggering the continue button click
-          continueBtn.click();
+        // Add completion message that stands out
+        const completionMsg = document.createElement('div');
+        completionMsg.className = 'log-entry log-success';
+        completionMsg.style.fontWeight = 'bold';
+        completionMsg.style.padding = '15px';
+        completionMsg.style.margin = '15px 0';
+        completionMsg.style.backgroundColor = '#d4edda';
+        completionMsg.style.color = '#155724';
+        completionMsg.style.borderRadius = '4px';
+        completionMsg.style.textAlign = 'center';
+        completionMsg.style.border = '2px solid #28a745';
+        completionMsg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        completionMsg.textContent = '✅ Quiz generation completed! Click the button below to save your quiz:';
+        
+        // Add option to continue with the generated questions
+        const generateAgainBtn = document.createElement('button');
+        generateAgainBtn.className = 'btn-outline';
+        generateAgainBtn.textContent = 'Try Generating Again';
+        generateAgainBtn.style.marginRight = '10px';
+        
+        const continueBtn = document.createElement('button');
+        continueBtn.className = 'btn';
+        continueBtn.innerHTML = '<i class="fas fa-save"></i> SAVE QUIZ';
+        continueBtn.style.fontWeight = 'bold';
+        continueBtn.style.backgroundColor = '#28a745';
+        continueBtn.style.color = 'white';
+        continueBtn.style.padding = '12px 24px';
+        continueBtn.style.fontSize = '16px';
+        continueBtn.style.animation = 'pulse 2s infinite';
+        
+        // Add animation style
+        const style = document.createElement('style');
+        style.textContent = `
+          @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+          }
+        `;
+        document.head.appendChild(style);
+        
+        const actionContainer = document.createElement('div');
+        actionContainer.className = 'generation-actions';
+        actionContainer.style.marginTop = '20px';
+        actionContainer.style.display = 'flex';
+        actionContainer.style.justifyContent = 'center';
+        actionContainer.style.gap = '15px';
+        
+        // Add the completion message
+        const logContainer = document.getElementById('generation-log-container');
+        if (logContainer) {
+          logContainer.appendChild(completionMsg);
+        }
+        
+        // Always add both buttons, but disable the "try again" if no mock questions
+        if (mockCount > 0) {
+          actionContainer.appendChild(generateAgainBtn);
+        }
+        actionContainer.appendChild(continueBtn);
+        
+        if (logContainer) {
+          logContainer.appendChild(actionContainer);
+        }
+        
+        // Handle try again button
+        generateAgainBtn.addEventListener('click', () => {
+          // Hide the action buttons
+          actionContainer.style.display = 'none';
+          
+          // Start generation again
+          addLogEntry('Retrying generation...');
+          startQuizGeneration(quizData);
         });
         
-        // Add the button to the modal footer
-        createModalFooter.appendChild(saveGeneratedBtn);
+        // Handle continue button - make sure this works!
+        continueBtn.addEventListener('click', async () => {
+          try {
+            console.log('========== SAVE QUIZ BUTTON CLICKED ==========');
+            
+            // Show a saving message
+            addLogEntry('Saving quiz...');
+            
+            // Create final quiz object with proper formatting
+            const finalQuizData = {
+              ...quizData,
+              questions,
+              status: 'draft',
+              createdAt: new Date().toISOString()
+            };
+            
+            // Log the final data structure
+            console.log('Quiz name:', finalQuizData.name);
+            console.log('Questions count:', finalQuizData.questions.length);
+            console.log('First question:', finalQuizData.questions[0]?.text);
+            
+            // Delete the AI options before saving
+            delete finalQuizData.aiOptions;
+            
+            console.log('Step 1: Attempting to close all modals');
+            
+            // Force close ALL modals - very important!
+            document.querySelectorAll('.modal').forEach(modal => {
+              if (modal) {
+                console.log(`Found modal: ${modal.id || 'unnamed modal'}, current display: ${modal.style.display}`);
+                modal.style.display = 'none';
+                modal.classList.remove('active');
+              }
+            });
+            
+            // Specifically handle the create quiz modal
+            const createQuizModal = document.getElementById('create-quiz-modal');
+            if (createQuizModal) {
+              console.log('Explicitly closing create quiz modal');
+              createQuizModal.classList.remove('active');
+              createQuizModal.style.display = 'none';
+            } else {
+              console.log('Warning: Could not find create-quiz-modal element');
+            }
+            
+            // Specifically handle the generation progress modal
+            if (progressModal) {
+              console.log('Explicitly closing generation progress modal');
+              progressModal.style.display = 'none';
+            } else {
+              console.log('Warning: progressModal is not available');
+            }
+            
+            console.log('Step 2: Preparing API call');
+            
+            // Save the quiz directly here
+            const token = getTokenFromStorage();
+            if (!token) {
+              console.error('No auth token found!');
+              throw new Error('No authentication token found');
+            }
+            
+            console.log('Auth token exists:', !!token);
+            
+            // Fix property names to match what the server expects
+            const serverQuizData = {
+              title: finalQuizData.name, // Convert 'name' to 'title' for server
+              description: finalQuizData.description || '',
+              questions: finalQuizData.questions.map(q => ({
+                text: q.text,
+                options: Array.isArray(q.options) ? 
+                  q.options.map((opt, index) => ({
+                    text: typeof opt === 'string' ? opt : opt.text,
+                    isCorrect: typeof opt === 'string' ? 
+                      (index === q.correctIndex) : 
+                      opt.isCorrect
+                  })) : []
+              })),
+              timePerQuestion: finalQuizData.timePerQuestion || 30,
+              status: finalQuizData.status || 'draft'
+            };
+            
+            console.log('Step 3: Sending API request');
+            console.log('Request URL:', '/interac/api/quiz/quizzes');
+            console.log('Request method:', 'POST');
+            
+            // Make direct API call with comprehensive error handling
+            try {
+              const response = await fetch('/interac/api/quiz/quizzes', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(serverQuizData)
+              });
+              
+              console.log('Step 4: Received API response');
+              console.log('Response status:', response.status);
+              console.log('Response status text:', response.statusText);
+              
+              // Get full response text for analysis
+              const responseText = await response.text();
+              console.log('Response text:', responseText);
+              
+              if (!response.ok) {
+                console.error('Error response from server');
+                throw new Error('Failed to save quiz: ' + responseText);
+              }
+              
+              // Try to parse response as JSON
+              let responseData;
+              try {
+                responseData = JSON.parse(responseText);
+                console.log('Successfully parsed response JSON:', responseData);
+              } catch (parseError) {
+                console.warn('Could not parse response as JSON:', parseError);
+              }
+              
+              console.log('Step 5: Quiz saved successfully');
+              if (responseData && responseData.id) {
+                console.log('New quiz ID:', responseData.id);
+              }
+              
+              // Force reload quizzes with explicit delay and retries
+              console.log('Step 6: Forcing quiz list refresh');
+              
+              const refreshQuizzes = async (retryCount = 0) => {
+                console.log(`Refreshing quiz list (attempt ${retryCount + 1})`);
+                try {
+                  await loadQuizzes();
+                  console.log('Quiz list refreshed successfully');
+                } catch (error) {
+                  console.error('Error refreshing quiz list:', error);
+                  if (retryCount < 3) {
+                    console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
+                    setTimeout(() => refreshQuizzes(retryCount + 1), 1000);
+                  }
+                }
+              };
+              await refreshQuizzes();
+              alert('Quiz saved successfully!');
+            } catch (error) {
+              console.error('Failed to save quiz:', error);
+              alert('Failed to save quiz: ' + error.message);
+            }
+          } catch (error) {
+            console.error('Error during quiz save:', error);
+            alert('Error saving quiz: ' + error.message);
+          }
+        });
         
-        console.log('Added Save Generated Quiz button to create modal footer');
-      } else {
-        console.warn('Could not find modal footer to add save button');
+        // NEW: Add the same questions and save button to the create quiz modal
+        // This ensures users can see a clear save button in the original modal too
+        const createModalFooter = document.querySelector('.modal-content .modal-footer');
+        if (createModalFooter) {
+          // Remove any existing "Save Generated Quiz" button
+          const existingSaveButtons = createModalFooter.querySelectorAll('.generated-save-btn');
+          existingSaveButtons.forEach(btn => btn.remove());
+          
+          // Add the summary to the create modal body
+          const createModalBody = document.querySelector('.modal-content .modal-body');
+          if (createModalBody) {
+            // Display a summary of the generated questions in the main modal
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'questions-summary';
+            summaryDiv.innerHTML = `
+              <div class="summary-header" style="margin-top: 15px; padding: 10px; background-color: #e9f7ef; border-radius: 5px; border-left: 4px solid #28a745;">
+                <h3 style="margin: 0; color: #155724; font-size: 16px;">
+                  <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                  ${questions.length} Questions Generated Successfully!
+                </h3>
+                <p style="margin: 5px 0 0 0; color: #1e7e34; font-size: 14px;">
+                  Click "Save Generated Quiz" to save your quiz.
+                </p>
+              </div>
+            `;
+            
+            // Remove any existing summary
+            const existingSummary = createModalBody.querySelector('.questions-summary');
+            if (existingSummary) {
+              existingSummary.remove();
+            }
+            
+            createModalBody.appendChild(summaryDiv);
+          }
+          
+          // Create the "Save Generated Quiz" button for the original modal
+          const saveGeneratedBtn = document.createElement('button');
+          saveGeneratedBtn.className = 'btn generated-save-btn';
+          saveGeneratedBtn.innerHTML = '<i class="fas fa-save"></i> Save Generated Quiz';
+          saveGeneratedBtn.style.backgroundColor = '#28a745';
+          saveGeneratedBtn.style.color = 'white';
+          saveGeneratedBtn.style.fontWeight = 'bold';
+          saveGeneratedBtn.style.marginLeft = '10px';
+          
+          // Add click handler that mirrors the continueBtn handler
+          saveGeneratedBtn.addEventListener('click', async () => {
+            console.log('Save Generated Quiz button clicked from main modal');
+            // Call the same save function by triggering the continue button click
+            continueBtn.click();
+          });
+          
+          // Add the button to the modal footer
+          createModalFooter.appendChild(saveGeneratedBtn);
+          
+          console.log('Added Save Generated Quiz button to create modal footer');
+        } else {
+          console.warn('Could not find modal footer to add save button');
+        }
+      } catch (error) {
+        console.error('Error during quiz generation completion:', error);
+        addLogEntry('Error during quiz generation: ' + error.message, true);
+        clearInterval(elapsedTimeInterval);
       }
-    } catch (error) {
-      console.error('Error during quiz save:', error);
-      alert('Error saving quiz: ' + error.message);
+    },
+    onError: (error) => {
+      clearInterval(elapsedTimeInterval);
+      addLogEntry('Error during quiz generation: ' + error.message, true);
     }
   });
 }
