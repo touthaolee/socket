@@ -1118,4 +1118,225 @@ function startQuizGeneration(quizData) {
               } catch (error) {
                 console.error('Error refreshing quiz list:', error);
                 if (retryCount < 3) {
-                  console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
+                                    console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
+                                    setTimeout(() => refreshQuizzes(retryCount + 1), 1000);
+                                  }
+                                }
+                              };
+                              await refreshQuizzes();
+                              alert('Quiz saved successfully!');
+                            } catch (error) {
+                              console.error('Failed to save quiz:', error);
+                              alert('Failed to save quiz: ' + error.message);
+                            }
+                          } catch (error) {
+                            console.error('Error during quiz save:', error);
+                          }
+                        });
+                      },
+                      onError: (error) => {
+                        clearInterval(elapsedTimeInterval);
+                        addLogEntry('Error during quiz generation: ' + error.message, true);
+                      }
+                    });
+                  }
+
+// Generate quiz questions using AI service
+function generateQuizQuestions(quizData, callbacks) {
+  // ... existing code ...
+}
+
+// Save quiz to server
+async function saveQuiz(quizData) {
+  try {
+    console.log('Saving quiz data:', quizData);
+    const token = getTokenFromStorage();
+    if (!token) {
+      showAdminLogin();
+      return;
+    }
+    
+    // Fix property names to match what the server expects
+    const serverQuizData = {
+      title: quizData.name, // Convert 'name' to 'title' for server
+      description: quizData.description || '',
+      questions: quizData.questions.map(q => ({
+        text: q.text,
+        options: Array.isArray(q.options) ? 
+          // Map options to the expected format
+          q.options.map((opt, index) => ({
+            text: typeof opt === 'string' ? opt : opt.text,
+            isCorrect: typeof opt === 'string' ? 
+              (index === q.correctIndex) : 
+              opt.isCorrect
+          })) : []
+      })),
+      timePerQuestion: quizData.timePerQuestion || 30,
+      status: quizData.status || 'draft'
+    };
+    
+    console.log('Formatted quiz data for server:', serverQuizData);
+    
+    console.log('Making API request to save quiz...');
+    const response = await fetch('/interac/api/quiz/quizzes', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(serverQuizData)
+    });
+    
+    console.log('Save quiz API response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Error response from server:', errorText);
+      throw new Error('Failed to save quiz: ' + errorText);
+    }
+    
+    const responseData = await response.json();
+    console.log('Quiz saved successfully with ID:', responseData.id || 'unknown');
+    
+    // Close create quiz modal
+    const createQuizModal = document.getElementById('create-quiz-modal');
+    if (createQuizModal) {
+      createQuizModal.style.display = 'none';
+    }
+    
+    // Close generation progress modal if open
+    const progressModal = document.getElementById('generation-progress-modal');
+    if (progressModal) {
+      progressModal.style.display = 'none';
+    }
+    
+    // Force reload quizzes to show the new quiz
+    loadQuizzes();
+    
+    // Show success message
+    alert('Quiz created successfully');
+  } catch (error) {
+    console.error('Error saving quiz:', error);
+    alert('Error saving quiz: ' + error.message);
+  }
+}
+
+// View a quiz
+async function viewQuiz(quizId) {
+  try {
+    const token = getTokenFromStorage();
+    if (!token) {
+      showAdminLogin();
+      return;
+    }
+    
+    const response = await fetch(`/interac/api/quiz/quizzes/${quizId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to load quiz');
+    }
+    
+    const quiz = await response.json();
+    
+    // Show quiz preview modal
+    const previewModal = document.getElementById('quiz-preview-modal');
+    if (previewModal) {
+      // Populate modal with quiz data
+      document.getElementById('preview-quiz-title').textContent = quiz.title || 'Untitled Quiz';
+      document.getElementById('preview-quiz-description').textContent = quiz.description || 'No description';
+      
+      // Populate questions
+      const questionsContainer = document.getElementById('preview-questions-container');
+      questionsContainer.innerHTML = '';
+      
+      if (quiz.questions && quiz.questions.length > 0) {
+        quiz.questions.forEach((question, index) => {
+          const questionEl = document.createElement('div');
+          questionEl.className = 'preview-question';
+          
+          // Find correct answer
+          let correctOptionIndex = -1;
+          question.options.forEach((option, idx) => {
+            if (option.isCorrect) {
+              correctOptionIndex = idx;
+            }
+          });
+          
+          questionEl.innerHTML = `
+            <div class="question-header">
+              <span class="question-number">Q${index + 1}</span>
+              <span class="question-text">${question.text}</span>
+            </div>
+            <div class="options-list">
+              ${question.options.map((option, idx) => `
+                <div class="option ${option.isCorrect ? 'correct-option' : ''}">
+                  <span class="option-letter">${String.fromCharCode(65 + idx)}</span>
+                  <span class="option-text">${option.text}</span>
+                  ${option.isCorrect ? '<span class="correct-indicator">✓</span>' : ''}
+                </div>
+              `).join('')}
+            </div>
+            ${question.rationale ? `
+              <div class="question-rationale">
+                <strong>Explanation:</strong> ${question.rationale}
+              </div>
+            ` : ''}
+          `;
+          
+          questionsContainer.appendChild(questionEl);
+        });
+      } else {
+        questionsContainer.innerHTML = '<p class="empty-state">No questions in this quiz</p>';
+      }
+      
+      // Show the modal
+      previewModal.style.display = 'flex';
+    }
+  } catch (error) {
+    console.error('Error viewing quiz:', error);
+    alert('Error loading quiz details');
+  }
+}
+
+// Edit a quiz
+function editQuiz(quizId) {
+  // Implementation for editing a quiz would go here
+  alert('Edit quiz functionality would open the quiz editor for quiz ID: ' + quizId);
+}
+
+// Delete a quiz
+async function deleteQuiz(quizId) {
+  if (confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+    try {
+      const token = getTokenFromStorage();
+      if (!token) {
+        showAdminLogin();
+        return;
+      }
+      
+      const response = await fetch(`/interac/api/quiz/quizzes/${quizId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete quiz');
+      }
+      
+      // Reload quizzes to update the list
+      loadQuizzes();
+      
+      // Show success message
+      alert('Quiz deleted successfully');
+    } catch (error) {
+      console.error('Error deleting quiz:', error);
+      alert('Error deleting quiz: ' + error.message);
+    }
+  }
+}
