@@ -1,4 +1,7 @@
 // Modern VA Quiz Admin UI - Connected to Backend
+import { aiService } from './service/ai-service.js';
+import { similarityService } from './service/ai-similarity-service.js';
+
 document.addEventListener('DOMContentLoaded', function() {
   initModernQuizUI();
 });
