@@ -375,7 +375,7 @@ function initModernQuizUI() {
         
         // Use your existing similarityService
         similarityService.checkBatchSimilarity(questionTexts)
-          .then(results => {
+          .then results => {
             if (!results || results.length === 0 || results.every(r => !r.hasSimilar)) {
               showToast('No similar questions found');
             } else {
@@ -419,6 +419,6 @@ function initModernQuizUI() {
     return localStorage.getItem('auth_token');
   }
 
-  // Expose global function to open the modal
-  window.openModernQuizModal = openModal;
+  // Expose the openModernQuizModal function globally
+  window.openModernQuizModal = openModernQuizModal;
 }
