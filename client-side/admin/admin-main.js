@@ -986,7 +986,7 @@ function startQuizGeneration(quizData) {
       // Handle continue button - make sure this works!
       continueBtn.addEventListener('click', async () => {
         try {
-          console.log('SAVE QUIZ button clicked');
+          console.log('========== SAVE QUIZ BUTTON CLICKED ==========');
           
           // Show a saving message
           addLogEntry('Saving quiz...');
@@ -1000,17 +1000,22 @@ function startQuizGeneration(quizData) {
           };
           
           // Log the final data structure
-          console.log('Final quiz data structure:', finalQuizData);
-          console.log('Number of questions:', finalQuizData.questions.length);
+          console.log('Quiz name:', finalQuizData.name);
+          console.log('Questions count:', finalQuizData.questions.length);
+          console.log('First question:', finalQuizData.questions[0]?.text);
           
           // Delete the AI options before saving
           delete finalQuizData.aiOptions;
           
+          console.log('Step 1: Attempting to close all modals');
+          
           // Force close ALL modals - very important!
           document.querySelectorAll('.modal').forEach(modal => {
-            console.log('Closing modal:', modal.id);
-            modal.style.display = 'none';
-            modal.classList.remove('active');
+            if (modal) {
+              console.log(`Found modal: ${modal.id || 'unnamed modal'}, current display: ${modal.style.display}`);
+              modal.style.display = 'none';
+              modal.classList.remove('active');
+            }
           });
           
           // Specifically handle the create quiz modal
@@ -1019,292 +1024,98 @@ function startQuizGeneration(quizData) {
             console.log('Explicitly closing create quiz modal');
             createQuizModal.classList.remove('active');
             createQuizModal.style.display = 'none';
+          } else {
+            console.log('Warning: Could not find create-quiz-modal element');
           }
           
           // Specifically handle the generation progress modal
           if (progressModal) {
             console.log('Explicitly closing generation progress modal');
             progressModal.style.display = 'none';
+          } else {
+            console.log('Warning: progressModal is not available');
           }
           
-          // Save the quiz directly here instead of calling saveQuiz
-          console.log('Making direct API call to save quiz');
+          console.log('Step 2: Preparing API call');
+          
+          // Save the quiz directly here
           const token = getTokenFromStorage();
           if (!token) {
+            console.error('No auth token found!');
             throw new Error('No authentication token found');
           }
+          
+          console.log('Auth token exists:', !!token);
           
           // Fix property names to match what the server expects
           const serverQuizData = {
             title: finalQuizData.name, // Convert 'name' to 'title' for server
-            description: finalQuizData.description,
+            description: finalQuizData.description || '',
             questions: finalQuizData.questions.map(q => ({
               text: q.text,
               options: Array.isArray(q.options) ? 
-                // Map options to the expected format
                 q.options.map((opt, index) => ({
                   text: typeof opt === 'string' ? opt : opt.text,
                   isCorrect: typeof opt === 'string' ? 
                     (index === q.correctIndex) : 
                     opt.isCorrect
-                })) : [],
+                })) : []
             })),
-            timePerQuestion: finalQuizData.timePerQuestion,
+            timePerQuestion: finalQuizData.timePerQuestion || 30,
             status: finalQuizData.status || 'draft'
           };
           
-          console.log('Formatted server quiz data:', serverQuizData);
+          console.log('Step 3: Sending API request');
+          console.log('Request URL:', '/interac/api/quiz/quizzes');
+          console.log('Request method:', 'POST');
           
-          // Make direct API call
-          const response = await fetch('/interac/api/quiz/quizzes', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify(serverQuizData)
-          });
-          
-          console.log('Server response status:', response.status);
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Server error response:', errorText);
-            throw new Error('Failed to save quiz: ' + errorText);
-          }
-          
-          const responseData = await response.json();
-          console.log('Quiz saved successfully with ID:', responseData.id || 'unknown');
-          
-          // Force reload quizzes with explicit delay
-          console.log('Forcing quiz list refresh');
-          setTimeout(() => {
-            console.log('Executing delayed loadQuizzes() call');
-            loadQuizzes();
-          }, 1000);
-          
-          // Show success alert after saving
-          alert('Quiz created successfully!');
-        } catch (error) {
-          console.error('Error in complete save process:', error);
-          alert(`Error saving quiz: ${error.message}`);
-          
-          // If there's an error, show the error but don't reshow modals
-          addLogEntry(`Error saving quiz: ${error.message}`, true);
-        }
-      });
-    },
-    onError: (error) => {
-      addLogEntry(`Error: ${error.message}`, true);
-      
-      // Add a retry button
-      const retryBtn = document.createElement('button');
-      retryBtn.className = 'btn';
-      retryBtn.textContent = 'Retry Generation';
-      retryBtn.style.marginTop = '15px';
-      
-      const logContainer = document.getElementById('generation-log-container');
-      if (logContainer) {
-        logContainer.appendChild(retryBtn);
-      }
-      
-      retryBtn.addEventListener('click', () => {
-        // Hide the retry button
-        retryBtn.style.display = 'none';
-        
-        // Start generation again
-        addLogEntry('Retrying generation...');
-        startQuizGeneration(quizData);
-      });
-      
-      // Clean up
-      clearInterval(elapsedTimeInterval);
-    }
-  });
-}
-
-// Generate quiz questions using AI service
-function generateQuizQuestions(quizData, callbacks) {
-  const { onProgress, onBatchComplete, onComplete, onError } = callbacks;
-  const { aiOptions } = quizData;
-  
-  // Helper function to check if generation should continue
-  const shouldContinue = () => !generationCancelled;
-  
-  // Debug the aiService to ensure it's properly loaded
-  console.log('AI Service object:', aiService);
-  console.log('generateQuizQuestions function exists:', typeof aiService.generateQuizQuestions === 'function');
-  
-  // Safely call the method with a fallback implementation if needed
-  if (typeof aiService.generateQuizQuestions === 'function') {
-    // Use the existing method from the service
-    aiService.generateQuizQuestions({
-      topic: aiOptions.topic,
-      numQuestions: aiOptions.numQuestions,
-      difficulty: aiOptions.difficulty,
-      optionsPerQuestion: aiOptions.optionsPerQuestion,
-      rationaleTone: aiOptions.rationaleTone,
-      specificFocuses: aiOptions.specificFocuses,
-      batchSize: aiOptions.batchSize
-    }, {
-      onProgress,
-      onBatchComplete,
-      onComplete,
-      onError,
-      shouldContinue
-    });
-  } else {
-    // Fallback implementation
-    console.warn('aiService.generateQuizQuestions not found, using fallback implementation');
-    
-    // Implement a basic version in-place to handle the generation
-    (async function() {
-      try {
-        const batchSize = aiOptions.batchSize || 5;
-        const totalQuestions = aiOptions.numQuestions;
-        const totalBatches = Math.ceil(totalQuestions / batchSize);
-        let generatedQuestions = [];
-        let currentBatch = 1;
-        let generatedCount = 0;
-        
-        // Report initial progress
-        onProgress(0, 0, totalQuestions);
-        
-        // Process in batches
-        while (generatedCount < totalQuestions) {
-          // Check if we should continue
-          if (!shouldContinue()) {
-            onError(new Error('Generation cancelled by user'));
-            return;
-          }
-          
-          // Calculate how many to generate in this batch
-          const batchCount = Math.min(batchSize, totalQuestions - generatedCount);
-          
+          // Make direct API call with comprehensive error handling
           try {
-            // Generate batch using the lower-level API
-            console.log(`Generating batch ${currentBatch}/${totalBatches} (${batchCount} questions)...`);
+            const response = await fetch('/interac/api/quiz/quizzes', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(serverQuizData)
+            });
             
-            // Use the available generateQuestions method instead
-            const batchQuestions = await aiService.generateQuestions(
-              aiOptions.topic,
-              batchCount,
-              {
-                difficulty: aiOptions.difficulty,
-                rationaleTone: aiOptions.rationaleTone,
-                optionsPerQuestion: aiOptions.optionsPerQuestion,
-                specificFocuses: aiOptions.specificFocuses ? 
-                  aiOptions.specificFocuses.split(',').map(f => f.trim()) : []
-              }
-            );
+            console.log('Step 4: Received API response');
+            console.log('Response status:', response.status);
+            console.log('Response status text:', response.statusText);
             
-            // Add to results
-            generatedQuestions = generatedQuestions.concat(batchQuestions);
-            generatedCount += batchQuestions.length;
+            // Get full response text for analysis
+            const responseText = await response.text();
+            console.log('Response text:', responseText);
             
-            // Report progress
-            onProgress(
-              (generatedCount / totalQuestions) * 100,
-              generatedCount,
-              totalQuestions
-            );
+            if (!response.ok) {
+              console.error('Error response from server');
+              throw new Error('Failed to save quiz: ' + responseText);
+            }
             
-            // Report batch completion
-            onBatchComplete(batchQuestions, currentBatch, totalBatches);
+            // Try to parse response as JSON
+            let responseData;
+            try {
+              responseData = JSON.parse(responseText);
+              console.log('Successfully parsed response JSON:', responseData);
+            } catch (parseError) {
+              console.warn('Could not parse response as JSON:', parseError);
+            }
             
-            currentBatch++;
-          } catch (error) {
-            console.error(`Error in batch ${currentBatch}:`, error);
-            // Continue with next batch despite errors
-          }
-          
-          // Small delay between batches
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-        
-        // Complete
-        onComplete(generatedQuestions);
-      } catch (error) {
-        console.error('Error in fallback quiz generation:', error);
-        onError(error);
-      }
-    })();
-  }
-}
-
-// Save quiz to server
-async function saveQuiz(quizData) {
-  try {
-    console.log('Saving quiz data:', quizData);
-    const token = getTokenFromStorage();
-    if (!token) {
-      showAdminLogin();
-      return;
-    }
-    
-    // Fix property names to match what the server expects
-    const serverQuizData = {
-      title: quizData.name, // Convert 'name' to 'title' for server
-      description: quizData.description,
-      questions: quizData.questions.map(q => ({
-        text: q.text,
-        options: Array.isArray(q.options) ? 
-          // Map options to the expected format
-          q.options.map((opt, index) => ({
-            text: typeof opt === 'string' ? opt : opt.text,
-            isCorrect: typeof opt === 'string' ? 
-              (index === q.correctIndex) : 
-              opt.isCorrect
-          })) : [],
-        // Keep correctIndex if needed for tracking
-        correctIndex: q.correctIndex
-      })),
-      timePerQuestion: quizData.timePerQuestion,
-      status: quizData.status || 'draft'
-    };
-    
-    console.log('Formatted quiz data for server:', serverQuizData);
-    
-    console.log('Making API request to save quiz...');
-    const response = await fetch('/interac/api/quiz/quizzes', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(serverQuizData)
-    });
-    
-    console.log('Save quiz API response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response from server:', errorText);
-      throw new Error('Failed to save quiz: ' + errorText);
-    }
-    
-    const responseData = await response.json();
-    console.log('Quiz saved successfully with ID:', responseData.id || 'unknown');
-    
-    // Close create quiz modal
-    const createQuizModal = document.getElementById('create-quiz-modal');
-    if (createQuizModal) {
-      createQuizModal.style.display = 'none';
-    }
-    
-    // Close generation progress modal if open
-    const progressModal = document.getElementById('generation-progress-modal');
-    if (progressModal) {
-      progressModal.style.display = 'none';
-    }
-    
-    // Force reload quizzes to show the new quiz
-    loadQuizzes();
-    
-    // Show success message
-    alert('Quiz created successfully');
-  } catch (error) {
-    console.error('Error saving quiz:', error);
-    alert('Error saving quiz: ' + error.message);
-  }
-}
+            console.log('Step 5: Quiz saved successfully');
+            if (responseData && responseData.id) {
+              console.log('New quiz ID:', responseData.id);
+            }
+            
+            // Force reload quizzes with explicit delay and retries
+            console.log('Step 6: Forcing quiz list refresh');
+            
+            const refreshQuizzes = async (retryCount = 0) => {
+              console.log(`Refreshing quiz list (attempt ${retryCount + 1})`);
+              try {
+                await loadQuizzes();
+                console.log('Quiz list refreshed successfully');
+              } catch (error) {
+                console.error('Error refreshing quiz list:', error);
+                if (retryCount < 3) {
+                  console.log(`Will retry after 1 second (${retryCount + 1}/3 attempts)`);
