@@ -1170,4 +1170,55 @@ function startQuizGeneration(quizData) {
           
           // Add the summary to the create modal body
           const createModalBody = document.querySelector('.modal-content .modal-body');
-          if
+          if (createModalBody) {
+            // Display a summary of the generated questions in the main modal
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'questions-summary';
+            summaryDiv.innerHTML = `
+              <div class="summary-header" style="margin-top: 15px; padding: 10px; background-color: #e9f7ef; border-radius: 5px; border-left: 4px solid #28a745;">
+                <h3 style="margin: 0; color: #155724; font-size: 16px;">
+                  <i class="fas fa-check-circle" style="margin-right: 8px;"></i>
+                  ${questions.length} Questions Generated Successfully!
+                </h3>
+                <p style="margin: 5px 0 0 0; color: #1e7e34; font-size: 14px;">
+                  Click "Save Generated Quiz" to save your quiz.
+                </p>
+              </div>
+            `;
+            // Remove any existing summary
+            const existingSummary = createModalBody.querySelector('.questions-summary');
+            if (existingSummary) {
+              existingSummary.remove();
+            }
+            createModalBody.appendChild(summaryDiv);
+          }
+          // Create the "Save Generated Quiz" button for the original modal
+          const saveGeneratedBtn = document.createElement('button');
+          saveGeneratedBtn.className = 'btn generated-save-btn';
+          saveGeneratedBtn.innerHTML = '<i class="fas fa-save"></i> Save Generated Quiz';
+          saveGeneratedBtn.style.backgroundColor = '#28a745';
+          saveGeneratedBtn.style.color = 'white';
+          saveGeneratedBtn.style.fontWeight = 'bold';
+          saveGeneratedBtn.style.marginLeft = '10px';
+          // Add click handler that mirrors the continueBtn handler
+          saveGeneratedBtn.addEventListener('click', async () => {
+            console.log('Save Generated Quiz button clicked from main modal');
+            continueBtn.click();
+          });
+          createModalFooter.appendChild(saveGeneratedBtn);
+          console.log('Added Save Generated Quiz button to create modal footer');
+        } else {
+          console.warn('Could not find modal footer to add save button');
+        }
+      } catch (error) {
+        console.error('Error during quiz generation completion:', error);
+        addLogEntry('Error during quiz generation: ' + error.message, true);
+        clearInterval(elapsedTimeInterval);
+      }
+    },
+    onError: (error) => {
+      clearInterval(elapsedTimeInterval);
+      addLogEntry('Error during quiz generation: ' + error.message, true);
+    }
+  });
+}
