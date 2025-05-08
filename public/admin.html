@@ -1508,27 +1508,28 @@
     }
   </script>
   
-  <!-- Inline script to ensure Create New Quiz button works -->
+  <!-- Make AI services globally available -->
   <script>
+    // Global AI services container
+    window.aiService = null;
+    window.similarityService = null;
+    
+    // Initialize services when scripts are loaded
     document.addEventListener('DOMContentLoaded', function() {
-      // Direct click handler for Create New Quiz button as a backup
-      const createQuizBtn = document.getElementById('create-quiz-btn');
-      const createQuizModal = document.getElementById('create-quiz-modal');
-      
-      if (createQuizBtn && createQuizModal) {
-        createQuizBtn.onclick = function() {
-          console.log('Inline handler: Create Quiz Button clicked');
-          createQuizModal.style.display = 'flex';
-        };
-      }
-      
-      // Close modal when clicking the X
-      const closeModalBtn = document.querySelector('.close-modal');
-      if (closeModalBtn) {
-        closeModalBtn.onclick = function() {
-          createQuizModal.style.display = 'none';
-        };
-      }
+      // Import modules and make them globally available
+      import('/interac/client-side/admin/service/ai-service.js')
+        .then(module => {
+          window.aiService = module.aiService;
+          console.log('AI service loaded globally');
+        })
+        .catch(err => console.error('Failed to load AI service:', err));
+        
+      import('/interac/client-side/admin/service/ai-similarity-service.js')
+        .then(module => {
+          window.similarityService = module.similarityService;
+          console.log('Similarity service loaded globally');
+        })
+        .catch(err => console.error('Failed to load similarity service:', err));
     });
   </script>
   

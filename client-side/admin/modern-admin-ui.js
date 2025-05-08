@@ -1,7 +1,5 @@
 // Modern VA Quiz Admin UI - Connected to Backend
-import { aiService } from './service/ai-service.js';
-import { similarityService } from './service/ai-similarity-service.js';
-
+// Remove ES6 imports and use globally available services
 document.addEventListener('DOMContentLoaded', function() {
   initModernQuizUI();
 });
@@ -375,7 +373,7 @@ function initModernQuizUI() {
         
         // Use your existing similarityService
         similarityService.checkBatchSimilarity(questionTexts)
-          .then results => {
+          .then(results => {
             if (!results || results.length === 0 || results.every(r => !r.hasSimilar)) {
               showToast('No similar questions found');
             } else {
@@ -420,5 +418,5 @@ function initModernQuizUI() {
   }
 
   // Expose the openModernQuizModal function globally
-  window.openModernQuizModal = openModernQuizModal;
+  window.openModernQuizModal = openModal;
 }
