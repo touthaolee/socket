@@ -464,8 +464,15 @@ function setupModalHandlers() {
   console.log('Create Quiz Modal found:', !!createQuizModal);
   
   if (createQuizBtn && createQuizModal) {
-    createQuizBtn.addEventListener('click', function() {
-      console.log('Create Quiz Button clicked');
+    // Remove any existing event listeners first
+    createQuizBtn.removeEventListener('click', showCreateQuizModal);
+    
+    // Add our event listener
+    createQuizBtn.addEventListener('click', showCreateQuizModal);
+    
+    // Define the function to show the modal
+    function showCreateQuizModal() {
+      console.log('Create Quiz Button clicked from admin-main.js');
       
       // Set both display and add active class to ensure visibility
       createQuizModal.style.display = 'flex';
@@ -478,7 +485,7 @@ function setupModalHandlers() {
       
       console.log('Modal display style set to:', createQuizModal.style.display);
       console.log('Modal classList:', createQuizModal.className);
-    });
+    }
   }
   
   // Close modal buttons
