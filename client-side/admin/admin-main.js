@@ -1160,24 +1160,56 @@ function generateQuizQuestions(quizData, callbacks) {
 // Save quiz to server
 async function saveQuiz(quizData) {
   try {
+    console.log('Saving quiz data:', quizData);
     const token = getTokenFromStorage();
     if (!token) {
       showAdminLogin();
       return;
     }
     
+    // Fix property names to match what the server expects
+    const serverQuizData = {
+      title: quizData.name, // Convert 'name' to 'title' for server
+      description: quizData.description,
+      questions: quizData.questions.map(q => ({
+        text: q.text,
+        options: Array.isArray(q.options) ? 
+          // Map options to the expected format
+          q.options.map((opt, index) => ({
+            text: typeof opt === 'string' ? opt : opt.text,
+            isCorrect: typeof opt === 'string' ? 
+              (index === q.correctIndex) : 
+              opt.isCorrect
+          })) : [],
+        // Keep correctIndex if needed for tracking
+        correctIndex: q.correctIndex
+      })),
+      timePerQuestion: quizData.timePerQuestion,
+      status: quizData.status || 'draft'
+    };
+    
+    console.log('Formatted quiz data for server:', serverQuizData);
+    
+    console.log('Making API request to save quiz...');
     const response = await fetch('/interac/api/quiz/quizzes', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(quizData)
+      body: JSON.stringify(serverQuizData)
     });
     
+    console.log('Save quiz API response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error('Failed to save quiz');
+      const errorText = await response.text();
+      console.error('Error response from server:', errorText);
+      throw new Error('Failed to save quiz: ' + errorText);
     }
+    
+    const responseData = await response.json();
+    console.log('Quiz saved successfully with ID:', responseData.id || 'unknown');
     
     // Close create quiz modal
     const createQuizModal = document.getElementById('create-quiz-modal');
@@ -1185,7 +1217,13 @@ async function saveQuiz(quizData) {
       createQuizModal.style.display = 'none';
     }
     
-    // Reload quizzes
+    // Close generation progress modal if open
+    const progressModal = document.getElementById('generation-progress-modal');
+    if (progressModal) {
+      progressModal.style.display = 'none';
+    }
+    
+    // Force reload quizzes to show the new quiz
     loadQuizzes();
     
     // Show success message
