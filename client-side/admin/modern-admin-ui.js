@@ -1,10 +1,13 @@
 // Modern VA Quiz Admin UI - Connected to Backend
-// Remove ES6 imports and use globally available services
+// Access global services
 document.addEventListener('DOMContentLoaded', function() {
   initModernQuizUI();
 });
 
 function initModernQuizUI() {
+  // Get access to the aiService and similarityService from the global scope
+  const { aiService, similarityService } = window;
+
   const modal = document.getElementById('va-quiz-modal');
   const closeBtn = document.getElementById('va-close-modal');
   const stepper = document.querySelectorAll('.va-step');
