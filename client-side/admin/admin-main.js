@@ -985,32 +985,50 @@ function startQuizGeneration(quizData) {
       
       // Handle continue button - make sure this works!
       continueBtn.addEventListener('click', async () => {
-        // Show a saving message
-        addLogEntry('Saving quiz...');
-        
-        // Create final quiz object
-        const finalQuizData = {
-          ...quizData,
-          questions,
-          status: 'draft',
-          createdAt: new Date().toISOString()
-        };
-        
-        // Hide progress modal
-        if (progressModal) {
-          progressModal.style.display = 'none';
-        }
-        
-        // Delete the AI options before saving
-        delete finalQuizData.aiOptions;
-        
-        // Save the quiz and handle the result
         try {
+          // Show a saving message
+          addLogEntry('Saving quiz...');
+          
+          // Create final quiz object with proper formatting
+          const finalQuizData = {
+            ...quizData,
+            questions,
+            status: 'draft',
+            createdAt: new Date().toISOString()
+          };
+          
+          // Log the final data structure
+          console.log('Final quiz data to be saved:', finalQuizData);
+          
+          // Delete the AI options before saving
+          delete finalQuizData.aiOptions;
+          
+          // First close the generation progress modal
+          if (progressModal) {
+            progressModal.style.display = 'none';
+          }
+          
+          // Close the quiz creation modal too
+          const createQuizModal = document.getElementById('create-quiz-modal');
+          if (createQuizModal) {
+            createQuizModal.classList.remove('active');
+            createQuizModal.style.display = 'none';
+          }
+          
+          // Save the quiz and handle the result
           await saveQuiz(finalQuizData);
+          
+          // Force refresh the quiz list to show new quiz
+          setTimeout(() => {
+            loadQuizzes();
+          }, 500);
+          
           // Show success alert after saving
           alert('Quiz created successfully!');
         } catch (error) {
-          console.error('Error saving quiz:', error);
+          console.error('Error in save process:', error);
+          alert(`Error saving quiz: ${error.message}`);
+          
           // If there's an error, show the modal again with the error
           if (progressModal) {
             progressModal.style.display = 'flex';
