@@ -924,6 +924,13 @@ function startQuizGeneration(quizData) {
     },
     onComplete: async (questions) => {
       try {
+        console.log('[AI Generation] onComplete questions:', questions);
+        if (!Array.isArray(questions) || questions.length === 0) {
+          addLogEntry('No questions were generated. Cannot save quiz.', true);
+          alert('No questions were generated. Please try again or adjust your prompt.');
+          return;
+        }
+        
         const mockCount = questions.filter(q => q.text.includes('Sample question about')).length;
         if (mockCount > 0) {
           addLogEntry(`Generation complete: ${questions.length} questions generated (${mockCount} fallback questions due to server issues)`, mockCount === questions.length);

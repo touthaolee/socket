@@ -7,6 +7,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <!-- Restore the /interac/ prefix in the CSS path -->
   <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
+  <!-- Link the new VA Modern Admin CSS -->
+  <link rel="stylesheet" href="/interac/client-side/client-styles/va-modern-admin.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <!-- Using local Socket.IO file for consistency with index.html instead of CDN -->
   <script src="/interac/socket.io/socket.io.js"></script>
@@ -591,6 +593,128 @@
       flex: 1;
       margin-bottom: 0;
     }
+
+    /* VA Modern Quiz Modal styles */
+    .va-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.7);
+      z-index: 1001;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(5px);
+    }
+
+    .va-modal-content {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      width: 90%;
+      max-width: 600px;
+      animation: slideIn 0.4s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .va-modal-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #f8f9fa;
+    }
+
+    .va-modal-header h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #333;
+    }
+
+    .va-close-btn {
+      font-size: 22px;
+      color: #64748b;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+
+    .va-modal-body {
+      padding: 20px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .va-stepper {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .va-step {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-weight: 500;
+      color: #64748b;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .va-step.active {
+      color: #3b82f6;
+      font-weight: 600;
+    }
+
+    .va-step.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 100%;
+      height: 2px;
+      background-color: #3b82f6;
+    }
+
+    .va-step-content {
+      display: none;
+    }
+
+    .va-step-content.active {
+      display: block;
+    }
+
+    /* Toast styles */
+    .va-toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background-color: #fff;
+      color: #333;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      z-index: 1002;
+      display: none;
+    }
+
+    .va-toast.show {
+      display: block;
+      animation: fadeIn 0.5s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -633,7 +757,10 @@
       <div id="quizzes-view" class="admin-view active">
         <div class="admin-header">
           <h2>Quiz Management</h2>
-          <button id="create-quiz-btn" class="btn">Create New Quiz</button>
+          <div>
+            <button class="btn" onclick="openModernQuizModal()" style="margin-right: 10px;">Create VA Quiz</button>
+            <button id="create-quiz-btn" class="btn">Create New Quiz</button>
+          </div>
         </div>
         
         <div class="admin-card">
@@ -1023,6 +1150,58 @@
     </div>
   </div>
   
+  <!-- Modern VA Quiz Modal -->
+  <div id="va-quiz-modal" class="va-modal" style="display:none;">
+    <div class="va-modal-content">
+      <div class="va-modal-header">
+        <h2 id="va-modal-title">Create New Quiz</h2>
+        <button class="va-close-btn" id="va-close-modal">&times;</button>
+      </div>
+      <div class="va-modal-body">
+        <div class="va-stepper">
+          <div class="va-step active" data-step="1">1. Details</div>
+          <div class="va-step" data-step="2">2. Questions</div>
+          <div class="va-step" data-step="3">3. Review</div>
+        </div>
+        <!-- Step 1: Details -->
+        <form id="va-quiz-details-step" class="va-step-content active">
+          <label>Quiz Title
+            <input type="text" id="va-quiz-title" required maxlength="100" />
+          </label>
+          <label>Description
+            <textarea id="va-quiz-description" maxlength="300"></textarea>
+          </label>
+          <label>Time per Question (seconds)
+            <input type="number" id="va-quiz-time" min="10" max="300" value="30" />
+          </label>
+          <label>Tags
+            <input type="text" id="va-quiz-tags" placeholder="comma separated" />
+          </label>
+        </form>
+        <!-- Step 2: Questions -->
+        <div id="va-quiz-questions-step" class="va-step-content">
+          <div class="va-question-controls">
+            <button type="button" class="va-btn va-secondary" id="va-add-question-btn">Add Question</button>
+            <button type="button" class="va-btn va-primary" id="va-ai-generate-btn">AI Generate</button>
+          </div>
+          <div id="va-questions-list"></div>
+        </div>
+        <!-- Step 3: Review -->
+        <div id="va-quiz-review-step" class="va-step-content">
+          <div id="va-review-list"></div>
+          <button type="button" class="va-btn va-warning" id="va-similarity-btn">Check Similarity</button>
+        </div>
+      </div>
+      <div class="va-modal-footer">
+        <button class="va-btn va-secondary" id="va-back-step-btn">Back</button>
+        <button class="va-btn va-primary" id="va-next-step-btn">Next</button>
+        <button class="va-btn va-success" id="va-save-quiz-btn" style="display:none;">Save Quiz</button>
+      </div>
+    </div>
+  </div>
+  <!-- Toast for similarity results -->
+  <div id="va-toast" class="va-toast"></div>
+  
   <!-- Restore the /interac/ prefix in the JavaScript path -->
   <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
   
@@ -1352,5 +1531,8 @@
       }
     });
   </script>
+  
+  <!-- Link to our modern VA quiz admin UI JavaScript -->
+  <script src="/interac/client-side/admin/modern-admin-ui.js"></script>
 </body>
 </html>

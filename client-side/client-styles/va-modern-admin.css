@@ -1,0 +1,93 @@
+/* VA Modern Admin - Veterans Administration Color Palette */
+:root {
+  --va-blue: #002d72;
+  --va-red: #e31c3d;
+  --va-accent: #0071bc;
+  --va-light: #f1f1f1;
+  --va-success: #28a745;
+  --va-warning: #ffc107;
+  --va-error: #dc3545;
+  --va-radius: 16px;
+  --va-shadow: 0 4px 24px #002d7233;
+}
+
+.va-modal {
+  position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+  background: rgba(0,45,114,0.85); z-index: 1000; display: flex; align-items: center; justify-content: center;
+}
+.va-modal-content {
+  background: #fff; border-radius: var(--va-radius); box-shadow: var(--va-shadow);
+  width: 95vw; max-width: 500px; padding: 0; overflow: hidden; display: flex; flex-direction: column;
+}
+.va-modal-header {
+  background: var(--va-blue); color: #fff; padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center;
+}
+.va-close-btn {
+  background: none; border: none; color: #fff; font-size: 2rem; cursor: pointer;
+}
+.va-modal-body { padding: 1.5rem; background: var(--va-light); flex: 1 1 auto; }
+.va-modal-footer {
+  background: #fff; padding: 1rem 1.5rem; display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid #eee;
+}
+.va-btn {
+  border: none; border-radius: 8px; padding: 0.7em 1.5em; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s;
+}
+.va-primary { background: var(--va-blue); color: #fff; }
+.va-secondary { background: var(--va-red); color: #fff; }
+.va-success { background: var(--va-success); color: #fff; }
+.va-warning { background: var(--va-warning); color: #333; }
+.va-btn:active { opacity: 0.8; }
+.va-stepper { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.va-step {
+  flex: 1; text-align: center; padding: 0.5em 0; border-radius: 8px; background: #e9ecef; color: #002d72; font-weight: 600;
+}
+.va-step.active { background: var(--va-accent); color: #fff; }
+.va-step-content { display: none; }
+.va-step-content.active { display: block; }
+.va-question-controls { display: flex; gap: 1rem; margin-bottom: 1rem; }
+.va-question-card {
+  background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #002d7211; margin-bottom: 1rem; padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.5rem; position: relative;
+}
+.va-question-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.va-toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  background: var(--va-blue); color: #fff; padding: 1rem 2rem; border-radius: 8px; font-weight: 600; display: none; z-index: 2000;
+}
+
+/* Forms */
+.va-step-content label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+}
+
+.va-step-content input,
+.va-step-content textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  margin-bottom: 1.25rem;
+}
+
+.va-step-content input:focus,
+.va-step-content textarea:focus {
+  border-color: var(--va-accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(0,113,188,0.1);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 600px) {
+  .va-modal-content { max-width: 99vw; padding: 0; }
+  .va-modal-body, .va-modal-footer, .va-modal-header { padding: 1rem; }
+  .va-stepper { flex-direction: column; gap: 0.25rem; }
+  .va-question-actions { flex-wrap: wrap; }
+  .va-question-actions button {
+    flex: 1;
+    min-width: 40%;
+    font-size: 0.9rem;
+    padding: 0.5em 0.7em;
+  }
+}
