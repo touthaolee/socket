@@ -137,9 +137,11 @@ class AiSimilarityService {
 const similarityService = new AiSimilarityService();
 window.similarityService = similarityService; // Make it globally available
 
+export { similarityService };
+
 export default similarityService;
 
-export const similarityService = {
+export const similarityMethods = {
   checkSimilarity: (questionText, compareQuestions) => similarityService.checkSimilarity(questionText, compareQuestions),
   checkBatchSimilarity: (questions) => similarityService.checkBatchSimilarity(questions)
 };
