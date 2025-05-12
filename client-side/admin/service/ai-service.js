@@ -128,7 +128,7 @@ export const aiService = {
           optionsPerQuestion, 
           rationaleTone,
           specificFocuses,
-          batchSize = 5
+          batchSize = 10  // Changed default to 10
         } = options;
         
         const { 

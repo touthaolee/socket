@@ -452,12 +452,49 @@ function updateChatMessages(messages) {
 }
 
 // Setup modal handlers
-function setupModalHandlers() {
-  // Create quiz modal
+function setupModalHandlers() {  // Create quiz modal
   const createQuizBtn = document.getElementById('create-quiz-btn');
   const createQuizModal = document.getElementById('create-quiz-modal');
   const closeModalBtn = document.querySelector('.close-modal');
   const cancelCreateBtn = document.getElementById('cancel-create-btn');
+  
+  // Number of questions adjustment buttons
+  const decreaseQuestionsBtn = document.getElementById('decrease-questions-btn');
+  const increaseQuestionsBtn = document.getElementById('increase-questions-btn');
+  const numQuestionsInput = document.getElementById('num-questions');
+  
+  // Handle question count adjustment
+  if (decreaseQuestionsBtn && increaseQuestionsBtn && numQuestionsInput) {
+    decreaseQuestionsBtn.addEventListener('click', () => {
+      const currentValue = parseInt(numQuestionsInput.value);
+      if (currentValue > 10) {
+        numQuestionsInput.value = currentValue - 10;
+      }
+    });
+    
+    increaseQuestionsBtn.addEventListener('click', () => {
+      const currentValue = parseInt(numQuestionsInput.value);
+      if (currentValue < 50) {
+        numQuestionsInput.value = currentValue + 10;
+      }
+    });
+    
+    // Ensure the value is always a multiple of 10
+    numQuestionsInput.addEventListener('change', () => {
+      let value = parseInt(numQuestionsInput.value);
+      
+      // Minimum of 10
+      if (value < 10) value = 10;
+      
+      // Maximum of 50
+      if (value > 50) value = 50;
+      
+      // Round to nearest 10
+      value = Math.round(value / 10) * 10;
+      
+      numQuestionsInput.value = value;
+    });
+  }
   
   console.log('Setting up modal handlers');
   console.log('Create Quiz Button found:', !!createQuizBtn);
@@ -751,8 +788,7 @@ async function createQuiz() {
   if (activeTab === 'ai-generate') {
     const quizName = document.getElementById('quiz-name').value.trim();
     const aiTopic = document.getElementById('ai-topic').value.trim();
-    
-    quizData = {
+      quizData = {
       name: quizName,
       description: document.getElementById('quiz-description').value.trim(),
       timePerQuestion: parseInt(document.getElementById('time-per-question').value) || 30,
@@ -762,7 +798,7 @@ async function createQuiz() {
         difficulty: document.getElementById('difficulty').value,
         rationaleTone: document.getElementById('rationale-tone').value,
         optionsPerQuestion: parseInt(document.getElementById('options-per-question').value) || 4,
-        batchSize: parseInt(document.getElementById('batch-size').value) || 5,
+        batchSize: 10, // Fixed batch size of 10
         specificFocuses: document.getElementById('specific-focuses').value.trim()
       }
     };
@@ -856,9 +892,41 @@ function startQuizGeneration(quizData) {
   if (progressModal) {
     progressModal.style.display = 'flex';
   }
-  
-  // Reset cancellation flag
+    // Reset cancellation flag
   generationCancelled = false;
+  
+  // Initialize batch UI elements
+  const batchSize = 10; // Fixed batch size for optimal performance
+  const totalBatches = Math.ceil(quizData.aiOptions.numQuestions / batchSize);
+  const batchContainer = document.getElementById('batch-container');
+  
+  // Clear any existing batch indicators
+  if (batchContainer) {
+    batchContainer.innerHTML = '';
+    
+    // Create batch indicators
+    for (let i = 0; i < totalBatches; i++) {
+      const batchElement = document.createElement('div');
+      batchElement.className = 'batch-indicator';
+      batchElement.dataset.batchIndex = i;
+      batchElement.innerHTML = `
+        <div class="batch-status"></div>
+        <div class="batch-details">
+          <div class="batch-title">Batch ${i + 1}: Questions ${i * batchSize + 1} - ${Math.min((i + 1) * batchSize, quizData.aiOptions.numQuestions)}</div>
+          <div class="batch-progress">
+            <div class="batch-progress-fill" style="width: 0%"></div>
+          </div>
+        </div>
+      `;
+      batchContainer.appendChild(batchElement);
+    }
+    
+    // Activate the first batch
+    const firstBatch = batchContainer.querySelector('.batch-indicator');
+    if (firstBatch) {
+      firstBatch.classList.add('active');
+    }
+  }
   
   // Start tracking generation time
   const startTime = Date.now();
@@ -902,12 +970,26 @@ function startQuizGeneration(quizData) {
   addLogEntry('Connecting to AI service...');
   
   // Generate questions in batches
-  aiService.generateQuizQuestions(quizData, {
-    onProgress: (progress, generatedCount, totalCount) => {
+  aiService.generateQuizQuestions(quizData, {    onProgress: (progress, generatedCount, totalCount) => {
       // Update progress bar
       document.getElementById('generation-progress-fill').style.width = `${progress}%`;
       document.getElementById('generation-progress-text').textContent = `${Math.round(progress)}%`;
       document.getElementById('questions-generated').textContent = `${generatedCount}/${totalCount}`;
+      
+      // Update batch indicators
+      const currentBatchIndex = Math.floor((generatedCount - 1) / batchSize);
+      if (currentBatchIndex >= 0 && batchContainer) {
+        // Get the current batch progress
+        const batchProgress = ((generatedCount - 1) % batchSize + 1) / batchSize * 100;
+        const currentBatchElement = batchContainer.querySelector(`.batch-indicator[data-batch-index="${currentBatchIndex}"]`);
+        
+        if (currentBatchElement) {
+          const batchProgressFill = currentBatchElement.querySelector('.batch-progress-fill');
+          if (batchProgressFill) {
+            batchProgressFill.style.width = `${batchProgress}%`;
+          }
+        }
+      }
       
       // Update estimated time remaining
       if (generatedCount > 0) {
@@ -921,22 +1003,60 @@ function startQuizGeneration(quizData) {
         document.getElementById('estimated-time').textContent = 
           `${remainingMinutes}m ${seconds}s`;
       }
-    },
-    onBatchComplete: (batch, batchNumber, totalBatches) => {
+    },    onBatchComplete: (batch, batchNumber, totalBatches) => {
       const hasMockQuestions = batch.some(q => q.text.includes('Sample question about'));
       if (hasMockQuestions) {
         addLogEntry(`Batch ${batchNumber}/${totalBatches} complete with fallback questions due to server issues`, true);
       } else {
         addLogEntry(`Batch ${batchNumber}/${totalBatches} complete: ${batch.length} questions generated`);
       }
-    },
-    onComplete: async (questions) => {
+      
+      // Update batch indicators - mark the completed batch and activate the next one
+      if (batchContainer) {
+        // Mark current batch as complete
+        const completedBatchIndex = batchNumber - 1;
+        const completedBatchElement = batchContainer.querySelector(`.batch-indicator[data-batch-index="${completedBatchIndex}"]`);
+        
+        if (completedBatchElement) {
+          completedBatchElement.classList.remove('active');
+          completedBatchElement.classList.add('complete');
+          
+          // Set progress to 100%
+          const batchProgressFill = completedBatchElement.querySelector('.batch-progress-fill');
+          if (batchProgressFill) {
+            batchProgressFill.style.width = '100%';
+          }
+        }
+        
+        // Activate next batch if available
+        if (batchNumber < totalBatches) {
+          const nextBatchElement = batchContainer.querySelector(`.batch-indicator[data-batch-index="${batchNumber}"]`);
+          if (nextBatchElement) {
+            nextBatchElement.classList.add('active');
+          }
+        }
+      }
+    },    onComplete: async (questions) => {
       try {
         console.log('[AI Generation] onComplete questions:', questions);
         if (!Array.isArray(questions) || questions.length === 0) {
           addLogEntry('No questions were generated. Cannot save quiz.', true);
           alert('No questions were generated. Please try again or adjust your prompt.');
           return;
+        }
+        
+        // Mark all batches as complete in case there are any that aren't already marked
+        if (batchContainer) {
+          const allBatchElements = batchContainer.querySelectorAll('.batch-indicator:not(.complete)');
+          allBatchElements.forEach(batchElement => {
+            batchElement.classList.remove('active');
+            batchElement.classList.add('complete');
+            
+            const batchProgressFill = batchElement.querySelector('.batch-progress-fill');
+            if (batchProgressFill) {
+              batchProgressFill.style.width = '100%';
+            }
+          });
         }
         
         const mockCount = questions.filter(q => q.text.includes('Sample question about')).length;
@@ -948,8 +1068,7 @@ function startQuizGeneration(quizData) {
         
         // Clean up
         clearInterval(elapsedTimeInterval);
-        
-        // Add completion message that stands out
+          // Add completion message that stands out
         const completionMsg = document.createElement('div');
         completionMsg.className = 'log-entry log-success';
         completionMsg.style.fontWeight = 'bold';
@@ -958,15 +1077,18 @@ function startQuizGeneration(quizData) {
         completionMsg.style.backgroundColor = '#d4edda';
         completionMsg.style.color = '#155724';
         completionMsg.style.borderRadius = '4px';
-        completionMsg.style.textAlign = 'center';
-        completionMsg.style.border = '2px solid #28a745';
-        completionMsg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
-        completionMsg.textContent = '✅ Quiz generation completed! Click the button below to save your quiz:';
+        completionMsg.style.textAlign = 'center';        completionMsg.style.border = '2px solid #28a745';        completionMsg.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        completionMsg.textContent = '✅ Quiz generation completed! All batches of questions have been successfully created.';
         
-        // Add option to continue with the generated questions
+        // Add buttons for different actions
+        const reviewQuestionsBtn = document.createElement('button');
+        reviewQuestionsBtn.className = 'btn-outline';
+        reviewQuestionsBtn.innerHTML = '<i class="fas fa-eye"></i> Review Questions';
+        reviewQuestionsBtn.style.marginRight = '10px';
+        
         const generateAgainBtn = document.createElement('button');
         generateAgainBtn.className = 'btn-outline';
-        generateAgainBtn.textContent = 'Try Generating Again';
+        generateAgainBtn.innerHTML = '<i class="fas fa-redo"></i> Generate Again';
         generateAgainBtn.style.marginRight = '10px';
         
         const continueBtn = document.createElement('button');
