@@ -518,23 +518,59 @@ class QuizDesigner {
       }, 3000);
     }
   }
-  
-  /**
+    /**
    * Process generated questions
    */
   processGeneratedQuestions(generatedQuestions) {
+    console.log('[QuizDesigner] Processing generated questions:', generatedQuestions);
+    
     if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
       this.addGenerationLogEntry('No questions were generated', 'error');
       return;
     }
     
     // Process and format questions
-    const formattedQuestions = generatedQuestions.map(q => ({
-      text: q.text,
-      options: q.options,
-      correctIndex: q.correctIndex,
-      rationale: q.rationale || ''
-    }));
+    const formattedQuestions = generatedQuestions.map(q => {
+      // Ensure question has all required properties
+      if (!q) {
+        console.warn('[QuizDesigner] Received null or undefined question');
+        return null;
+      }
+      
+      if (!q.text) {
+        console.warn('[QuizDesigner] Question missing text property:', q);
+        return null;
+      }
+      
+      if (!Array.isArray(q.options) || q.options.length < 2) {
+        console.warn('[QuizDesigner] Question has invalid options:', q);
+        return null;
+      }
+      
+      // Handle case where options might not be strings
+      const options = q.options.map(opt => typeof opt === 'string' ? opt : (opt.text || String(opt)));
+      
+      // Validate correctIndex
+      let correctIndex = q.correctIndex;
+      if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= options.length) {
+        console.warn('[QuizDesigner] Question has invalid correctIndex, defaulting to 0:', q);
+        correctIndex = 0;
+      }
+      
+      return {
+        text: q.text,
+        options: options,
+        correctIndex: correctIndex,
+        rationale: q.rationale || 'Explanation not provided for this question.'
+      };
+    }).filter(q => q !== null); // Remove any null questions
+    
+    if (formattedQuestions.length === 0) {
+      this.addGenerationLogEntry('Failed to process any valid questions', 'error');
+      return;
+    }
+    
+    console.log('[QuizDesigner] Processed questions:', formattedQuestions);
     
     // Update questions array
     this.questions = formattedQuestions;

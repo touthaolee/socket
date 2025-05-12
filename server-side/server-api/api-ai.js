@@ -55,6 +55,9 @@ router.post('/generate-questions', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
     
+    // Log the request parameters
+    console.log(`Generating ${numQuestions} questions about "${topic}" (${difficulty || 'medium'} difficulty)`);
+    
     // Generate questions
     const questions = await aiGenerationService.generateQuestions(
       topic, 
@@ -63,7 +66,16 @@ router.post('/generate-questions', async (req, res) => {
       tone
     );
     
-    res.json({ success: true, questions });
+    // Log success
+    console.log(`Successfully generated ${questions.length} questions`);
+    
+    // Return the questions
+    res.json({ 
+      success: true, 
+      questions,
+      count: questions.length,
+      requestedCount: numQuestions
+    });
   } catch (error) {
     console.error('Error generating questions:', error);
     // Enhanced error reporting

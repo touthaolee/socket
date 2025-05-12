@@ -538,8 +538,7 @@ export const aiService = {
         );
       }
     },
-    
-    async generateQuizQuestions({ name, description, aiOptions }, callbacks = {}) {
+      async generateQuizQuestions({ name, description, aiOptions }, callbacks = {}) {
         const { onProgress, onComplete, onError } = callbacks;
         try {
             console.log('[AI] [generateQuizQuestions] Button clicked. Params:', { name, description, aiOptions });
@@ -571,14 +570,27 @@ export const aiService = {
             console.log('[AI] [generateQuizQuestions] Received response status:', response.status);
             const data = await response.json();
             console.log('[AI] [generateQuizQuestions] Response data:', data);
-            if (data.success && Array.isArray(data.questions)) {
+            
+            // Check if data contains questions array
+            if (data && Array.isArray(data.questions) && data.questions.length > 0) {
+                console.log('[AI] [generateQuizQuestions] Successfully received questions:', data.questions.length);
+                if (onProgress) onProgress(100, data.questions.length, aiOptions.numQuestions);
                 if (onComplete) onComplete(data.questions);
+                return data.questions;
+            } else if (data && data.success && Array.isArray(data.questions)) {
+                console.log('[AI] [generateQuizQuestions] Successfully received questions in success format:', data.questions.length);
+                if (onProgress) onProgress(100, data.questions.length, aiOptions.numQuestions);
+                if (onComplete) onComplete(data.questions);
+                return data.questions;
             } else {
-                if (onError) onError(new Error(data.error || 'Unknown error from AI backend'));
+                console.error('[AI] [generateQuizQuestions] Invalid response format:', data);
+                if (onError) onError(new Error('Invalid response format from AI backend: ' + JSON.stringify(data)));
+                return [];
             }
         } catch (err) {
             console.error('[AI] [generateQuizQuestions] Error:', err);
             if (onError) onError(err);
+            return [];
         }
     }
   };
