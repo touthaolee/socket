@@ -1,4 +1,14 @@
 {
-    "users": [],
-    "nextId": 1
-  }
+  "users": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "$2b$10$z9uVPSzOMFdBizPTH4eZ3eu/FVXwNPvjorksvw02bfGrK.ec6ClUu",
+      "role": "admin",
+      "createdAt": "2025-05-12T22:21:55.216Z",
+      "lastActive": "2025-05-12T22:24:03.274Z",
+      "lastUpdateTime": 1747088643274
+    }
+  ],
+  "nextId": 2
+}

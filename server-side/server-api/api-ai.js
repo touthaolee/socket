@@ -13,6 +13,36 @@ const { authMiddleware } = require('../middleware/auth-middleware');
 router.use(authMiddleware);
 
 /**
+ * Test endpoint for quickly verifying generateQuestions function
+ * GET /api/ai/test-generate
+ */
+router.get('/test-generate', async (req, res) => {
+  try {
+    // Simple test parameters
+    const topic = "Basic JavaScript concepts";
+    const numQuestions = 2;
+    
+    console.log('Test endpoint: Calling generateQuestions...');
+    const questions = await aiGenerationService.generateQuestions(
+      topic, 
+      numQuestions,
+      'easy',
+      'educational'
+    );
+    
+    console.log('Test endpoint: Generation successful!');
+    res.json({ success: true, questions });
+  } catch (error) {
+    console.error('Test endpoint error:', error);
+    res.status(500).json({ 
+      error: 'Test generate failed',
+      message: error.message,
+      details: error.stack
+    });
+  }
+});
+
+/**
  * Generate quiz questions
  * POST /api/ai/generate-questions
  */

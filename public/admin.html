@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>InterAc Admin - Quiz Management</title>
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">  <!-- Restore the /interac/ prefix in the CSS path -->
-  <link rel="stylesheet" href="/interac/client-side/client-styles/admin-styles.css">
-  <!-- Link the new VA Modern Admin CSS -->  <link rel="stylesheet" href="/interac/client-side/client-styles/va-modern-admin.css">
+  <title>InterAc Admin - Quiz Management</title>  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">  <!-- CSS paths fixed to use correct server path mapping -->
+  <link rel="stylesheet" href="/interac/client-styles/admin-styles.css">
+  <!-- Link the new VA Modern Admin CSS -->  <link rel="stylesheet" href="/interac/client-styles/va-modern-admin.css">
   <!-- Batch UI Styles -->
-  <link rel="stylesheet" href="/interac/client-side/client-styles/batch-ui.css">
+  <link rel="stylesheet" href="/interac/client-styles/batch-ui.css">
   <!-- Question Review Styles -->
-  <link rel="stylesheet" href="/interac/client-side/client-styles/question-review.css">
+  <link rel="stylesheet" href="/interac/client-styles/question-review.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <!-- Using local Socket.IO file for consistency with index.html instead of CDN -->
   <script src="/interac/socket.io/socket.io.js"></script>

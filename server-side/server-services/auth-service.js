@@ -50,13 +50,12 @@ function ensureAdminUser() {
       username: 'admin',
       password: hashedPassword,
       role: 'admin',
-      createdAt: new Date().toISOString()
-    };
+      createdAt: new Date().toISOString()    };
     data.users.push(adminUser);
     data.nextId = 2;
     fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
     console.log('\x1b[33m%s\x1b[0m', `Default admin user created. Username: admin  Password: ${adminPassword}`);
-    logger.warn(`Default admin user created. Username: admin  Password: ${adminPassword}`);
+    // Use console for logging instead of potentially undefined logger
   }
 }
 ensureAdminUser();
