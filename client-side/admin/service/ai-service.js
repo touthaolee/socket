@@ -69,6 +69,7 @@ export const aiService = {
     // Generate multiple questions
     async generateQuestions(topic, count, config = {}) {
       try {
+        console.log('[AI Service] generateQuestions called:', { topic, count, config });
         const questions = [];
         
         // Implement throttling to prevent overloading the AI service
@@ -96,22 +97,19 @@ export const aiService = {
             requestsThisMinute = 0;
             minuteStart = Date.now();
           }
-          
           // Process batch with retries
           const batchPromises = batch.map(() => {
             requestsThisMinute++;
-            
             // Try up to 3 times with exponential backoff
             return this.generateWithRetry(() => this.generateQuizQuestion(topic, config), 3);
           });
-          
           const batchResults = await Promise.all(batchPromises);
+          console.log('[AI Service] Batch results:', batchResults);
           questions.push(...batchResults);
-          
           // Small delay between batches
           await new Promise(resolve => setTimeout(resolve, 200));
         }
-        
+        console.log('[AI Service] All questions generated:', questions);
         return questions;
       } catch (error) {
         console.error('Error generating questions:', error);
@@ -122,6 +120,7 @@ export const aiService = {
     // Generate quiz questions with progress callbacks
     async generateQuizQuestions(options, callbacks) {
       try {
+        console.log('[AI Service] generateQuizQuestions called:', options);
         const { 
           topic, 
           numQuestions, 
@@ -153,10 +152,8 @@ export const aiService = {
             onError(new Error('Generation cancelled by user'));
             return;
           }
-          
           // Calculate how many to generate in this batch
           const batchCount = Math.min(batchSize, numQuestions - generatedCount);
-          
           try {
             // Generate this batch
             const config = {
@@ -165,17 +162,15 @@ export const aiService = {
               optionsPerQuestion,
               specificFocuses: specificFocuses ? specificFocuses.split(',').map(f => f.trim()) : []
             };
-            
             // Report start of batch generation
             onProgress(
               (generatedCount / numQuestions) * 100,
               generatedCount,
               numQuestions
             );
-            
+            console.log('[AI Service] Generating batch:', { topic, batchCount, config });
             // Use existing method to generate a batch
             const batchQuestions = await this.generateQuestions(topic, batchCount, config);
-            
             // Add to results
             questions.push(...batchQuestions);
             generatedCount += batchQuestions.length;
@@ -192,19 +187,19 @@ export const aiService = {
             
             currentBatch++;
           } catch (error) {
-            console.error(`Error in batch ${currentBatch}:`, error);
+            console.error(`[AI Service] Error in batch ${currentBatch}:`, error);
             // Continue with next batch despite errors
           }
           
           // Add small delay between batches
           await new Promise(resolve => setTimeout(resolve, 300));
         }
-        
+        console.log('[AI Service] All batches complete, questions:', questions);
         // Complete
         onComplete(questions);
         return questions;
       } catch (error) {
-        console.error('Error generating quiz questions:', error);
+        console.error('[AI Service] Error generating quiz questions:', error);
         onError(error);
         throw error;
       }
