@@ -542,6 +542,49 @@ export const aiService = {
             'This answer is incorrect.'
         );
       }
+    },
+    
+    async generateQuizQuestions({ name, description, aiOptions }, callbacks = {}) {
+        const { onProgress, onComplete, onError } = callbacks;
+        try {
+            console.log('[AI] [generateQuizQuestions] Button clicked. Params:', { name, description, aiOptions });
+            if (!name) {
+                console.warn('[AI] [generateQuizQuestions] No quiz name provided');
+                if (onError) onError(new Error('Quiz name is required'));
+                return;
+            }
+            if (!aiOptions || !aiOptions.topic) {
+                console.warn('[AI] [generateQuizQuestions] No topic provided in aiOptions:', aiOptions);
+                if (onError) onError(new Error('Quiz topic is required'));
+                return;
+            }
+            // Add more logging before/after fetch
+            console.log('[AI] [generateQuizQuestions] Sending request to backend with:', aiOptions);
+            const response = await fetch('/interac/api/ai/generate-questions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('auth_token')}`
+                },
+                body: JSON.stringify({
+                    topic: aiOptions.topic,
+                    numQuestions: aiOptions.numQuestions,
+                    difficulty: aiOptions.difficulty,
+                    tone: aiOptions.tone
+                })
+            });
+            console.log('[AI] [generateQuizQuestions] Received response status:', response.status);
+            const data = await response.json();
+            console.log('[AI] [generateQuizQuestions] Response data:', data);
+            if (data.success && Array.isArray(data.questions)) {
+                if (onComplete) onComplete(data.questions);
+            } else {
+                if (onError) onError(new Error(data.error || 'Unknown error from AI backend'));
+            }
+        } catch (err) {
+            console.error('[AI] [generateQuizQuestions] Error:', err);
+            if (onError) onError(err);
+        }
     }
   };
   

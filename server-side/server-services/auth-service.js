@@ -6,6 +6,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../../config/app-config');
 const fileUtils = require('./file-utils');
 const { logger } = require('../../logger');
+const crypto = require('crypto');
 
 // Path to the users data file
 const DB_FILE = path.join(__dirname, '../../data/users.json');
@@ -27,28 +28,38 @@ if (!fs.existsSync(BLACKLIST_FILE)) {
   }, null, 2));
 }
 
-// Load admin credentials from environment variables
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-
-if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
-  throw new Error('ADMIN_USERNAME and ADMIN_PASSWORD environment variables must be set.');
-}
-
-// Hash the admin password for storage/verification
-const adminHashedPassword = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-
-// Initialize users database if not exists
-if (!fs.existsSync(DB_FILE)) {
-  fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify([
-    {
-      id: 1,
-      username: ADMIN_USERNAME,
-      password: adminHashedPassword,
-      role: "admin"
+// On startup, ensure at least one admin user exists in users.json
+function ensureAdminUser() {
+  let data;
+  if (!fs.existsSync(DB_FILE)) {
+    data = { users: [], nextId: 1 };
+  } else {
+    data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    if (Array.isArray(data)) {
+      data = { users: data, nextId: 1 };
     }
-  ], null, 2));
+  }
+  const hasAdmin = data.users && data.users.some(u => u.role === 'admin');
+  if (!hasAdmin) {
+    // Generate a secure random password
+    const adminPassword = crypto.randomBytes(8).toString('base64');
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(adminPassword, salt);
+    const adminUser = {
+      id: 1,
+      username: 'admin',
+      password: hashedPassword,
+      role: 'admin',
+      createdAt: new Date().toISOString()
+    };
+    data.users.push(adminUser);
+    data.nextId = 2;
+    fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
+    console.log('\x1b[33m%s\x1b[0m', `Default admin user created. Username: admin  Password: ${adminPassword}`);
+    logger.warn(`Default admin user created. Username: admin  Password: ${adminPassword}`);
+  }
 }
+ensureAdminUser();
 
 // Debug helper to log user data format
 function logUserDataFormat() {
@@ -122,17 +133,6 @@ const authService = {
   // Verify password
   async verifyPassword(plainPassword, hashedPassword) {
     try {
-      // Added logging for debugging
-      console.log(`Verifying password: ${plainPassword.substring(0, 1)}*** against hash: ${hashedPassword.substring(0, 10)}...`);
-      // Use environment admin credentials
-      if (
-        plainPassword === ADMIN_PASSWORD &&
-        hashedPassword === adminHashedPassword
-      ) {
-        console.log('Admin credentials match (from environment variables)');
-        return true;
-      }
-      // Normal password verification
       return bcrypt.compare(plainPassword, hashedPassword);
     } catch (error) {
       console.error('Error verifying password:', error);
@@ -277,113 +277,41 @@ const authService = {
         fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       }
       
-      // Return user without password
-      const { password, ...userWithoutPassword } = newUser;
-      return userWithoutPassword;
+      logger.info(`New user created: ${userData.username}`);
+      return newUser;
     } catch (error) {
-      console.error('Error creating user:', error);
+      logger.error('Error creating user:', error);
       throw error;
     }
   },
   
-  // Add user
-  async addUser(user) {
+  // Cleanup blacklisted tokens - remove expired ones
+  async cleanupBlacklistedTokens() {
     try {
-      const rawData = fs.readFileSync(DB_FILE, 'utf8');
-      let data = JSON.parse(rawData);
-      const users = Array.isArray(data) ? data : (data.users || []);
-      users.push(user);
-      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(users, null, 2));
-      return user;
-    } catch (error) {
-      console.error('Error adding user:', error);
-      throw error;
-    }
-  },
-  
-  // Update user
-  async updateUser(id, updates) {
-    try {
-      const rawData = fs.readFileSync(DB_FILE, 'utf8');
-      let data = JSON.parse(rawData);
-      const users = Array.isArray(data) ? data : (data.users || []);
-      const idx = users.findIndex(u => u.id === id);
-      if (idx === -1) throw new Error('User not found');
-      users[idx] = { ...users[idx], ...updates };
-      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(users, null, 2));
-      return users[idx];
-    } catch (error) {
-      console.error('Error updating user:', error);
-      throw error;
-    }
-  },
-  
-  // Get all active/inactive users
-  async getActiveUsers(thresholdMinutes = 15) {
-    try {
-      const rawData = fs.readFileSync(DB_FILE, 'utf8');
-      let data = JSON.parse(rawData);
-      const users = Array.isArray(data) ? data : (data.users || []);
+      const rawData = fs.readFileSync(BLACKLIST_FILE, 'utf8');
+      const blacklist = JSON.parse(rawData);
       
-      const thresholdTime = new Date(Date.now() - thresholdMinutes * 60 * 1000).toISOString();
+      const now = Math.floor(Date.now() / 1000); // Current time in seconds
+      const validTokens = [];
+      const expirations = blacklist.expirations || {};
       
-      return users.filter(user => 
-        user.lastActive && user.lastActive > thresholdTime
-      ).map(({ password, ...user }) => user); // Remove passwords from results
+      // Only keep tokens that are not expired
+      for (const token of blacklist.tokens) {
+        if (expirations[token] && expirations[token] > now) {
+          validTokens.push(token);
+        }
+      }
+      
+      // Update the blacklist file only if there are changes
+      if (validTokens.length !== blacklist.tokens.length) {
+        blacklist.tokens = validTokens;
+        fileUtils.atomicWriteFileSync(BLACKLIST_FILE, JSON.stringify(blacklist, null, 2));
+        logger.info(`Blacklisted tokens cleaned up. Remaining tokens: ${validTokens.length}`);
+      }
     } catch (error) {
-      logger.error('Error getting active users:', error);
-      return [];
-    }
-  },
-  
-  // Get user permissions
-  async getUserPermissions(userId) {
-    try {
-      const user = await this.findUserById(userId);
-      if (!user) return [];
-      
-      // Admin has all permissions
-      if (user.role === 'admin') return ['*'];
-      
-      // Return user's explicit permissions or empty array
-      return user.permissions || [];
-    } catch (error) {
-      logger.error('Error getting user permissions:', error);
-      return [];
+      logger.error('Error cleaning up blacklisted tokens:', error);
     }
   }
 };
-
-// Helper function to clean up expired blacklisted tokens
-function cleanupBlacklistedTokens() {
-  try {
-    const rawData = fs.readFileSync(BLACKLIST_FILE, 'utf8');
-    const blacklist = JSON.parse(rawData);
-    
-    const now = Math.floor(Date.now() / 1000); // Current time in seconds
-    let tokensRemoved = 0;
-    
-    // Filter out expired tokens
-    const validTokens = blacklist.tokens.filter(token => {
-      const exp = blacklist.expirations[token];
-      // Keep tokens with no expiration or future expiration
-      if (!exp || exp > now) return true;
-      
-      // Token is expired, remove it
-      delete blacklist.expirations[token];
-      tokensRemoved++;
-      return false;
-    });
-    
-    // If we removed any tokens, update the blacklist file
-    if (tokensRemoved > 0) {
-      blacklist.tokens = validTokens;
-      fileUtils.atomicWriteFileSync(BLACKLIST_FILE, JSON.stringify(blacklist, null, 2));
-      logger.info(`Cleaned up ${tokensRemoved} expired tokens from blacklist`);
-    }
-  } catch (error) {
-    logger.error('Error cleaning up token blacklist:', error);
-  }
-}
 
 module.exports = authService;

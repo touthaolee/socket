@@ -54,70 +54,47 @@ router.post('/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     console.log(`Login attempt for user: ${username}`);
-    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-    
     if (!username) {
       return res.status(400).json({ error: 'Username is required' });
     }
-    
     // Check if username is already active (for regular users only, not admin)
-    if (username !== ADMIN_USERNAME) {
-      const socketHandlers = require('../server-socket/socket-handlers');
-      // Check if username is already in use by an active user
-      if (socketHandlers.isUsernameActive(username)) {
-        // --- PATCH: Allow login if the userId matches the one in the JWT (same user, not a different browser) ---
-        let userIdFromToken = null;
-        if (req.headers && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-          const token = req.headers.authorization.substring(7);
-          const decoded = authService.verifyToken(token);
-          if (decoded && decoded.username === username && decoded.id) {
-            userIdFromToken = decoded.id;
-          }
+    const socketHandlers = require('../server-socket/socket-handlers');
+    if (socketHandlers.isUsernameActive(username)) {
+      // --- PATCH: Allow login if the userId matches the one in the JWT (same user, not a different browser) ---
+      let userIdFromToken = null;
+      if (req.headers && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        const token = req.headers.authorization.substring(7);
+        const decoded = authService.verifyToken(token);
+        if (decoded && decoded.username === username && decoded.id) {
+          userIdFromToken = decoded.id;
         }
-        // If the username is active, but the userId matches, allow login
-        if (!userIdFromToken || !socketHandlers.hasMatchingUserIdForUsername(username, userIdFromToken)) {
-          return res.status(409).json({ 
-            error: 'Username already in use', 
-            message: 'This username is already logged in. Please choose a different username or try again later.'
-          });
-        }
-        // else: allow login to continue
       }
+      // If the username is active, but the userId matches, allow login
+      if (!userIdFromToken || !socketHandlers.hasMatchingUserIdForUsername(username, userIdFromToken)) {
+        return res.status(409).json({ 
+          error: 'Username already in use', 
+          message: 'This username is already logged in. Please choose a different username or try again later.'
+        });
+      }
+      // else: allow login to continue
     }
-    
-    // Admin login always requires password
-    if (username === ADMIN_USERNAME) {
-      if (!password) {
-        return res.status(400).json({ error: 'Password is required for admin login' });
-      }
-      if (password === ADMIN_PASSWORD) {
-        const adminUser = { id: 1, username: ADMIN_USERNAME, role: 'admin' };
-        const token = authService.generateToken(adminUser);
-        return res.json({ token, user: adminUser });
-      } else {
-        return res.status(401).json({ error: 'Invalid admin credentials' });
-      }
-    }
-    
-    // For non-admin users, allow username-only login
-    let user = await authService.findUserByUsername(username);
+    // Find user in users.json
+    const user = await authService.findUserByUsername(username);
     if (!user) {
-      // Optionally auto-register the user if not found
-      user = await authService.createUser({ username, password: '', email: null });
+      return res.status(401).json({ error: 'Invalid credentials' });
     }
-    
-    // If password is provided, verify it (for legacy users)
-    if (password && user.password) {
-      const isPasswordValid = await authService.verifyPassword(password, user.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Invalid credentials' });
-      }
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required' });
     }
-    
-    // Issue JWT for the user
+    const passwordValid = await authService.verifyPassword(password, user.password);
+    if (!passwordValid) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    // Issue JWT token
     const token = authService.generateToken(user);
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role || 'user' } });
+    // Return user info without password
+    const { password: pw, ...userWithoutPassword } = user;
+    return res.json({ token, user: userWithoutPassword });
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error during login' });

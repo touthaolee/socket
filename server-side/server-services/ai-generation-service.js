@@ -3,6 +3,8 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const logger = require('../../logger');
 const aiSimilarityService = require('./ai-similarity-service');
 
+console.log('Gemini API Key:', process.env.GEMINI_API_KEY);
+
 // Check if the GEMINI_API_KEY is present in the environment
 if (!process.env.GEMINI_API_KEY) {
   logger.error('CRITICAL ERROR: GEMINI_API_KEY environment variable is not set. AI functions will not work.');
