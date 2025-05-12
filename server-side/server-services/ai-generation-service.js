@@ -18,7 +18,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy-key-fo
 async function testGeminiConnection() {
   try {
     logger.info('Testing connection to Gemini API...');
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
     const result = await model.generateContent('Hello, are you working?');
     logger.info('Successfully connected to Gemini API');
     return true;
@@ -126,7 +126,7 @@ const aiGenerationService = {
             }
             
             // Create the model
-            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+            const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
             
             // Enhanced prompt for better quality questions
             let prompt = `Generate a high-quality multiple-choice quiz question about "${topic}" with the following specifications:
@@ -214,7 +214,7 @@ const aiGenerationService = {
       
       return await retryWithBackoff(async () => {
         // Create the model
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         
         // Build the prompt
         const incorrectAnswersText = incorrectAnswers.length > 0 
@@ -367,7 +367,7 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
       
       return await retryWithBackoff(async () => {
         // Create the model
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         
         // Build the prompt
         const otherOptionsText = otherOptions.length > 0 
@@ -429,7 +429,7 @@ Provide ONLY the improved option text, nothing else.`;
       
       return await retryWithBackoff(async () => {
         // Create the model
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         
         // Build the prompt
         let optionsText = '';
