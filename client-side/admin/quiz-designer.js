@@ -49,7 +49,7 @@ class QuizDesigner {
    */
   async loadQuizDesignerHTML() {
     try {
-      const response = await fetch('/quiz-designer.html');
+      const response = await fetch('/interac/quiz-designer.html');
       const html = await response.text();
       
       // Create a temporary container
@@ -60,13 +60,11 @@ class QuizDesigner {
       const modals = temp.querySelectorAll('.modal');
       modals.forEach(modal => {
         document.body.appendChild(modal);
-      });
-      
-      // Initialize CSS if not already loaded
+      });        // Initialize CSS if not already loaded
       if (!document.querySelector('link[href*="quiz-designer.css"]')) {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
-        link.href = '/client-side/client-styles/quiz-designer.css';
+        link.href = '/interac/client-styles/quiz-designer.css';
         document.head.appendChild(link);
       }
       
