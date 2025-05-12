@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin AI Multiple Choice Quiz Generator</title>
+  <link rel="stylesheet" href="/client-styles/admin-styles.css">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f7f7f7; }
+    .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+    h1 { text-align: center; color: #2c3e50; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-weight: bold; margin-bottom: 6px; }
+    input, select, textarea { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+    button { background: #007bff; color: #fff; border: none; padding: 12px 24px; border-radius: 4px; font-size: 16px; cursor: pointer; }
+    button:disabled { background: #aaa; }
+    .progress { margin: 18px 0; height: 24px; background: #e9ecef; border-radius: 12px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #28a745; width: 0; transition: width 0.3s; }
+    .log { background: #f1f1f1; border-radius: 4px; padding: 12px; margin: 12px 0; min-height: 40px; font-size: 14px; }
+    .question-list { margin: 24px 0; }
+    .question-card { background: #f9f9f9; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 18px; padding: 18px; }
+    .question-card h3 { margin-top: 0; }
+    .option { margin: 6px 0; }
+    .success { color: #28a745; font-weight: bold; }
+    .error { color: #c0392b; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>AI Multiple Choice Quiz Generator</h1>
+    <form id="ai-quiz-form">
+      <div class="form-group">
+        <label for="topic">Quiz Topic</label>
+        <input type="text" id="topic" required placeholder="e.g. Photosynthesis">
+      </div>
+      <div class="form-group">
+        <label for="num-questions">Number of Questions</label>
+        <input type="number" id="num-questions" min="1" max="50" value="5" required>
+      </div>
+      <div class="form-group">
+        <label for="difficulty">Difficulty</label>
+        <select id="difficulty">
+          <option value="easy">Easy</option>
+          <option value="medium" selected>Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="tone">Question Tone</label>
+        <select id="tone">
+          <option value="educational">Educational</option>
+          <option value="funny">Funny</option>
+          <option value="serious">Serious</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="options-per-question">Options per Question</label>
+        <input type="number" id="options-per-question" min="2" max="6" value="4" required>
+      </div>
+      <button type="submit" id="generate-btn">Generate Quiz</button>
+    </form>
+    <div class="progress" style="display:none;">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="log" id="log"></div>
+    <div class="question-list" id="question-list"></div>
+    <div id="save-section" style="display:none; text-align:center;">
+      <button id="save-quiz-btn" class="success">Save Quiz</button>
+      <span id="save-status"></span>
+    </div>
+  </div>
+  <script>
+    const form = document.getElementById('ai-quiz-form');
+    const logDiv = document.getElementById('log');
+    const progress = document.querySelector('.progress');
+    const progressBar = document.getElementById('progress-bar');
+    const questionList = document.getElementById('question-list');
+    const saveSection = document.getElementById('save-section');
+    const saveBtn = document.getElementById('save-quiz-btn');
+    const saveStatus = document.getElementById('save-status');
+
+    let generatedQuestions = [];
+
+    function log(msg, type = '') {
+      logDiv.innerHTML = `<span class="${type}">${msg}</span>`;
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      log('Starting AI quiz generation...');
+      questionList.innerHTML = '';
+      saveSection.style.display = 'none';
+      saveStatus.textContent = '';
+      progress.style.display = 'block';
+      progressBar.style.width = '0%';
+      generatedQuestions = [];
+
+      const topic = document.getElementById('topic').value.trim();
+      const numQuestions = parseInt(document.getElementById('num-questions').value);
+      const difficulty = document.getElementById('difficulty').value;
+      const tone = document.getElementById('tone').value;
+      const optionsPerQuestion = parseInt(document.getElementById('options-per-question').value);
+
+      try {
+        for (let i = 0; i < numQuestions; i++) {
+          log(`Generating question ${i+1} of ${numQuestions}...`);
+          progressBar.style.width = `${((i)/numQuestions)*100}%`;
+          const res = await fetch('/interac/api/ai/generate-question', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ topic, difficulty, tone, optionsCount: optionsPerQuestion })
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || 'AI generation failed');
+          }
+          const { question } = await res.json();
+          generatedQuestions.push(question);
+          renderQuestions();
+          progressBar.style.width = `${((i+1)/numQuestions)*100}%`;
+        }
+        log('All questions generated!', 'success');
+        progress.style.display = 'none';
+        saveSection.style.display = 'block';
+      } catch (err) {
+        log('Error: ' + err.message, 'error');
+        progress.style.display = 'none';
+      }
+    });
+
+    function renderQuestions() {
+      questionList.innerHTML = '';
+      generatedQuestions.forEach((q, idx) => {
+        const card = document.createElement('div');
+        card.className = 'question-card';
+        card.innerHTML = `<h3>Q${idx+1}: ${q.text}</h3>` +
+          q.options.map((opt, i) => `<div class="option"><input type="radio" name="q${idx}" ${i===q.correctIndex?'checked':''} disabled> ${opt}</div>`).join('') +
+          `<div style="margin-top:8px;"><strong>Rationale:</strong> ${q.rationale || ''}</div>`;
+        questionList.appendChild(card);
+      });
+    }
+
+    saveBtn.addEventListener('click', async () => {
+      saveStatus.textContent = '';
+      saveBtn.disabled = true;
+      try {
+        const quizData = {
+          title: document.getElementById('topic').value.trim(),
+          description: `AI-generated quiz on ${document.getElementById('topic').value.trim()}`,
+          questions: generatedQuestions,
+          timePerQuestion: 30
+        };
+        const res = await fetch('/interac/api/quiz/quizzes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(quizData)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Failed to save quiz');
+        }
+        saveStatus.textContent = 'Quiz saved!';
+        saveStatus.className = 'success';
+      } catch (err) {
+        saveStatus.textContent = 'Error: ' + err.message;
+        saveStatus.className = 'error';
+      }
+      saveBtn.disabled = false;
+    });
+  </script>
+</body>
+</html>
