@@ -7,10 +7,10 @@ const express = require('express');
 const router = express.Router();
 const aiGenerationService = require('../server-services/ai-generation-service');
 const aiSimilarityService = require('../server-services/ai-similarity-service');
-const authMiddleware = require('../middleware/auth-middleware');
+const { authMiddleware } = require('../middleware/auth-middleware');
 
 // Protect all AI endpoints with authentication
-router.use(authMiddleware.requireAuth);
+router.use(authMiddleware);
 
 /**
  * Generate quiz questions

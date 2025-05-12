@@ -375,9 +375,6 @@ const socketAuthMiddleware = (socket, next) => {
 
 module.exports = {
   authMiddleware,
-  adminMiddleware,
-  requirePermission,
-  authRateLimiter,
   apiRateLimiter,
   authErrorHandler,
   corsMiddleware,
