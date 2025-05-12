@@ -757,10 +757,9 @@
     <div class="admin-content">
       <!-- Quizzes View -->
       <div id="quizzes-view" class="admin-view active">
-        <div class="admin-header">
-          <h2>Quiz Management</h2>
+        <div class="admin-header">          <h2>Quiz Management</h2>
           <div>
-            <button id="create-quiz-btn" class="btn"><i class="fas fa-plus-circle"></i> Create Quiz</button>
+            <button id="new-quiz-designer-btn" class="btn"><i class="fas fa-plus-circle"></i> Design New Quiz</button>
           </div>
         </div>
         
@@ -858,225 +857,257 @@
       </div>
     </div>
   </div>
-  
-  <!-- Create Quiz Modal -->
-  <div id="create-quiz-modal" class="modal">
-    <div class="modal-content">
+  <!-- Quiz Designer Modal -->
+  <div id="quiz-designer-modal" class="modal">
+    <div class="modal-content large">
       <div class="modal-header">
-        <h2>Create New Quiz</h2>
-        <span class="close-modal">&times;</span>
+        <h2>Design New Quiz</h2>
+        <span class="close-designer-modal">&times;</span>
       </div>
       
-      <div class="modal-body">
-        <div class="form-tabs">
-          <button class="tab-btn active" data-tab="ai-generate">AI Generate</button>
-          <button class="tab-btn" data-tab="manual-create">Manual Create</button>
-        </div>
-        
-        <!-- AI Generate Form -->
-        <div id="ai-generate-form" class="tab-content active">
-          <div class="form-group">
-            <label for="quiz-name">Quiz Name</label>
-            <input type="text" id="quiz-name" placeholder="Enter quiz name">
-          </div>
-          
-          <div class="form-group">
-            <label for="quiz-description">Description</label>
-            <textarea id="quiz-description" placeholder="Enter quiz description"></textarea>
-          </div>
-          
-          <div class="form-row">
-            <div class="form-group half">
-              <label for="time-per-question">Time per Question (seconds)</label>
-              <input type="number" id="time-per-question" min="10" value="30">
+      <div class="modal-body quiz-designer-body">
+        <!-- Quiz Builder Sidebar -->
+        <div class="quiz-designer-sidebar">
+          <div class="quiz-info-section">
+            <h3>Quiz Information</h3>
+            <div class="form-group">
+              <label for="designer-quiz-name">Quiz Name</label>
+              <input type="text" id="designer-quiz-name" placeholder="Enter a clear and descriptive name">
             </div>
             
-            <div class="form-group half">
-              <label for="rationale-tone">Rationale Tone</label>
-              <select id="rationale-tone">
-                <option value="educational">Educational</option>
-                <option value="encouraging">Encouraging</option>
-                <option value="concise">Concise</option>
-                <option value="detailed">Detailed</option>
-              </select>
+            <div class="form-group">
+              <label for="designer-quiz-description">Description</label>
+              <textarea id="designer-quiz-description" placeholder="Briefly describe what this quiz covers"></textarea>
+            </div>
+            
+            <div class="form-group">
+              <label for="designer-time-per-question">Time per Question (seconds)</label>
+              <input type="number" id="designer-time-per-question" min="10" value="30">
             </div>
           </div>
           
-          <div class="form-divider">
-            <span>AI Generation Options</span>
-          </div>
-          
-          <div class="form-group ai-topic-container" style="border: 2px solid #3b82f6; padding: 15px; border-radius: 8px; background-color: #f0f7ff;">
-            <label for="ai-topic" style="font-weight: bold; color: #2563eb; font-size: 16px;">Topic/Prompt (Required)</label>
-            <p style="margin: 5px 0 10px; font-size: 14px; color: #4b5563;">
-              Enter the topic you want the AI to generate questions about. 
-              For example: "JavaScript Programming", "World Geography", "Physics Laws", etc.
-            </p>
-            <textarea id="ai-topic" placeholder="Enter the topic or prompt for the AI to generate questions about" style="border-color: #3b82f6;"></textarea>
-          </div>
-            <div class="form-row">
-            <div class="form-group half">
-              <label for="num-questions">Number of Questions</label>
-              <div class="batch-counter-container">
-                <button type="button" id="decrease-questions-btn" class="batch-counter-btn">-</button>
-                <input type="number" id="num-questions" min="10" max="50" value="10" step="10">
-                <button type="button" id="increase-questions-btn" class="batch-counter-btn">+</button>
+          <div class="generation-options-section">
+            <h3>Generation Options</h3>
+            <div class="form-group">
+              <label for="designer-generation-method">Content Source</label>
+              <div class="generation-method-selector">
+                <button class="method-option active" data-method="ai">AI Generated</button>
+                <button class="method-option" data-method="manual">Manual Entry</button>
               </div>
-              <span class="input-hint">Questions will be generated in batches of 10</span>
             </div>
             
-            <div class="form-group half">
-              <label for="difficulty">Difficulty Level</label>
-              <select id="difficulty">
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-                <option value="mixed">Mixed</option>
-              </select>
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label for="advanced-options">Advanced Options</label>
-            <div class="collapsible" id="advanced-options">
+            <!-- AI Generation Options -->
+            <div id="ai-generation-options" class="generation-option-section active">
+              <div class="form-group focus-container">
+                <label for="designer-ai-topic">Topic/Prompt</label>
+                <textarea id="designer-ai-topic" placeholder="Describe the topic for your quiz questions"></textarea>
+              </div>
+              
               <div class="form-row">
                 <div class="form-group half">
-                  <label for="options-per-question">Options per Question</label>
-                  <input type="number" id="options-per-question" min="2" max="6" value="4">
+                  <label for="designer-question-count">Number of Questions</label>
+                  <div class="custom-number-input">
+                    <button type="button" class="number-btn decrease">-</button>
+                    <input type="number" id="designer-question-count" min="5" max="50" value="10">
+                    <button type="button" class="number-btn increase">+</button>
+                  </div>
                 </div>
-                  <div class="form-group half">
-                  <label for="batch-size">Questions per Batch</label>
-                  <input type="number" id="batch-size" min="5" max="10" value="10" readonly>
-                  <span class="input-hint">Fixed at 10 for optimal performance</span>
+                
+                <div class="form-group half">
+                  <label for="designer-difficulty">Difficulty</label>
+                  <select id="designer-difficulty">
+                    <option value="easy">Easy</option>
+                    <option value="medium" selected>Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="mixed">Mixed</option>
+                  </select>
                 </div>
               </div>
               
               <div class="form-group">
-                <label for="specific-focuses">Specific Focus Areas (optional)</label>
-                <textarea id="specific-focuses" placeholder="Enter specific areas to focus on, separated by commas"></textarea>
+                <label for="designer-options-per-question">Options per Question</label>
+                <select id="designer-options-per-question">
+                  <option value="2">2 options</option>
+                  <option value="3">3 options</option>
+                  <option value="4" selected>4 options</option>
+                  <option value="5">5 options</option>
+                  <option value="6">6 options</option>
+                </select>
               </div>
+              
+              <div class="form-group">
+                <label for="designer-tone">Explanation Style</label>
+                <select id="designer-tone">
+                  <option value="educational" selected>Educational</option>
+                  <option value="encouraging">Encouraging</option>
+                  <option value="concise">Concise</option>
+                  <option value="detailed">Detailed</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label for="designer-specific-focuses">Specific Focus Areas (optional)</label>
+                <textarea id="designer-specific-focuses" placeholder="List specific concepts to focus on, separated by commas"></textarea>
+              </div>
+            </div>
+            
+            <!-- Manual Entry Options -->
+            <div id="manual-entry-options" class="generation-option-section">
+              <p class="helper-text">Add questions manually using the editor on the right side.</p>
+              <button id="add-new-question-btn" class="btn-outline">Add New Question</button>
             </div>
           </div>
         </div>
         
-        <!-- Manual Create Form -->
-        <div id="manual-create-form" class="tab-content">
-          <div class="form-group">
-            <label for="manual-quiz-name">Quiz Name</label>
-            <input type="text" id="manual-quiz-name" placeholder="Enter quiz name">
+        <!-- Question Preview and Editor Area -->
+        <div class="quiz-designer-content">
+          <!-- Content tabs -->
+          <div class="designer-tabs">
+            <button class="designer-tab-btn active" data-tab="editor">Question Editor</button>
+            <button class="designer-tab-btn" data-tab="preview">Quiz Preview</button>
           </div>
           
-          <div class="form-group">
-            <label for="manual-quiz-description">Description</label>
-            <textarea id="manual-quiz-description" placeholder="Enter quiz description"></textarea>
-          </div>
-          
-          <div class="form-group">
-            <label for="manual-time-per-question">Time per Question (seconds)</label>
-            <input type="number" id="manual-time-per-question" min="10" value="30">
-          </div>
-          
-          <div id="questions-container">
-            <!-- Questions will be added here -->
-            <div class="question-item">
-              <div class="question-header">
-                <h3>Question 1</h3>
-                <button class="remove-question-btn"><i class="fas fa-trash"></i></button>
+          <!-- Question Editor Tab -->
+          <div id="question-editor-tab" class="designer-tab-content active">
+            <div class="question-list-header">
+              <h3>Questions</h3>
+              <div class="question-controls">
+                <div id="question-count-display">0 questions</div>
+                <button id="generate-questions-btn" class="btn">Generate Questions</button>
+              </div>
+            </div>
+            
+            <div id="questions-editor-container" class="questions-editor-container">
+              <div class="empty-state">
+                <img src="https://cdn-icons-png.flaticon.com/512/7486/7486754.png" alt="Empty questions" width="120">
+                <h3>No Questions Yet</h3>
+                <p>Generate questions using AI or add them manually</p>
               </div>
               
-              <div class="form-group">
-                <label>Question Text</label>
-                <textarea class="question-text" placeholder="Enter question text"></textarea>
-              </div>
-              
-              <div class="options-container">
-                <div class="option-item">
-                  <input type="radio" name="correct-1" checked>
-                  <input type="text" class="option-text" placeholder="Option 1">
-                </div>
-                <div class="option-item">
-                  <input type="radio" name="correct-1">
-                  <input type="text" class="option-text" placeholder="Option 2">
-                </div>
-                <div class="option-item">
-                  <input type="radio" name="correct-1">
-                  <input type="text" class="option-text" placeholder="Option 3">
-                </div>
-                <div class="option-item">
-                  <input type="radio" name="correct-1">
-                  <input type="text" class="option-text" placeholder="Option 4">
-                </div>
-              </div>
-              
-              <div class="form-group">
-                <label>Rationale</label>
-                <textarea class="question-rationale" placeholder="Explain why the correct answer is right"></textarea>
-              </div>
+              <!-- Questions will be listed here -->
             </div>
           </div>
           
-          <button id="add-question-btn" class="btn-outline">Add Question</button>
+          <!-- Preview Tab -->
+          <div id="quiz-preview-tab" class="designer-tab-content">
+            <div class="preview-container">
+              <div class="quiz-preview-header">
+                <h3>Quiz Preview</h3>
+                <div class="preview-meta">
+                  <span id="preview-question-count">0 questions</span> | 
+                  <span id="preview-time-per-question">30s per question</span>
+                </div>
+              </div>
+              
+              <div id="quiz-preview-container" class="quiz-preview-content">
+                <!-- Preview content will be generated here -->
+                <div class="empty-preview">
+                  <p>Add questions to see a preview of your quiz</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       
-      <div class="modal-footer">
-        <button id="cancel-create-btn" class="btn-outline">Cancel</button>
-        <button id="create-quiz-submit-btn" class="btn">Create Quiz</button>
+      <div class="modal-footer designer-footer">
+        <div class="designer-actions">
+          <button id="cancel-designer-btn" class="btn-outline">Cancel</button>
+          <button id="save-quiz-draft-btn" class="btn-outline">Save as Draft</button>
+          <button id="publish-quiz-btn" class="btn">Save & Publish Quiz</button>
+        </div>
       </div>
     </div>
   </div>
   
-  <!-- AI Generation Progress Modal -->
-  <div id="generation-progress-modal" class="modal">
+  <!-- Question Editor Modal -->
+  <div id="question-editor-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Generating Quiz</h2>
+        <h2>Edit Question</h2>
+        <span class="close-question-editor-modal">&times;</span>
       </div>
       
       <div class="modal-body">
-        <div class="progress-container">
-          <div class="progress-bar">
-            <div class="progress-fill" id="generation-progress-fill"></div>
+        <div class="form-group">
+          <label for="edit-question-text">Question Text</label>
+          <textarea id="edit-question-text" placeholder="Enter your question"></textarea>
+        </div>
+        
+        <div id="edit-options-container" class="edit-options-container">
+          <!-- Options will be added here -->
+          <div class="option-row">
+            <div class="option-correct">
+              <input type="radio" name="correct-option" id="option-correct-0" checked>
+            </div>
+            <div class="option-text-container">
+              <input type="text" class="option-text" placeholder="Option 1">
+            </div>
+            <div class="option-actions">
+              <button class="remove-option-btn"><i class="fas fa-times"></i></button>
+            </div>
           </div>
-          <div class="progress-text">
-            <span id="generation-progress-text">0%</span>
+        </div>
+        
+        <button id="add-option-btn" class="btn-outline btn-sm">Add Option</button>
+        
+        <div class="form-group">
+          <label for="edit-rationale">Explanation</label>
+          <textarea id="edit-rationale" placeholder="Explain why the correct answer is right"></textarea>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button id="cancel-edit-question-btn" class="btn-outline">Cancel</button>
+        <button id="save-question-btn" class="btn">Save Question</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Generation Progress Modal -->
+  <div id="new-generation-progress-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Generating Quiz Questions</h2>
+      </div>
+      
+      <div class="modal-body">
+        <div class="modern-progress-container">
+          <div class="progress-circle-container">
+            <div class="progress-circle">
+              <div class="progress-circle-inner">
+                <div id="progress-percentage">0%</div>
+                <div class="progress-label">Complete</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="progress-stats">
+            <div class="progress-stat-item">
+              <div class="stat-label">Questions</div>
+              <div class="stat-value" id="questions-generated-count">0/10</div>
+            </div>
+            <div class="progress-stat-item">
+              <div class="stat-label">Time Elapsed</div>
+              <div class="stat-value" id="generation-time-elapsed">00:00</div>
+            </div>
+            <div class="progress-stat-item">
+              <div class="stat-label">Est. Remaining</div>
+              <div class="stat-value" id="generation-time-remaining">--:--</div>
+            </div>
           </div>
         </div>
         
-        <div class="generation-stats">
-          <div class="stat-row">
-            <span class="stat-label">Questions Generated:</span>
-            <span id="questions-generated">0/10</span>
-          </div>
-          <div class="stat-row">
-            <span class="stat-label">Elapsed Time:</span>
-            <span id="elapsed-time">00:00</span>
-          </div>        <div class="stat-row">
-            <span class="stat-label">Estimated Time Remaining:</span>
-            <span id="estimated-time">Calculating...</span>          </div>
-        </div>
-        
-        <div class="section-divider">
-          <h3 class="batch-processing-header">
-            Batch Processing
-            <span class="info-text">Questions are generated in batches of 10 for optimal performance</span>
-          </h3>
-        </div>
-        
-        <div class="batch-processing-container" id="batch-container">
-          <!-- Batch indicators will be added dynamically -->
-        </div>
-        
-        <div class="log-section">
-          <h3>Generation Log</h3>
-          <div class="generation-log" id="generation-log-container">
-            <div class="log-entry">Initializing AI service...</div>
+        <div class="generation-details">
+          <h3>Generation Progress</h3>
+          <div class="generation-progress-log" id="generation-progress-log">
+            <div class="log-entry">Preparing to generate questions...</div>
           </div>
         </div>
       </div>
       
       <div class="modal-footer">
-        <button id="cancel-generation-btn" class="btn-outline">Cancel Generation</button>
+        <button id="cancel-generation-btn" class="btn-outline">Cancel</button>
       </div>
     </div>
   </div>
@@ -1218,9 +1249,9 @@
   </div>
   <!-- Toast for similarity results -->
   <div id="va-toast" class="va-toast"></div>
-  
-  <!-- Restore the /interac/ prefix in the JavaScript path -->
+    <!-- Restore the /interac/ prefix in the JavaScript path -->
   <script src="/interac/client-side/admin/admin-main.js" type="module"></script>
+  <script src="/interac/client-side/admin/quiz-designer.js" type="module"></script>
   
   <!-- Socket.IO Integration -->
   <script type="module">
@@ -1553,4 +1584,8 @@
   <!-- Link to our modern VA quiz admin UI JavaScript -->
   <script src="/interac/client-side/admin/modern-admin-ui.js"></script>
 </body>
-</html>
+</html>< l i n k   r e l = \ 
+ 
+ s t y l e s h e e t \   h r e f = \ / i n t e r a c / c l i e n t - s i d e / c l i e n t - s t y l e s / q u i z - d e s i g n e r . c s s \ > 
+ 
+ 

@@ -452,138 +452,7 @@ function updateChatMessages(messages) {
 }
 
 // Setup modal handlers
-function setupModalHandlers() {  // Create quiz modal
-  const createQuizBtn = document.getElementById('create-quiz-btn');
-  const createQuizModal = document.getElementById('create-quiz-modal');
-  const closeModalBtn = document.querySelector('.close-modal');
-  const cancelCreateBtn = document.getElementById('cancel-create-btn');
-  
-  // Number of questions adjustment buttons
-  const decreaseQuestionsBtn = document.getElementById('decrease-questions-btn');
-  const increaseQuestionsBtn = document.getElementById('increase-questions-btn');
-  const numQuestionsInput = document.getElementById('num-questions');
-  
-  // Handle question count adjustment
-  if (decreaseQuestionsBtn && increaseQuestionsBtn && numQuestionsInput) {
-    decreaseQuestionsBtn.addEventListener('click', () => {
-      const currentValue = parseInt(numQuestionsInput.value);
-      if (currentValue > 10) {
-        numQuestionsInput.value = currentValue - 10;
-      }
-    });
-    
-    increaseQuestionsBtn.addEventListener('click', () => {
-      const currentValue = parseInt(numQuestionsInput.value);
-      if (currentValue < 50) {
-        numQuestionsInput.value = currentValue + 10;
-      }
-    });
-    
-    // Ensure the value is always a multiple of 10
-    numQuestionsInput.addEventListener('change', () => {
-      let value = parseInt(numQuestionsInput.value);
-      
-      // Minimum of 10
-      if (value < 10) value = 10;
-      
-      // Maximum of 50
-      if (value > 50) value = 50;
-      
-      // Round to nearest 10
-      value = Math.round(value / 10) * 10;
-      
-      numQuestionsInput.value = value;
-    });
-  }
-  
-  console.log('Setting up modal handlers');
-  console.log('Create Quiz Button found:', !!createQuizBtn);
-  console.log('Create Quiz Modal found:', !!createQuizModal);
-  
-  if (createQuizBtn && createQuizModal) {
-    // Remove any existing event listeners first
-    createQuizBtn.removeEventListener('click', showCreateQuizModal);
-    
-    // Add our event listener
-    createQuizBtn.addEventListener('click', showCreateQuizModal);
-    
-    // Define the function to show the modal
-    function showCreateQuizModal() {
-      console.log('Create Quiz Button clicked from admin-main.js');
-      
-      // Use the modern VA quiz modal instead of the old create-quiz-modal
-      // Access the openModernQuizModal function from the window object
-      if (typeof window.openModernQuizModal === 'function') {
-        console.log('Opening modern VA quiz modal');
-        window.openModernQuizModal();
-      } else {
-        console.warn('Modern VA quiz modal function not found, falling back to old modal');
-        // Set both display and add active class to ensure visibility
-        createQuizModal.style.display = 'flex';
-        
-        // Force browser reflow
-        void createQuizModal.offsetWidth;
-        
-        // Add custom class for additional styling if needed
-        createQuizModal.classList.add('active');
-      }
-      
-      console.log('Modal display triggered');
-    }
-  }
-  
-  // Close modal buttons
-  if (closeModalBtn) {
-    closeModalBtn.addEventListener('click', function() {
-      console.log('Close modal button clicked');
-      if (createQuizModal) {
-        createQuizModal.classList.remove('active');
-        createQuizModal.style.display = 'none';
-      }
-    });
-  }
-  
-  if (cancelCreateBtn) {
-    cancelCreateBtn.addEventListener('click', function() {
-      console.log('Cancel create button clicked');
-      if (createQuizModal) {
-        createQuizModal.classList.remove('active');
-        createQuizModal.style.display = 'none';
-      }
-    });
-  }
-  
-  // Form tabs in create quiz modal
-  const tabBtns = document.querySelectorAll('.tab-btn');
-  const tabContents = document.querySelectorAll('.tab-content');
-  
-  tabBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const tabName = btn.dataset.tab;
-      
-      // Update active tab button
-      tabBtns.forEach(tb => tb.classList.remove('active'));
-      btn.classList.add('active');
-      
-      // Show corresponding tab content
-      tabContents.forEach(content => {
-        if (content.id === `${tabName}-form`) {
-          content.classList.add('active');
-        } else {
-          content.classList.remove('active');
-        }
-      });
-    });
-  });
-  
-  // Advanced options toggle
-  const advancedOptions = document.getElementById('advanced-options');
-  if (advancedOptions) {
-    advancedOptions.previousElementSibling.addEventListener('click', () => {
-      advancedOptions.classList.toggle('expanded');
-    });
-  }
-  
+function setupModalHandlers() {
   // Quiz Preview Modal
   const closePreviewModalBtn = document.querySelector('.close-preview-modal');
   const quizPreviewModal = document.getElementById('quiz-preview-modal');
@@ -628,75 +497,50 @@ function setupModalHandlers() {  // Create quiz modal
     if (e.target === editQuestionModal) editQuestionModal.style.display = 'none';
     if (e.target === similarityCheckModal) similarityCheckModal.style.display = 'none';
   });
-}
-
-// Setup quiz management
-function setupQuizManagement() {
-  // Quiz pagination
-  const prevPageBtn = document.getElementById('prev-page');
-  const nextPageBtn = document.getElementById('next-page');
-  
-  if (prevPageBtn) {
-    prevPageBtn.addEventListener('click', () => {
-      if (currentPage > 1) {
-        currentPage--;
-        loadQuizzes();
-      }
-    });
-  }
-  
-  if (nextPageBtn) {
-    nextPageBtn.addEventListener('click', () => {
-      if (currentPage < totalPages) {
-        currentPage++;
-        loadQuizzes();
-      }
-    });
-  }
-  
-  // Quiz search
-  const quizSearch = document.getElementById('quiz-search');
-  if (quizSearch) {
-    quizSearch.addEventListener('input', debounce(() => {
-      // Reset to first page when searching
-      currentPage = 1;
-      loadQuizzes();
-    }, 300));
-  }
-  
-  // Quiz filter
-  const quizFilter = document.getElementById('quiz-filter');
-  if (quizFilter) {
-    quizFilter.addEventListener('change', () => {
-      // Reset to first page when filtering
-      currentPage = 1;
-      loadQuizzes();
-    });
-  }
-  
-  // Create quiz submit button - add direct click handler with logging
-  const createQuizSubmitBtn = document.getElementById('create-quiz-submit-btn');
-  if (createQuizSubmitBtn) {
-    // Remove any existing event listeners first
-    createQuizSubmitBtn.removeEventListener('click', handleCreateQuizSubmit);
+}  // Setup quiz management
+  function setupQuizManagement() {
+    // Quiz pagination
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
     
-    // Add our new event listener with named function for better debugging
-    createQuizSubmitBtn.addEventListener('click', handleCreateQuizSubmit);
-    
-    // Define the handler function
-    function handleCreateQuizSubmit(event) {
-      console.log('Create Quiz Submit button clicked');
-      // Prevent default form submission behavior if in a form
-      event.preventDefault();
-      // Call the createQuiz function
-      createQuiz();
+    if (prevPageBtn) {
+      prevPageBtn.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage--;
+          loadQuizzes();
+        }
+      });
     }
     
-    console.log('Set up Create Quiz Submit button handler');
-  } else {
-    console.warn('Create Quiz Submit button not found');
+    if (nextPageBtn) {
+      nextPageBtn.addEventListener('click', () => {
+        if (currentPage < totalPages) {
+          currentPage++;
+          loadQuizzes();
+        }
+      });
+    }
+    
+    // Quiz search
+    const quizSearch = document.getElementById('quiz-search');
+    if (quizSearch) {
+      quizSearch.addEventListener('input', debounce(() => {
+        // Reset to first page when searching
+        currentPage = 1;
+        loadQuizzes();
+      }, 300));
+    }
+    
+    // Quiz filter
+    const quizFilter = document.getElementById('quiz-filter');
+    if (quizFilter) {
+      quizFilter.addEventListener('change', () => {
+        // Reset to first page when filtering
+        currentPage = 1;
+        loadQuizzes();
+      });
+    }
   }
-}
 
 // Render quizzes to the table
 function renderQuizzes() {
