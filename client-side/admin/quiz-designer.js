@@ -1264,10 +1264,16 @@ class QuizDesigner {
         timePerQuestion: this.quizData.timePerQuestion,
         status: this.quizData.status
       };
-      
-      console.log('Mapped questions from:', this.questions);
+        console.log('Mapped questions from:', this.questions);
       console.log('Saving quiz data to server:', serverQuizData);
-        // Save quiz
+        
+      // Get token
+      const token = getTokenFromStorage();
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+        
+      // Save quiz
       console.log('Saving quiz data to server:', serverQuizData);
       const response = await fetch('/interac/api/quiz/quizzes', {
         method: 'POST',
@@ -1285,17 +1291,19 @@ class QuizDesigner {
       }
       
       const responseData = await response.json();
-      console.log('Server response after saving quiz:', responseData);
-        // Handle successful save
+      console.log('Server response after saving quiz:', responseData);      // Handle successful save
       alert(`Quiz ${status === 'published' ? 'published' : 'saved'} successfully!`);
       
       // Refresh quiz list
-      console.log('Looking for window.loadQuizzes function:', typeof window.loadQuizzes);
+      console.log('Looking for loadQuizzes function:', typeof window.loadQuizzes);
       if (typeof window.loadQuizzes === 'function') {
         console.log('Calling window.loadQuizzes to refresh quiz list');
         await window.loadQuizzes();
+      } else if (typeof loadQuizzes === 'function') {
+        console.log('Calling loadQuizzes directly');
+        await loadQuizzes();
       } else {
-        console.warn('window.loadQuizzes function not found - quiz list may not update automatically');
+        console.warn('loadQuizzes function not found - quiz list may not update automatically');
       }
       
       // Close modal

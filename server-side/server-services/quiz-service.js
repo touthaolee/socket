@@ -124,11 +124,30 @@ async getQuizGenerationStatus(quizId) {
       console.error('Error getting quiz generation status:', error);
       throw error;
   }
-},  // Create a new quiz
-  async createQuiz(quizData) {
+},  
+
+// Create a new quiz
+async createQuiz(quizData) {
     try {
-      console.log('Creating quiz with data:', quizData);
-      const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      console.log('Creating quiz with data:', JSON.stringify(quizData, null, 2));
+      
+      // Verify we can read the database file
+      if (!fs.existsSync(DB_FILE)) {
+        console.error('DB file does not exist:', DB_FILE);
+        fs.writeFileSync(DB_FILE, JSON.stringify({ quizzes: [], nextId: 1 }, null, 2), 'utf8');
+        console.log('Created new DB file');
+      }
+      
+      let data;
+      try {
+        const fileContent = fs.readFileSync(DB_FILE, 'utf8');
+        console.log('DB file content:', fileContent.substring(0, 100) + '...');
+        data = JSON.parse(fileContent);
+      } catch (readError) {
+        console.error('Error reading DB file:', readError);
+        // Recover by creating a new DB structure
+        data = { quizzes: [], nextId: 1 };
+      }
       
       const newQuiz = {
         id: data.nextId++,
@@ -142,10 +161,21 @@ async getQuizGenerationStatus(quizId) {
         createdAt: new Date().toISOString()
       };
       
+      console.log('Adding new quiz to data:', newQuiz.id, newQuiz.title, newQuiz.status);
       data.quizzes.push(newQuiz);
-      fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       
-      console.log('Created new quiz:', newQuiz);
+      // Use atomic write to safely update the file
+      try {
+        fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
+        console.log('Successfully wrote DB file with new quiz');
+      } catch (writeError) {
+        console.error('Error writing DB file:', writeError);
+        // Fallback to regular write if atomic write fails
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+        console.log('Used fallback method to write DB file');
+      }
+      
+      console.log('Created new quiz:', newQuiz.id, newQuiz.title);
       return newQuiz;
     } catch (error) {
       console.error('Error creating quiz:', error);

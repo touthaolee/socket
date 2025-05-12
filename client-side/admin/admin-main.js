@@ -140,6 +140,9 @@ let currentEditingQuestion = null;
 
 // Initialize admin UI
 function initAdminUI() {
+  // Make loadQuizzes function available globally
+  window.loadQuizzes = loadQuizzes;
+  
   // Setup navigation
   setupNavigation();
   
@@ -199,6 +202,7 @@ function setupNavigation() {
 // Make loadQuizzes globally available so it can be called from quiz-designer.js
 window.loadQuizzes = async function() {
   try {
+    console.log('Global loadQuizzes function called');
     const token = getTokenFromStorage();
     if (!token) {
       showAdminLogin();
