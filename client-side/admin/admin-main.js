@@ -196,7 +196,8 @@ function setupNavigation() {
 }
 
 // Load quizzes - also serves as a token verification method
-async function loadQuizzes() {
+// Make loadQuizzes globally available so it can be called from quiz-designer.js
+window.loadQuizzes = async function() {
   try {
     const token = getTokenFromStorage();
     if (!token) {
@@ -204,6 +205,7 @@ async function loadQuizzes() {
       return;
     }
     
+    console.log('Loading quizzes, page:', currentPage);
     const response = await fetch('/interac/api/quiz/quizzes?page=' + currentPage, {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -222,7 +224,9 @@ async function loadQuizzes() {
     }
     
     const data = await response.json();
+    console.log('Loaded quizzes data:', data);
     quizzes = data.quizzes || [];
+    console.log('Parsed quizzes array:', quizzes);
     totalPages = data.totalPages || 1;
     
     renderQuizzes();
@@ -232,6 +236,9 @@ async function loadQuizzes() {
     // Show error message
   }
 }
+
+// Local reference for internal use
+const loadQuizzes = window.loadQuizzes;
 
 // Initialize admin chat functionality
 function initAdminChat() {
@@ -545,11 +552,16 @@ function setupQuizManagement() {
 // Render quizzes to the table
 function renderQuizzes() {
   const quizzesTable = document.getElementById('quizzes-table').querySelector('tbody');
-  if (!quizzesTable) return;
+  if (!quizzesTable) {
+    console.error('Quiz table not found in DOM');
+    return;
+  }
   
+  console.log('Rendering quizzes:', quizzes);
   quizzesTable.innerHTML = '';
   
   if (quizzes.length === 0) {
+    console.log('No quizzes to display');
     quizzesTable.innerHTML = `
       <tr>
         <td colspan="5" class="empty-state">No quizzes found</td>
@@ -557,17 +569,37 @@ function renderQuizzes() {
     `;
     return;
   }
-  
   quizzes.forEach(quiz => {
+    console.log('Processing quiz for display:', quiz);
     const createdDate = new Date(quiz.createdAt).toLocaleDateString();
-    const statusClass = quiz.status === 'active' ? 'status-active' : 'status-draft';
+    
+    // Handle various status conditions with better logging
+    let statusText = quiz.status || 'draft';
+    let statusClass = 'status-draft';
+    
+    console.log(`Quiz ${quiz.id} status: "${statusText}"`);
+    
+    if (statusText === 'published' || statusText === 'active') {
+      statusClass = 'status-active';
+      statusText = 'active';
+    }
+    
+    const questionCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0;
+    const quizTitle = quiz.name || quiz.title || 'Untitled Quiz';
+    
+    console.log('Rendering quiz:', {
+      id: quiz.id,
+      title: quizTitle,
+      questions: questionCount,
+      status: statusText
+    });
     
     quizzesTable.innerHTML += `
       <tr data-quiz-id="${quiz.id}">
-        <td>${quiz.name}</td>
-        <td>${quiz.questions ? quiz.questions.length : 0}</td>
+        <td>${quiz.name || quiz.title}</td>
+        <td>${questionCount}</td>
         <td>${createdDate}</td>
-        <td><span class="status-badge ${statusClass}">${quiz.status}</span></td>
+        <td><span class="status-badge ${statusClass}">${statusText}</span></td>
         <td class="actions-cell">
           <button class="action-btn view-btn" title="View Quiz"><i class="fas fa-eye"></i></button>
           <button class="action-btn edit-btn" title="Edit Quiz"><i class="fas fa-edit"></i></button>

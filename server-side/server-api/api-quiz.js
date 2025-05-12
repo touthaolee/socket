@@ -65,8 +65,15 @@ router.post('/quizzes/:id/quality-check', verifyToken, async (req, res) => {
 // Get all quizzes
 router.get('/quizzes', verifyToken, async (req, res) => {
   try {
-    const quizzes = await quizService.getAllQuizzes();
-    res.json(quizzes);
+    // Get pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    console.log(`Getting quizzes - page: ${page}, limit: ${limit}`);
+    const quizData = await quizService.getAllQuizzes(page, limit);
+    console.log(`Returning ${quizData.quizzes.length} quizzes, total pages: ${quizData.totalPages}`);
+    
+    res.json(quizData);
   } catch (error) {
     console.error('Error getting quizzes:', error);
     res.status(500).json({ error: 'Server error' });
@@ -90,21 +97,26 @@ router.get('/quizzes/:id', verifyToken, async (req, res) => {
 });
 
 // Create a new quiz
-router.post('/quizzes', verifyToken, async (req, res) => {
-  try {
-    const { title, description, questions } = req.body;
+router.post('/quizzes', verifyToken, async (req, res) => {  try {
+    console.log('Creating new quiz, request body:', req.body);
+    const { title, description, questions, timePerQuestion, status } = req.body;
     
     if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({ error: 'Title and questions are required' });
     }
     
+    console.log(`Creating quiz "${title}" with status: ${status || 'draft'}`);
+    
     const quiz = await quizService.createQuiz({
       title,
       description,
       questions,
+      timePerQuestion: timePerQuestion || 30,
+      status: status || 'draft', // Make sure status is passed to the service
       createdBy: req.userId
     });
     
+    console.log('Created quiz:', quiz);
     res.status(201).json(quiz);
   } catch (error) {
     console.error('Error creating quiz:', error);

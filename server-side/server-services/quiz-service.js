@@ -17,15 +17,29 @@ if (!fs.existsSync(DB_FILE)) {
   fs.writeFileSync(DB_FILE, JSON.stringify({ quizzes: [], nextId: 1 }, null, 2));
 }
 
-const quizService = {
-  // Get all quizzes
-  async getAllQuizzes() {
+const quizService = {  // Get all quizzes
+  async getAllQuizzes(page = 1, limit = 10) {
     try {
+      console.log('Getting all quizzes, page:', page, 'limit:', limit);
       const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-      return data.quizzes;
+      
+      // Add pagination support
+      const startIndex = (page - 1) * limit;
+      const endIndex = page * limit;
+      const paginatedQuizzes = data.quizzes.slice(startIndex, endIndex);
+      
+      const totalPages = Math.ceil(data.quizzes.length / limit);
+      console.log('Total quizzes:', data.quizzes.length, 'Total pages:', totalPages);
+      
+      return {
+        quizzes: paginatedQuizzes,
+        totalPages: totalPages,
+        currentPage: page,
+        totalQuizzes: data.quizzes.length
+      };
     } catch (error) {
       console.error('Error getting all quizzes:', error);
-      return [];
+      return { quizzes: [], totalPages: 1, currentPage: 1, totalQuizzes: 0 };
     }
   },
   
@@ -110,17 +124,20 @@ async getQuizGenerationStatus(quizId) {
       console.error('Error getting quiz generation status:', error);
       throw error;
   }
-},
-  // Create a new quiz
+},  // Create a new quiz
   async createQuiz(quizData) {
     try {
+      console.log('Creating quiz with data:', quizData);
       const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
       
       const newQuiz = {
         id: data.nextId++,
+        name: quizData.title, // Using 'name' for frontend compatibility
         title: quizData.title,
         description: quizData.description || '',
-        questions: quizData.questions,
+        questions: quizData.questions || [],
+        timePerQuestion: quizData.timePerQuestion || 30,
+        status: quizData.status || 'draft',
         createdBy: quizData.createdBy,
         createdAt: new Date().toISOString()
       };
@@ -128,14 +145,14 @@ async getQuizGenerationStatus(quizId) {
       data.quizzes.push(newQuiz);
       fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       
+      console.log('Created new quiz:', newQuiz);
       return newQuiz;
     } catch (error) {
       console.error('Error creating quiz:', error);
       throw error;
     }
   },
-  
-  // Update a quiz
+    // Update a quiz
   async updateQuiz(id, quizData) {
     try {
       const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
@@ -147,13 +164,16 @@ async getQuizGenerationStatus(quizId) {
       const updatedQuiz = {
         ...data.quizzes[index],
         title: quizData.title || data.quizzes[index].title,
+        name: quizData.title || data.quizzes[index].title, // Keep name in sync with title
         description: quizData.description || data.quizzes[index].description,
         questions: quizData.questions || data.quizzes[index].questions,
+        status: quizData.status || data.quizzes[index].status, // Make sure status gets updated
         updatedAt: new Date().toISOString()
       };
       data.quizzes[index] = updatedQuiz;
       fileUtils.atomicWriteFileSync(DB_FILE, JSON.stringify(data, null, 2));
       
+      console.log('Updated quiz:', updatedQuiz);
       return updatedQuiz;
     } catch (error) {
       console.error('Error updating quiz:', error);

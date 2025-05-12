@@ -1228,13 +1228,14 @@ class QuizDesigner {
   
   /**
    * Save the quiz
-   */
-  async saveQuiz(status = 'draft') {
+   */  async saveQuiz(status = 'draft') {
     // Get quiz data from form
     this.quizData.name = this.quizNameInput.value.trim();
     this.quizData.description = this.quizDescriptionInput.value.trim();
     this.quizData.timePerQuestion = parseInt(this.timePerQuestionInput.value) || 30;
     this.quizData.status = status;
+    
+    console.log(`Saving quiz with status: ${status}`);
     
     // Validate
     if (!this.quizData.name) {
@@ -1253,7 +1254,7 @@ class QuizDesigner {
       const serverQuizData = {
         title: this.quizData.name,
         description: this.quizData.description || '',
-        questions: this.quizData.questions.map(q => ({
+        questions: this.questions.map(q => ({
           text: q.text,
           options: q.options.map((opt, index) => ({
             text: opt,
@@ -1264,13 +1265,10 @@ class QuizDesigner {
         status: this.quizData.status
       };
       
-      // Get token
-      const token = getTokenFromStorage();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
-      
-      // Save quiz
+      console.log('Mapped questions from:', this.questions);
+      console.log('Saving quiz data to server:', serverQuizData);
+        // Save quiz
+      console.log('Saving quiz data to server:', serverQuizData);
       const response = await fetch('/interac/api/quiz/quizzes', {
         method: 'POST',
         headers: {
@@ -1282,15 +1280,22 @@ class QuizDesigner {
       
       if (!response.ok) {
         const responseText = await response.text();
+        console.error('Server error response:', responseText);
         throw new Error('Failed to save quiz: ' + responseText);
       }
       
-      // Handle successful save
-      alert('Quiz saved successfully!');
+      const responseData = await response.json();
+      console.log('Server response after saving quiz:', responseData);
+        // Handle successful save
+      alert(`Quiz ${status === 'published' ? 'published' : 'saved'} successfully!`);
       
       // Refresh quiz list
-      if (typeof loadQuizzes === 'function') {
-        await loadQuizzes();
+      console.log('Looking for window.loadQuizzes function:', typeof window.loadQuizzes);
+      if (typeof window.loadQuizzes === 'function') {
+        console.log('Calling window.loadQuizzes to refresh quiz list');
+        await window.loadQuizzes();
+      } else {
+        console.warn('window.loadQuizzes function not found - quiz list may not update automatically');
       }
       
       // Close modal
