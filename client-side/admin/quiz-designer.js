@@ -484,8 +484,7 @@ class QuizDesigner {
               `Batch ${batchNumber}/${totalBatches} complete: ${batch.length} questions generated`, 
               'success'
             );
-          },
-          onComplete: (generatedQuestions) => {
+          },          onComplete: (generatedQuestions) => {
             // Clear interval
             clearInterval(timerInterval);
             
@@ -494,6 +493,13 @@ class QuizDesigner {
               return;
             }
             
+            console.log('[QuizDesigner] onComplete called with questions:', {
+              count: generatedQuestions?.length || 0,
+              isArray: Array.isArray(generatedQuestions),
+              dataType: typeof generatedQuestions,
+              sample: generatedQuestions?.[0] ? JSON.stringify(generatedQuestions[0]).substring(0, 100) + '...' : 'none'
+            });
+            
             // Process generated questions
             this.processGeneratedQuestions(generatedQuestions);
             
@@ -501,6 +507,15 @@ class QuizDesigner {
             setTimeout(() => {
               this.hideGenerationProgress();
             }, 1000);
+          },
+          onError: (error) => {
+            clearInterval(timerInterval);
+            console.error('[QuizDesigner] AI generation error:', error);
+            this.addGenerationLogEntry(`Error: ${error.message}`, 'error');
+            
+            setTimeout(() => {
+              this.hideGenerationProgress();
+            }, 3000);
           }
         }
       );
@@ -518,42 +533,64 @@ class QuizDesigner {
       }, 3000);
     }
   }
-    /**
+  /**
    * Process generated questions
    */
   processGeneratedQuestions(generatedQuestions) {
     console.log('[QuizDesigner] Processing generated questions:', generatedQuestions);
     
-    if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
-      this.addGenerationLogEntry('No questions were generated', 'error');
+    if (!generatedQuestions) {
+      console.error('[QuizDesigner] generatedQuestions is null or undefined');
+      this.addGenerationLogEntry('No questions were generated (received null)', 'error');
       return;
     }
     
-    // Process and format questions
-    const formattedQuestions = generatedQuestions.map(q => {
+    if (!Array.isArray(generatedQuestions)) {
+      console.error('[QuizDesigner] generatedQuestions is not an array:', typeof generatedQuestions);
+      this.addGenerationLogEntry('No questions were generated (invalid format)', 'error');
+      return;
+    }
+    
+    if (generatedQuestions.length === 0) {
+      console.error('[QuizDesigner] generatedQuestions array is empty');
+      this.addGenerationLogEntry('No questions were generated (empty array)', 'error');
+      return;
+    }
+      // Process and format questions
+    const formattedQuestions = generatedQuestions.map((q, index) => {
       // Ensure question has all required properties
       if (!q) {
-        console.warn('[QuizDesigner] Received null or undefined question');
+        console.warn(`[QuizDesigner] Question #${index} is null or undefined`);
         return null;
       }
       
       if (!q.text) {
-        console.warn('[QuizDesigner] Question missing text property:', q);
+        console.warn(`[QuizDesigner] Question #${index} missing text property:`, q);
         return null;
       }
       
-      if (!Array.isArray(q.options) || q.options.length < 2) {
-        console.warn('[QuizDesigner] Question has invalid options:', q);
+      if (!Array.isArray(q.options)) {
+        console.warn(`[QuizDesigner] Question #${index} has no options array:`, q);
+        return null;
+      }
+      
+      if (q.options.length < 2) {
+        console.warn(`[QuizDesigner] Question #${index} has fewer than 2 options:`, q.options);
         return null;
       }
       
       // Handle case where options might not be strings
-      const options = q.options.map(opt => typeof opt === 'string' ? opt : (opt.text || String(opt)));
+      const options = q.options.map((opt, i) => {
+        if (typeof opt === 'string') return opt;
+        if (opt && typeof opt === 'object' && opt.text) return opt.text;
+        console.warn(`[QuizDesigner] Question #${index}, Option #${i} has invalid format:`, opt);
+        return String(opt || `Option ${i+1}`);
+      });
       
       // Validate correctIndex
       let correctIndex = q.correctIndex;
       if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= options.length) {
-        console.warn('[QuizDesigner] Question has invalid correctIndex, defaulting to 0:', q);
+        console.warn(`[QuizDesigner] Question #${index} has invalid correctIndex (${correctIndex}), defaulting to 0`);
         correctIndex = 0;
       }
       

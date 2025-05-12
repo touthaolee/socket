@@ -537,11 +537,16 @@ export const aiService = {
             'This answer is incorrect.'
         );
       }
-    },
-      async generateQuizQuestions({ name, description, aiOptions }, callbacks = {}) {
+    },      async generateQuizQuestions({ name, description, aiOptions }, callbacks = {}) {
         const { onProgress, onComplete, onError } = callbacks;
         try {
             console.log('[AI] [generateQuizQuestions] Button clicked. Params:', { name, description, aiOptions });
+            console.log('[AI] [generateQuizQuestions] Callbacks provided:', { 
+                hasProgressCB: !!onProgress, 
+                hasCompleteCB: !!onComplete, 
+                hasErrorCB: !!onError 
+            });
+            
             if (!name) {
                 console.warn('[AI] [generateQuizQuestions] No quiz name provided');
                 if (onError) onError(new Error('Quiz name is required'));
@@ -567,24 +572,52 @@ export const aiService = {
                     tone: aiOptions.tone
                 })
             });
-            console.log('[AI] [generateQuizQuestions] Received response status:', response.status);
-            const data = await response.json();
+            console.log('[AI] [generateQuizQuestions] Received response status:', response.status);            const data = await response.json();
             console.log('[AI] [generateQuizQuestions] Response data:', data);
             
-            // Check if data contains questions array
+            // Check data structure more thoroughly
+            console.log('[AI] [generateQuizQuestions] Response analysis:', {
+                hasData: !!data,
+                isSuccess: data?.success,
+                hasQuestions: !!data?.questions,
+                questionsIsArray: Array.isArray(data?.questions),
+                questionsLength: data?.questions?.length || 0,
+                firstQuestion: data?.questions?.[0] ? JSON.stringify(data.questions[0]).substring(0, 100) + '...' : 'none'
+            });
+            
+            // Handle various response formats
+            let questionsToReturn = [];
+            
             if (data && Array.isArray(data.questions) && data.questions.length > 0) {
                 console.log('[AI] [generateQuizQuestions] Successfully received questions:', data.questions.length);
-                if (onProgress) onProgress(100, data.questions.length, aiOptions.numQuestions);
-                if (onComplete) onComplete(data.questions);
-                return data.questions;
+                questionsToReturn = data.questions;
             } else if (data && data.success && Array.isArray(data.questions)) {
                 console.log('[AI] [generateQuizQuestions] Successfully received questions in success format:', data.questions.length);
-                if (onProgress) onProgress(100, data.questions.length, aiOptions.numQuestions);
-                if (onComplete) onComplete(data.questions);
-                return data.questions;
+                questionsToReturn = data.questions;
+            } else if (data && Array.isArray(data)) {
+                // Handle case where response might be a direct array of questions
+                console.log('[AI] [generateQuizQuestions] Received direct array of questions:', data.length);
+                questionsToReturn = data;
             } else {
                 console.error('[AI] [generateQuizQuestions] Invalid response format:', data);
                 if (onError) onError(new Error('Invalid response format from AI backend: ' + JSON.stringify(data)));
+                return [];
+            }
+            
+            // Verify questions format before calling callbacks
+            const validQuestions = questionsToReturn.filter(q => q && q.text && Array.isArray(q.options));
+            console.log('[AI] [generateQuizQuestions] Valid questions count:', validQuestions.length);
+            
+            if (validQuestions.length > 0) {
+                if (onProgress) onProgress(100, validQuestions.length, aiOptions.numQuestions);
+                if (onComplete) {
+                    console.log('[AI] [generateQuizQuestions] Calling onComplete with', validQuestions.length, 'questions');
+                    onComplete(validQuestions);
+                }
+                return validQuestions;
+            } else {
+                console.error('[AI] [generateQuizQuestions] No valid questions found in response');
+                if (onError) onError(new Error('No valid questions found in response'));
                 return [];
             }
         } catch (err) {
