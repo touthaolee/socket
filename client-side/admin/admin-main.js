@@ -850,6 +850,7 @@ function getQuestionsFromForm() {
 
 // Start AI quiz generation
 function startQuizGeneration(quizData) {
+  console.log('[AI Generate Button] startQuizGeneration called with:', quizData);
   // Show generation progress modal
   const progressModal = document.getElementById('generation-progress-modal');
   if (progressModal) {
