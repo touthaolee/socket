@@ -584,8 +584,7 @@ export const aiService = {
                 questionsLength: data?.questions?.length || 0,
                 firstQuestion: data?.questions?.[0] ? JSON.stringify(data.questions[0]).substring(0, 100) + '...' : 'none'
             });
-            
-            // Handle various response formats
+              // Handle various response formats
             let questionsToReturn = [];
             
             if (data && Array.isArray(data.questions) && data.questions.length > 0) {
@@ -598,6 +597,31 @@ export const aiService = {
                 // Handle case where response might be a direct array of questions
                 console.log('[AI] [generateQuizQuestions] Received direct array of questions:', data.length);
                 questionsToReturn = data;
+            } else if (data && typeof data === 'object') {
+                // Try to extract questions from non-standard response formats
+                console.log('[AI] [generateQuizQuestions] Attempting to extract questions from object:', Object.keys(data));
+                if (data.success && data.questions) {
+                    questionsToReturn = Array.isArray(data.questions) ? data.questions : [data.questions];
+                } else if (data.result || data.results) {
+                    const possibleQuestions = data.result || data.results;
+                    questionsToReturn = Array.isArray(possibleQuestions) ? possibleQuestions : [possibleQuestions];
+                } else {
+                    // Last resort - try to find any array in the response that might contain questions
+                    for (const key in data) {
+                        if (Array.isArray(data[key]) && data[key].length > 0 && data[key][0] && 
+                            (data[key][0].text || data[key][0].question)) {
+                            console.log('[AI] [generateQuizQuestions] Found questions array in key:', key);
+                            questionsToReturn = data[key];
+                            break;
+                        }
+                    }
+                }
+                
+                if (questionsToReturn.length === 0) {
+                    console.error('[AI] [generateQuizQuestions] Could not extract questions from response:', data);
+                    if (onError) onError(new Error('Could not extract questions from response format'));
+                    return [];
+                }
             } else {
                 console.error('[AI] [generateQuizQuestions] Invalid response format:', data);
                 if (onError) onError(new Error('Invalid response format from AI backend: ' + JSON.stringify(data)));

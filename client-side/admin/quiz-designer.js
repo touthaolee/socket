@@ -500,6 +500,23 @@ class QuizDesigner {
               sample: generatedQuestions?.[0] ? JSON.stringify(generatedQuestions[0]).substring(0, 100) + '...' : 'none'
             });
             
+            // Handle case where we might have received a wrapped response
+            if (!Array.isArray(generatedQuestions) && typeof generatedQuestions === 'object') {
+              if (generatedQuestions.questions && Array.isArray(generatedQuestions.questions)) {
+                console.log('[QuizDesigner] Unwrapping questions from response object');
+                generatedQuestions = generatedQuestions.questions;
+              } else if (generatedQuestions.success && generatedQuestions.data && Array.isArray(generatedQuestions.data)) {
+                console.log('[QuizDesigner] Unwrapping questions from success.data object');
+                generatedQuestions = generatedQuestions.data;
+              }
+            }
+            
+            // Ensure we always have an array to work with
+            if (!Array.isArray(generatedQuestions)) {
+              console.error('[QuizDesigner] Expected array but got:', typeof generatedQuestions);
+              generatedQuestions = generatedQuestions ? [generatedQuestions] : [];
+            }
+            
             // Process generated questions
             this.processGeneratedQuestions(generatedQuestions);
             
@@ -532,8 +549,7 @@ class QuizDesigner {
         this.hideGenerationProgress();
       }, 3000);
     }
-  }
-  /**
+  }  /**
    * Process generated questions
    */
   processGeneratedQuestions(generatedQuestions) {
@@ -547,8 +563,16 @@ class QuizDesigner {
     
     if (!Array.isArray(generatedQuestions)) {
       console.error('[QuizDesigner] generatedQuestions is not an array:', typeof generatedQuestions);
-      this.addGenerationLogEntry('No questions were generated (invalid format)', 'error');
-      return;
+      
+      // Try to convert to array if it's an object with questions
+      if (typeof generatedQuestions === 'object' && generatedQuestions.questions) {
+        console.log('[QuizDesigner] Attempting to extract questions from object');
+        generatedQuestions = Array.isArray(generatedQuestions.questions) ? 
+          generatedQuestions.questions : [generatedQuestions.questions];
+      } else {
+        this.addGenerationLogEntry('No questions were generated (invalid format)', 'error');
+        return;
+      }
     }
     
     if (generatedQuestions.length === 0) {
@@ -556,54 +580,128 @@ class QuizDesigner {
       this.addGenerationLogEntry('No questions were generated (empty array)', 'error');
       return;
     }
-      // Process and format questions
-    const formattedQuestions = generatedQuestions.map((q, index) => {
-      // Ensure question has all required properties
-      if (!q) {
-        console.warn(`[QuizDesigner] Question #${index} is null or undefined`);
-        return null;
-      }
-      
-      if (!q.text) {
-        console.warn(`[QuizDesigner] Question #${index} missing text property:`, q);
-        return null;
-      }
-      
-      if (!Array.isArray(q.options)) {
-        console.warn(`[QuizDesigner] Question #${index} has no options array:`, q);
-        return null;
-      }
-      
-      if (q.options.length < 2) {
-        console.warn(`[QuizDesigner] Question #${index} has fewer than 2 options:`, q.options);
-        return null;
-      }
-      
-      // Handle case where options might not be strings
-      const options = q.options.map((opt, i) => {
-        if (typeof opt === 'string') return opt;
-        if (opt && typeof opt === 'object' && opt.text) return opt.text;
-        console.warn(`[QuizDesigner] Question #${index}, Option #${i} has invalid format:`, opt);
-        return String(opt || `Option ${i+1}`);
-      });
-      
-      // Validate correctIndex
-      let correctIndex = q.correctIndex;
-      if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= options.length) {
-        console.warn(`[QuizDesigner] Question #${index} has invalid correctIndex (${correctIndex}), defaulting to 0`);
-        correctIndex = 0;
-      }
-      
-      return {
-        text: q.text,
-        options: options,
-        correctIndex: correctIndex,
-        rationale: q.rationale || 'Explanation not provided for this question.'
-      };
-    }).filter(q => q !== null); // Remove any null questions
     
-    if (formattedQuestions.length === 0) {
+    console.log('[QuizDesigner] Question sample:', JSON.stringify(generatedQuestions[0]).substring(0, 200));      // Process and format questions
+    const formattedQuestions = generatedQuestions.map((q, index) => {
+      try {
+        // Ensure question has all required properties
+        if (!q) {
+          console.warn(`[QuizDesigner] Question #${index} is null or undefined`);
+          return null;
+        }
+        
+        // Handle different question formats
+        let questionText = '';
+        let options = [];
+        let correctIndex = 0;
+        let rationale = '';
+        
+        // Extract question text
+        if (typeof q.text === 'string') {
+          questionText = q.text;
+        } else if (typeof q.question === 'string') {
+          questionText = q.question;
+        } else if (typeof q === 'string') {
+          questionText = q;
+        } else {
+          console.warn(`[QuizDesigner] Question #${index} has no valid text property:`, q);
+          return null;
+        }
+        
+        // Extract options
+        if (Array.isArray(q.options) && q.options.length >= 2) {
+          options = q.options.map((opt, i) => {
+            if (typeof opt === 'string') return opt;
+            if (opt && typeof opt === 'object' && opt.text) return opt.text;
+            return String(opt || `Option ${i+1}`);
+          });
+        } else if (Array.isArray(q.answers) && q.answers.length >= 2) {
+          options = q.answers.map((ans, i) => {
+            if (typeof ans === 'string') return ans;
+            if (ans && typeof ans === 'object' && ans.text) return ans.text;
+            return String(ans || `Option ${i+1}`);
+          });
+        } else if (q.option1 && q.option2) {
+          // Handle numbered option properties
+          for (let i = 1; i <= 10; i++) {
+            const optKey = `option${i}`;
+            if (q[optKey]) options.push(q[optKey]);
+            else break;
+          }
+        } else {
+          console.warn(`[QuizDesigner] Question #${index} has invalid options:`, q);
+          return null;
+        }
+        
+        // Extract correct index
+        if (typeof q.correctIndex === 'number') {
+          correctIndex = q.correctIndex;
+        } else if (typeof q.correctAnswer === 'number') {
+          correctIndex = q.correctAnswer;
+        } else if (typeof q.answer === 'number') {
+          correctIndex = q.answer;
+        } else if (q.correct !== undefined) {
+          correctIndex = q.correct;
+        }
+        
+        // Validate correctIndex
+        if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= options.length) {
+          console.warn(`[QuizDesigner] Question #${index} has invalid correctIndex (${correctIndex}), defaulting to 0`);
+          correctIndex = 0;
+        }
+        
+        // Extract rationale
+        if (typeof q.rationale === 'string') {
+          rationale = q.rationale;
+        } else if (typeof q.explanation === 'string') {
+          rationale = q.explanation;
+        } else if (typeof q.feedback === 'string') {
+          rationale = q.feedback;
+        } else {
+          rationale = 'Explanation not provided for this question.';
+        }
+        
+        return {
+          text: questionText,
+          options: options,
+          correctIndex: correctIndex,
+          rationale: rationale
+        };
+      } catch (err) {
+        console.error(`[QuizDesigner] Error processing question #${index}:`, err);
+        return null;
+      }
+    }).filter(q => q !== null); // Remove any null questions
+      if (formattedQuestions.length === 0) {
       this.addGenerationLogEntry('Failed to process any valid questions', 'error');
+      // Try once more with generic question format if we couldn't process any questions
+      try {
+        const fallbackQuestions = generatedQuestions.map((q, i) => {
+          return {
+            text: typeof q === 'string' ? q : 
+                  (q.text || q.question || `Generated question ${i+1}`),
+            options: ["Option A", "Option B", "Option C", "Option D"],
+            correctIndex: 0,
+            rationale: "Please review this question as it was generated in an unexpected format."
+          };
+        });
+        
+        if (fallbackQuestions.length > 0) {
+          console.log('[QuizDesigner] Using fallback questions:', fallbackQuestions);
+          this.questions = fallbackQuestions;
+          this.quizData.questions = fallbackQuestions;
+          this.updateQuestionsList();
+          this.updateQuestionCount();
+          this.updatePreviewMeta();
+          this.addGenerationLogEntry(
+            `Warning: Generated ${fallbackQuestions.length} questions with default options. You may need to edit them.`,
+            'warning'
+          );
+          return;
+        }
+      } catch (err) {
+        console.error('[QuizDesigner] Fallback generation also failed:', err);
+      }
       return;
     }
     

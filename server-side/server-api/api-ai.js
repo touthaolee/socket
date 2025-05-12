@@ -57,8 +57,7 @@ router.post('/generate-questions', async (req, res) => {
     
     // Log the request parameters
     console.log(`Generating ${numQuestions} questions about "${topic}" (${difficulty || 'medium'} difficulty)`);
-    
-    // Generate questions
+      // Generate questions
     const questions = await aiGenerationService.generateQuestions(
       topic, 
       numQuestions,
@@ -69,11 +68,24 @@ router.post('/generate-questions', async (req, res) => {
     // Log success
     console.log(`Successfully generated ${questions.length} questions`);
     
+    // Ensure all questions have the required structure before sending
+    const processedQuestions = questions.map(q => {
+      // Make sure each question has the essential properties
+      const processedQ = {
+        text: q.text || "",
+        options: Array.isArray(q.options) ? q.options : [],
+        correctIndex: typeof q.correctIndex === 'number' ? q.correctIndex : 0,
+        rationale: q.rationale || ""
+      };
+      
+      return processedQ;
+    });
+    
     // Return the questions
     res.json({ 
       success: true, 
-      questions,
-      count: questions.length,
+      questions: processedQuestions,
+      count: processedQuestions.length,
       requestedCount: numQuestions
     });
   } catch (error) {
