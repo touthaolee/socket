@@ -474,17 +474,24 @@ function setupModalHandlers() {
     function showCreateQuizModal() {
       console.log('Create Quiz Button clicked from admin-main.js');
       
-      // Set both display and add active class to ensure visibility
-      createQuizModal.style.display = 'flex';
+      // Use the modern VA quiz modal instead of the old create-quiz-modal
+      // Access the openModernQuizModal function from the window object
+      if (typeof window.openModernQuizModal === 'function') {
+        console.log('Opening modern VA quiz modal');
+        window.openModernQuizModal();
+      } else {
+        console.warn('Modern VA quiz modal function not found, falling back to old modal');
+        // Set both display and add active class to ensure visibility
+        createQuizModal.style.display = 'flex';
+        
+        // Force browser reflow
+        void createQuizModal.offsetWidth;
+        
+        // Add custom class for additional styling if needed
+        createQuizModal.classList.add('active');
+      }
       
-      // Force browser reflow
-      void createQuizModal.offsetWidth;
-      
-      // Add custom class for additional styling if needed
-      createQuizModal.classList.add('active');
-      
-      console.log('Modal display style set to:', createQuizModal.style.display);
-      console.log('Modal classList:', createQuizModal.className);
+      console.log('Modal display triggered');
     }
   }
   
@@ -1226,6 +1233,8 @@ function startQuizGeneration(quizData) {
     onError: (error) => {
       clearInterval(elapsedTimeInterval);
       addLogEntry('Error during quiz generation: ' + error.message, true);
+      // Show a more visible error to the admin
+      alert('Quiz generation failed: ' + error.message + (error.suggestion ? ('\n' + error.suggestion) : ''));
     }
   });
 }

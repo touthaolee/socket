@@ -1,155 +1,140 @@
-// client-side/admin/services/ai-similarity-service.js
+// client-side/admin/service/ai-similarity-service.js
 
-// AI Similarity Service for checking question similarity
-export const similarityService = {
-    // Check similarity between questions
-    async checkSimilarity(questions) {
-      try {
-        if (!questions || questions.length < 2) {
-          return [];
-        }
-        
-        const token = getToken();
-        
-        const response = await fetch('/interac/api/ai/check-similarity', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            questions: questions.map(q => ({
-              id: q.id,
-              text: q.text,
-              options: q.options.map(o => o.text)
-            }))
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to check similarity');
-        }
-        
-        return await response.json();
-      } catch (error) {
-        console.error('Error checking similarity:', error);
-        throw error;
-      }
-    },
-    
-    // Show similarity results in the UI
-    showSimilarityResults(similarityGroups) {
-      const resultsContainer = document.getElementById('similarity-results');
-      resultsContainer.innerHTML = '';
-      
-      if (!similarityGroups || similarityGroups.length === 0) {
-        resultsContainer.innerHTML = `
-          <div class="empty-state">
-            <p>No similar questions found</p>
-          </div>
-        `;
-        return;
-      }
-      
-      similarityGroups.forEach((group, groupIndex) => {
-        const groupElement = document.createElement('div');
-        groupElement.className = 'similarity-group';
-        
-        // Determine similarity level
-        let similarityLevel = 'Low';
-        let similarityClass = 'similarity-low';
-        
-        if (group.similarityScore > 0.8) {
-          similarityLevel = 'High';
-          similarityClass = 'similarity-high';
-        } else if (group.similarityScore > 0.6) {
-          similarityLevel = 'Medium';
-          similarityClass = 'similarity-medium';
-        }
-        
-        groupElement.innerHTML = `
-          <div class="similarity-header">
-            <span>Group ${groupIndex + 1}: <span class="${similarityClass}">${similarityLevel} Similarity (${Math.round(group.similarityScore * 100)}%)</span></span>
-          </div>
-          <div class="similarity-questions">
-            ${group.questions.map(question => `
-              <div class="similarity-question">
-                <div class="similarity-question-text">${question.text}</div>
-                <div class="similarity-actions">
-                  <button class="btn-sm edit-similar-btn" data-id="${question.id}">Edit</button>
-                  <button class="btn-sm regenerate-similar-btn" data-id="${question.id}">Regenerate</button>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-          <div class="similarity-recommendation">
-            <p>Recommendation: ${getSimilarityRecommendation(group.similarityScore)}</p>
-          </div>
-        `;
-        
-        // Add event listeners
-        const editButtons = groupElement.querySelectorAll('.edit-similar-btn');
-        const regenerateButtons = groupElement.querySelectorAll('.regenerate-similar-btn');
-        
-        editButtons.forEach(button => {
-          button.addEventListener('click', () => {
-            editSimilarQuestion(button.dataset.id);
-          });
-        });
-        
-        regenerateButtons.forEach(button => {
-          button.addEventListener('click', () => {
-            regenerateSimilarQuestion(button.dataset.id);
-          });
-        });
-        
-        resultsContainer.appendChild(groupElement);
+/**
+ * Client-side AI Similarity Service
+ * Communicates with the server-side similarity service to analyze quiz questions
+ */
+
+class AiSimilarityService {
+  /**
+   * Check similarity between a specific question and others
+   * @param {string} questionText - The main question to check
+   * @param {Array<string>} compareQuestions - Questions to compare against
+   * @returns {Promise<Object>} - Similarity analysis results
+   */
+  async checkSimilarity(questionText, compareQuestions) {
+    try {
+      const response = await fetch('/api/ai/similarity/check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mainQuestion: questionText,
+          compareQuestions: compareQuestions
+        })
       });
       
-      // Show the modal
-      const modal = document.getElementById('similarity-check-modal');
-      modal.classList.add('active');
-    }
-  };
-  
-  // Helper function to get token
-  function getToken() {
-    const token = localStorage.getItem('auth_token');
-    if (!token) {
-      throw new Error('Authentication token not found');
-    }
-    return token;
-  }
-  
-  // Get recommendation based on similarity score
-  function getSimilarityRecommendation(score) {
-    if (score > 0.8) {
-      return 'These questions are testing the same concept. Consider regenerating one of them.';
-    } else if (score > 0.6) {
-      return 'These questions have overlapping concepts. Consider editing to focus on different aspects.';
-    } else {
-      return 'These questions are somewhat related but likely test different concepts.';
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Similarity check failed: ${errorText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error in similarity check:', error);
+      // Return a basic result when there's an error
+      return {
+        hasSimilar: false,
+        matches: [],
+        error: error.message
+      };
     }
   }
   
-  // Edit a similar question
-  function editSimilarQuestion(questionId) {
-    // Implementation would be similar to the editQuestion function
-    console.log('Edit similar question:', questionId);
-    
-    // Hide similarity modal
-    document.getElementById('similarity-check-modal').classList.remove('active');
-    
-    // Would typically load the question and open the edit modal
+  /**
+   * Check similarity across a batch of questions
+   * @param {Array<string>} questions - Array of questions to check
+   * @returns {Promise<Array>} - Array of similarity results
+   */
+  async checkBatchSimilarity(questions) {
+    try {
+      // Show loading UI
+      const loadingToast = this._showLoadingToast('Analyzing question similarity...');
+      
+      const response = await fetch('/api/ai/similarity/batch-check', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ questions })
+      });
+      
+      // Hide loading UI
+      this._hideLoadingToast(loadingToast);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Batch similarity check failed: ${errorText}`);
+      }
+      
+      const results = await response.json();
+      
+      // Show success message if we found similar questions
+      const similarCount = results.filter(r => r.hasSimilar).length;
+      if (similarCount > 0) {
+        this._showSuccessToast(`Found ${similarCount} questions with potential similarity`);
+      } else {
+        this._showSuccessToast('No similar questions found');
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Error in batch similarity check:', error);
+      this._showErrorToast(`Error checking question similarity: ${error.message}`);
+      return questions.map(() => ({ hasSimilar: false, matches: [], error: error.message }));
+    }
   }
   
-  // Regenerate a similar question
-  function regenerateSimilarQuestion(questionId) {
-    // Implementation would be similar to the regenerateQuestion function
-    console.log('Regenerate similar question:', questionId);
-    
-    // Hide similarity modal
-    document.getElementById('similarity-check-modal').classList.remove('active');
-    
-    // Would typically call the regenerate function
+  /**
+   * Show a loading toast notification
+   * @private
+   */
+  _showLoadingToast(message) {
+    return toastr.info(
+      `<div class="d-flex align-items-center">
+        <div class="spinner-border spinner-border-sm me-2" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <span>${message}</span>
+      </div>`,
+      null,
+      { 
+        timeOut: 0, 
+        extendedTimeOut: 0,
+        closeButton: false,
+        tapToDismiss: false
+      }
+    );
   }
+  
+  /**
+   * Hide a loading toast notification
+   * @private
+   */
+  _hideLoadingToast(toast) {
+    toastr.clear(toast);
+  }
+  
+  /**
+   * Show a success toast notification
+   * @private
+   */
+  _showSuccessToast(message) {
+    toastr.success(message, null, { timeOut: 3000 });
+  }
+  
+  /**
+   * Show an error toast notification
+   * @private
+   */
+  _showErrorToast(message) {
+    toastr.error(message, 'Error', { timeOut: 5000 });
+  }
+}
+
+// Create and export a singleton instance
+const similarityService = new AiSimilarityService();
+window.similarityService = similarityService; // Make it globally available
+
+export default similarityService;

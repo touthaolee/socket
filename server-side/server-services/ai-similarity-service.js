@@ -1,79 +1,186 @@
-// server-side/server-services/ai-similarity-service.js
+/**
+ * AI Similarity Service
+ * Provides enhanced similarity checking capabilities for quiz questions
+ */
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const logger = require('../../logger');
+const appConfig = require('../../config/app-config');
 
-// Initialize Gemini AI with your API key
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
-// Utility function to ensure minimum processing time for UI feedback
-const withMinProcessingTime = async (promise, minTime = 1500) => {
-    const start = Date.now();
-    const result = await promise;
-    const elapsed = Date.now() - start;
-    if (elapsed < minTime) {
-        await new Promise(resolve => setTimeout(resolve, minTime - elapsed));
+class AiSimilarityService {
+  constructor() {
+    // Initialize Google Generative AI client
+    this.genAI = new GoogleGenerativeAI(appConfig.googleAiApiKey);
+    this.model = this.genAI.getGenerativeModel({ model: "gemini-pro" });
+    
+    // Cache similarity results to avoid redundant API calls
+    this.cache = new Map();
+    this.cacheMaxSize = 100;
+    
+    console.log('AI Similarity Service initialized');
+  }
+  
+  /**
+   * Check similarity between a question and a set of other questions
+   * @param {string} questionText - The main question to compare
+   * @param {string[]} compareQuestions - Questions to compare against
+   * @returns {Promise<Object>} Similarity analysis results
+   */
+  async checkSimilarity(questionText, compareQuestions) {
+    try {
+      // Validate inputs
+      if (!questionText || !compareQuestions || compareQuestions.length === 0) {
+        return { hasSimilar: false, matches: [] };
+      }
+      
+      // Prepare the prompt for the AI
+      const prompt = this._buildSimilarityPrompt(questionText, compareQuestions);
+      
+      // Get AI response
+      const result = await this._callAiModel(prompt);
+      
+      // Extract similarity data from AI response
+      const similarityResult = this._parseSimilarityResponse(result, compareQuestions);
+      
+      return similarityResult;
+    } catch (error) {
+      console.error('Error checking similarity:', error);
+      // Return a basic result when there's an error
+      return { 
+        hasSimilar: false, 
+        matches: [],
+        error: error.message 
+      };
     }
-    return result;
-};
-
-const aiSimilarityService = {
-    /**
-     * Check similarity between quiz questions using AI
-     * @param {Array} questions - Array of question objects or question texts
-     * @returns {Promise<Object>} Similarity analysis result
-     */
-    async checkQuestionSimilarity(questions) {
-        if (!Array.isArray(questions) || questions.length < 2) {
-            return { result: 'Not enough questions to compare.' };
-        }
+  }
+  
+  /**
+   * Check similarity across a batch of questions
+   * @param {string[]} questions - Array of questions to check for similarity
+   * @returns {Promise<Array>} Array of similarity results for each question
+   */
+  async checkBatchSimilarity(questions) {
+    try {
+      if (!questions || questions.length < 2) {
+        return [];
+      }
+      
+      const results = [];
+      
+      // Compare each question to all others
+      for (let i = 0; i < questions.length; i++) {
+        const currentQuestion = questions[i];
+        const otherQuestions = questions.filter((_, idx) => idx !== i);
         
-        try {
-            // Create the model
-            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-            
-            // Prepare question texts (handle both object and string format)
-            const questionTexts = questions.map((q, i) => {
-                const text = typeof q === 'string' ? q : (q.text || q.questionText || '');
-                return `Question ${i + 1}: ${text}`;
-            }).join('\n\n');
-            
-            // Build the prompt with clear instructions
-            const prompt = `Analyze these quiz questions for similarity. If any questions are testing the same concept or are too similar, identify them. Only point out significant similarities that would make questions redundant.
-
-Questions to analyze:
-${questionTexts}
-
-Respond in this format:
-- If questions are unique: "All questions are unique."
-- If similarities found: "Q[number] and Q[number] are similar because [brief reason]"`;
-            
-            // Set generation parameters for more consistent results
-            const generationConfig = {
-                temperature: 0.3, // Lower temperature for more consistent similarity detection
-                topK: 1,
-                topP: 1,
-                maxOutputTokens: 1024,
-            };
-            
-            // Generate content
-            const result = await model.generateContent({
-                contents: [{ role: "user", parts: [{ text: prompt }] }],
-                generationConfig
-            });
-            
-            const response = result.response;
-            const analysis = response.text().trim();
-            
-            // Extract the most relevant part of the AI response
-            const simplifiedResponse = analysis.split('\n')[0].trim();
-            return { result: simplifiedResponse };
-            
-        } catch (error) {
-            logger.error('AI similarity check error:', error);
-            throw new Error('AI similarity check failed: ' + (error.message || 'Unknown error'));
-        }
+        // Check similarity
+        const result = await this.checkSimilarity(currentQuestion, otherQuestions);
+        
+        results.push({
+          index: i,
+          text: currentQuestion,
+          ...result
+        });
+      }
+      
+      return results;
+    } catch (error) {
+      console.error('Error in batch similarity check:', error);
+      return questions.map(() => ({ hasSimilar: false, matches: [], error: error.message }));
     }
-};
+  }
+  
+  // Private methods
+  
+  /**
+   * Build a prompt for the AI to analyze question similarity
+   * @private
+   */
+  _buildSimilarityPrompt(mainQuestion, compareQuestions) {
+    return `I'll provide a main quiz question and a list of other questions. 
+Analyze the semantic similarity between the main question and each comparison question.
+Focus on the core knowledge or concept being tested, not just surface wording.
 
+Main Question: "${mainQuestion}"
+
+Comparison Questions:
+${compareQuestions.map((q, i) => `${i+1}. "${q}"`).join('\n')}
+
+For each comparison question, analyze:
+1. Whether it tests the same core knowledge/concept as the main question
+2. The similarity percentage (0-100%)
+3. Brief explanation of the similarity or differences
+
+Respond in this JSON format:
+{
+  "matches": [
+    {
+      "text": "the full question text",
+      "similarity": 0.85,
+      "explanation": "Both questions test understanding of Newton's Third Law though with different scenarios"
+    }
+  ],
+  "analysisDetails": "Any overall observations about the question set"
+}
+
+Include only questions with similarity > 30%. Sort by similarity (highest first).`;
+  }
+  
+  /**
+   * Call the AI model with a prompt
+   * @private
+   */
+  async _callAiModel(prompt) {
+    try {
+      const result = await this.model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.1,
+          topP: 0.8,
+          maxOutputTokens: 2048,
+        },
+      });
+      
+      const responseText = result.response.text();
+      return responseText;
+    } catch (error) {
+      console.error('Error calling AI model:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Parse and extract similarity data from AI response
+   * @private
+   */
+  _parseSimilarityResponse(responseText, compareQuestions) {
+    try {
+      // Extract JSON from the response
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (!jsonMatch) {
+        throw new Error('No valid JSON found in AI response');
+      }
+      
+      // Parse the JSON
+      const data = JSON.parse(jsonMatch[0]);
+      
+      // Make sure we have a matches array
+      if (!data.matches) {
+        data.matches = [];
+      }
+      
+      // Format and return the result
+      return {
+        hasSimilar: data.matches.length > 0,
+        matches: data.matches,
+        analysisDetails: data.analysisDetails || null
+      };
+    } catch (error) {
+      console.error('Error parsing similarity response:', error);
+      return { hasSimilar: false, matches: [], error: error.message };
+    }
+  }
+}
+
+// Create and export a singleton instance
+const aiSimilarityService = new AiSimilarityService();
 module.exports = aiSimilarityService;

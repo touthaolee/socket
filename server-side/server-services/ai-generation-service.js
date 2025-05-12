@@ -1,6 +1,7 @@
 // server-side/server-services/ai-generation-service.js
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const logger = require('../../logger');
+const aiSimilarityService = require('./ai-similarity-service');
 
 // Check if the GEMINI_API_KEY is present in the environment
 if (!process.env.GEMINI_API_KEY) {
@@ -8,20 +9,15 @@ if (!process.env.GEMINI_API_KEY) {
   console.error('\x1b[31m%s\x1b[0m', 'ERROR: Missing GEMINI_API_KEY in environment variables. Make sure your .env file contains a valid API key.');
 }
 
-// Initialize Gemini AI with your API key using the new SDK
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "dummy-key-for-initialization" });
-
-// Log the SDK version to help with debugging
-logger.info('Using Google Gen AI SDK (@google/genai)');
+// Initialize Gemini AI with your API key
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy-key-for-initialization");
 
 // Test connection to the API
 async function testGeminiConnection() {
   try {
     logger.info('Testing connection to Gemini API...');
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: "Hello, are you working?"
-    });
+    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const result = await model.generateContent('Hello, are you working?');
     logger.info('Successfully connected to Gemini API');
     return true;
   } catch (error) {
@@ -36,10 +32,6 @@ testGeminiConnection().then(success => {
     logger.error('Gemini API connection test failed - AI features will not work properly');
   }
 });
-
-// Add these imports at the top
-const fs = require('fs');
-const path = require('path');
 
 // Enhanced rate limiting and retry logic
 const aiGenerationState = {
@@ -99,103 +91,7 @@ async function retryWithBackoff(fn, maxRetries = 5, initialDelay = 2000) {
     }
     throw new Error('Exceeded max retries due to rate limiting.');
 }
-// AI Generation Service
-// (Removed duplicate or misplaced async generateQuestionBatch function. Use the one defined inside aiGenerationService.)
-// Add to aiGenerationService object in ai-generation-service.js
 
-/**
- * Generates concise rationales for all answer options in a question.
- * @param {Object} params - Parameters including question, options, and correctIndex
- * @returns {Promise<string[]>} Array of rationales for each option
- */
-async function generateConciseRationalesForAllOptions({ question, options, correctIndex, style = 'serious' }) {
-  // Apply throttling
-  await throttleIfNeeded();
-  
-  return await retryWithBackoff(async () => {
-      try {
-          // Create the model
-          const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-          
-          // Build a prompt that asks for rationales for all options at once
-          let optionsText = '';
-          for (let i = 0; i < options.length; i++) {
-              const isCorrect = i === correctIndex;
-              optionsText += `Option ${String.fromCharCode(65 + i)}: ${options[i]}\n`;
-          }
-          
-          const prompt = `For this multiple-choice question, provide a concise explanation (rationale) for why each option is correct or incorrect.
-The question is: "${question}"
-
-${optionsText}
-The correct answer is: Option ${String.fromCharCode(65 + correctIndex)}
-
-For each option, write a 1-2 sentence explanation in a ${style} tone. Format your response as a JSON array of rationales, one per option:
-
-[
-"Rationale for Option A goes here",
-"Rationale for Option B goes here",
-...
-]
-
-Keep each rationale concise and straightforward, focusing on key points.`;
-          
-          // Generate content with specific configuration for concise responses
-          const generationConfig = {
-              temperature: 0.7,
-              maxOutputTokens: 1024,
-          };
-          
-          const result = await model.generateContent({
-              contents: [{ role: "user", parts: [{ text: prompt }] }],
-              generationConfig
-          });
-          
-          const response = result.response;
-          const text = response.text();
-          
-          // Parse the JSON response
-          try {
-              // Extract JSON array if it's wrapped in markdown code blocks
-              const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
-                               text.match(/```\n([\s\S]*?)\n```/) || 
-                               [null, text];
-              
-              const jsonContent = jsonMatch[1].trim();
-              const rationales = JSON.parse(jsonContent);
-              
-              // Validate that we have the right number of rationales
-              if (!Array.isArray(rationales) || rationales.length !== options.length) {
-                  throw new Error(`Expected ${options.length} rationales, but received ${rationales.length}`);
-              }
-              
-              return rationales;
-          } catch (parseError) {
-              logger.error('Error parsing rationales response:', parseError);
-              
-              // Fallback: manually extract rationales using regex patterns
-              const rationaleParts = text.match(/Option [A-Z]:\s*(.*?)(?=\n\nOption [A-Z]:|$)/gs);
-              
-              if (rationaleParts && rationaleParts.length === options.length) {
-                  return rationaleParts.map(part => {
-                      const rationaleLine = part.replace(/Option [A-Z]:/, '').trim();
-                      return rationaleLine || 'No rationale provided.';
-                  });
-              }
-              
-              // Last resort fallback
-              return options.map((_, i) => {
-                  return i === correctIndex ? 
-                      'This is the correct answer.' : 
-                      'This answer is incorrect.';
-              });
-          }
-      } catch (error) {
-          logger.error('Error generating rationales with AI:', error);
-          throw error;
-      }
-      });
-}
 // Simple similarity helper function
 function similarity(str1, str2) {
   // Normalize strings
@@ -208,6 +104,7 @@ function similarity(str1, str2) {
   // Calculate similarity ratio
   return matches / Math.max(s1.length, s2.length);
 }
+
 const aiGenerationService = {
   // Generate a quiz question
   async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'educational', specificFocus = null) {
@@ -222,6 +119,9 @@ const aiGenerationService = {
               logger.error('GEMINI_API_KEY is missing. Cannot generate question.');
               throw new Error('API key configuration error: GEMINI_API_KEY is missing');
             }
+            
+            // Create the model
+            const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
             
             // Enhanced prompt for better quality questions
             let prompt = `Generate a high-quality multiple-choice quiz question about "${topic}" with the following specifications:
@@ -249,94 +149,52 @@ const aiGenerationService = {
 "rationale": "Explanation of why the correct answer is right"
 }`;
             
-            // Generate content with the new API
+            // Generate content
             logger.info('Sending request to Gemini API');
+            const result = await model.generateContent(prompt);
+            const response = result.response;
+            const text = response.text();
+            
+            logger.info('Successfully received response from Gemini API');
+            logger.info(`Received response of length: ${text.length} characters`);
+            
+            // Enhanced parsing logic with better error handling
+            let questionObject;
             try {
-              // Using the new SDK approach
-              const response = await ai.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: prompt
-              });
-              
-              logger.info('Successfully received response from Gemini API');
-              const text = response.text;
-              logger.info(`Received response of length: ${text.length} characters`);
-              
-              // Enhanced parsing logic with better error handling
-              let questionObject;
-              try {
-                  // Extract JSON if it's wrapped in markdown code blocks
-                  const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
-                                   text.match(/```\n([\s\S]*?)\n```/) || 
-                                   [null, text];
-                  
-                  const jsonContent = jsonMatch[1].trim();
-                  logger.info(`Parsing JSON response of length: ${jsonContent.length} characters`);
-                  questionObject = JSON.parse(jsonContent);
-                  
-                  // Validate the structure and potentially fix the formatting
-                  if (!questionObject.text || !Array.isArray(questionObject.options)) {
-                      logger.error('Invalid question structure:', questionObject);
-                      throw new Error('Invalid question structure: missing text or options array');
-                  }
-                  
-                  // Ensure correctIndex is valid
-                  if (typeof questionObject.correctIndex !== 'number' || 
-                      questionObject.correctIndex < 0 || 
-                      questionObject.correctIndex >= questionObject.options.length) {
-                      // Default to first option if missing
-                      questionObject.correctIndex = 0;
-                  }
-                  
-                  // Ensure rationale exists
-                  if (!questionObject.rationale) {
-                      questionObject.rationale = `This is the correct answer: ${questionObject.options[questionObject.correctIndex]}`;
-                  }
-                  
-                  logger.info('Successfully generated and validated question');
-                  return questionObject;
-              } catch (parseError) {
-                  logger.error('Error parsing AI response:', parseError);
-                  logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
-                  throw new Error(`Failed to parse AI response: ${parseError.message}`);
-              }
-            } catch (apiError) {
-              logger.error('Gemini API call failed:', apiError);
-              if (apiError.message && apiError.message.includes('API key')) {
-                logger.error('API key issue detected. Check your GEMINI_API_KEY configuration.');
-              } else if (apiError.message && apiError.message.includes('404')) {
-                logger.error('404 Not Found error. The model endpoint may not exist or be accessible.');
-                logger.error('Trying with fallback model...');
-                // Try with fallback model
-                try {
-                  const fallbackResponse = await ai.models.generateContent({
-                    model: "gemini-1.5-pro",
-                    contents: prompt
-                  });
-                  
-                  logger.info('Successfully received response from fallback Gemini API model');
-                  
-                  const fallbackText = fallbackResponse.text;
-                  // Continue with parsing as before...
-                  const jsonMatch = fallbackText.match(/```json\n([\s\S]*?)\n```/) || 
-                                   fallbackText.match(/```\n([\s\S]*?)\n```/) || 
-                                   [null, fallbackText];
-                  
-                  const jsonContent = jsonMatch[1].trim();
-                  const fallbackQuestionObject = JSON.parse(jsonContent);
-                  
-                  // Same validation as above...
-                  if (!fallbackQuestionObject.text || !Array.isArray(fallbackQuestionObject.options)) {
-                      throw new Error('Invalid question structure from fallback model');
-                  }
-                  
-                  return fallbackQuestionObject;
-                } catch (fallbackError) {
-                  logger.error('Fallback model also failed:', fallbackError);
-                  throw new Error('Both primary and fallback models failed');
+                // Extract JSON if it's wrapped in markdown code blocks
+                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                                 text.match(/```\n([\s\S]*?)\n```/) || 
+                                 [null, text];
+                
+                const jsonContent = jsonMatch[1].trim();
+                logger.info(`Parsing JSON response of length: ${jsonContent.length} characters`);
+                questionObject = JSON.parse(jsonContent);
+                
+                // Validate the structure and potentially fix the formatting
+                if (!questionObject.text || !Array.isArray(questionObject.options)) {
+                    logger.error('Invalid question structure:', questionObject);
+                    throw new Error('Invalid question structure: missing text or options array');
                 }
-              }
-              throw apiError;
+                
+                // Ensure correctIndex is valid
+                if (typeof questionObject.correctIndex !== 'number' || 
+                    questionObject.correctIndex < 0 || 
+                    questionObject.correctIndex >= questionObject.options.length) {
+                    // Default to first option if missing
+                    questionObject.correctIndex = 0;
+                }
+                
+                // Ensure rationale exists
+                if (!questionObject.rationale) {
+                    questionObject.rationale = `This is the correct answer: ${questionObject.options[questionObject.correctIndex]}`;
+                }
+                
+                logger.info('Successfully generated and validated question');
+                return questionObject;
+            } catch (parseError) {
+                logger.error('Error parsing AI response:', parseError);
+                logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
+                throw new Error(`Failed to parse AI response: ${parseError.message}`);
             }
         } catch (error) {
             logger.error('Error generating question with AI:', error);
@@ -348,26 +206,31 @@ const aiGenerationService = {
   // Generate a rationale for a question
   async generateRationale(question, correctAnswer, incorrectAnswers = [], tone = 'educational') {
     try {
-      // Build the prompt
-      const incorrectAnswersText = incorrectAnswers.length > 0 
-        ? `\nIncorrect answers:\n${incorrectAnswers.map(a => `- ${a}`).join('\n')}` 
-        : '';
+      // Apply throttling
+      await throttleIfNeeded();
       
-      const prompt = `Question: ${question}
+      return await retryWithBackoff(async () => {
+        // Create the model
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        
+        // Build the prompt
+        const incorrectAnswersText = incorrectAnswers.length > 0 
+          ? `\nIncorrect answers:\n${incorrectAnswers.map(a => `- ${a}`).join('\n')}` 
+          : '';
+        
+        const prompt = `Question: ${question}
 Correct answer: ${correctAnswer}${incorrectAnswersText}
 
 Please generate a clear and concise explanation for why the correct answer is right and the others are wrong.
 Use a ${tone} tone. Keep the explanation under 100 words.`;
-      
-      // Generate content with new SDK
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-pro",
-        contents: prompt
+        
+        // Generate content
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        return response.text();
       });
-      
-      return response.text;
     } catch (error) {
-      console.error('Error generating rationale with AI:', error);
+      logger.error('Error generating rationale with AI:', error);
       throw error;
     }
   },
@@ -379,65 +242,11 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
         return [];
       }
       
-      // Create the model
-      const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-      
-      // Build the prompt
-      const questionsText = questions.map((q, i) => {
-        const optionsText = q.options ? q.options.map((o, j) => `  ${String.fromCharCode(97 + j)}) ${o}`).join('\n') : '';
-        return `Question ${i + 1}: ${q.text}\n${optionsText}\n`;
-      }).join('\n');
-      
-      const prompt = `I have a set of quiz questions and need to identify groups of questions that are testing the same concept or are too similar.
-Please analyze these questions for similarity and group them if they are testing the same concept or knowledge.
-
-${questionsText}
-
-For each group of similar questions, provide:
-1. The question numbers that belong to the group
-2. A similarity score between 0.0 and 1.0 (where 1.0 means identical concepts)
-3. A brief explanation of why they are similar
-
-Format your response as a JSON array of groups:
-[
-  {
-    "questions": [{"id": "question_id", "text": "question text"}],
-    "similarityScore": 0.85,
-    "explanation": "Both questions test the same concept of..."
-  }
-]
-
-Only include groups with a similarity score above 0.5. If no questions are similar above this threshold, return an empty array.`;
-      
-      // Generate content
-      const result = await model.generateContent(prompt);
-      const response = result.response;
-      const text = response.text();
-      
-      // Parse the JSON response
-      let similarityGroups;
-      try {
-        // Extract JSON if it's wrapped in markdown code blocks
-        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
-                         text.match(/```\n([\s\S]*?)\n```/) || 
-                         [null, text];
-        
-        const jsonContent = jsonMatch[1];
-        similarityGroups = JSON.parse(jsonContent);
-        
-        // Validate the structure
-        if (!Array.isArray(similarityGroups)) {
-          throw new Error('Invalid similarity groups structure');
-        }
-        
-      } catch (parseError) {
-        console.error('Error parsing AI similarity response:', parseError);
-        throw new Error('Failed to parse AI response');
-      }
-      
-      return similarityGroups;
+      return await aiSimilarityService.checkBatchSimilarity(
+        questions.map(q => typeof q === 'string' ? q : q.text)
+      );
     } catch (error) {
-      console.error('Error checking similarity with AI:', error);
+      logger.error('Error checking similarity with AI:', error);
       throw error;
     }
   },
@@ -448,6 +257,7 @@ Only include groups with a similarity score above 0.5. If no questions are simil
     const errors = [];
     let progress = 0;
     const progressCallback = config.progressCallback || (() => {});
+    
     // Initial progress update
     progressCallback({
       completed: 0,
@@ -456,7 +266,9 @@ Only include groups with a similarity score above 0.5. If no questions are simil
       questions: [],
       errors: []
     });
+    
     const startTime = Date.now();
+    
     for (let i = 0; i < count; i++) {
       try {
         // Progress estimation
@@ -464,6 +276,7 @@ Only include groups with a similarity score above 0.5. If no questions are simil
         const averageTimePerQuestion = i > 0 ? elapsedMs / i : 0;
         const estimatedTotalTimeMs = averageTimePerQuestion * count;
         const estimatedRemainingMs = Math.max(0, estimatedTotalTimeMs - elapsedMs);
+        
         progressCallback({
           completed: i,
           total: count,
@@ -474,9 +287,10 @@ Only include groups with a similarity score above 0.5. If no questions are simil
           errors,
           currentIndex: i
         });
+        
         // Generate question with specific focus if provided
         const specificFocus = config.specificFocuses?.[i % config.specificFocuses.length];
-        await throttleIfNeeded();
+        
         const question = await this.generateQuestion(
           topic,
           config.difficulty || 'medium',
@@ -484,11 +298,14 @@ Only include groups with a similarity score above 0.5. If no questions are simil
           config.tone || 'educational',
           specificFocus
         );
+        
         if (config.addTimestamp) {
           question.generatedAt = new Date().toISOString();
         }
+        
         // Duplicate check
         const isDuplicate = questions.some(q => similarity(q.text, question.text) > 0.8);
+        
         if (!isDuplicate) {
           questions.push(question);
           logger.info(`Generated question ${i+1}/${count}: ${question.text.substring(0, 50)}...`);
@@ -497,14 +314,18 @@ Only include groups with a similarity score above 0.5. If no questions are simil
           i--; // Retry this index
           continue;
         }
+        
+        // Small delay between questions to avoid hitting rate limits
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
         logger.error(`Error generating question ${i+1}/${count}:`, error);
+        
         errors.push({
           index: i,
           error: error.message || 'Unknown error',
           timestamp: new Date().toISOString()
         });
+        
         if (errors.length < count / 2) {
           logger.info(`Will retry question ${i+1}`);
           i--; // Retry this index
@@ -512,6 +333,7 @@ Only include groups with a similarity score above 0.5. If no questions are simil
         }
       }
     }
+    
     // Final progress update
     progressCallback({
       completed: questions.length,
@@ -522,6 +344,7 @@ Only include groups with a similarity score above 0.5. If no questions are simil
       errors,
       isComplete: true
     });
+    
     return {
       success: questions.length > 0,
       questions,
@@ -529,6 +352,317 @@ Only include groups with a similarity score above 0.5. If no questions are simil
       count: questions.length,
       requestedCount: count
     };
+  },
+  
+  // Generate an improved option for a specific question
+  async generateImprovedOption(question, option, isCorrect, otherOptions = []) {
+    try {
+      // Apply throttling
+      await throttleIfNeeded();
+      
+      return await retryWithBackoff(async () => {
+        // Create the model
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        
+        // Build the prompt
+        const otherOptionsText = otherOptions.length > 0 
+          ? `\nOther options in this question:\n${otherOptions.map(o => `- ${o}`).join('\n')}` 
+          : '';
+        
+        const correctStatus = isCorrect ? 'correct' : 'incorrect';
+        
+        const prompt = `I need to improve this ${correctStatus} answer option for a multiple-choice question.
+
+Question: ${question}
+Current option: ${option}${otherOptionsText}
+
+Please generate an improved version of this ${correctStatus} option that meets these criteria:
+- More clear and specific
+- Appropriate level of detail
+- Maintains its ${correctStatus}ness
+- Distinct from other options
+- Similar in length and style to other options
+- No partial correctness if it's supposed to be incorrect
+
+Provide ONLY the improved option text, nothing else.`;
+        
+        // Generate content
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        let improvedOption = response.text().trim();
+        
+        // Clean up any markdown or extra text
+        if (improvedOption.startsWith('"') && improvedOption.endsWith('"')) {
+          improvedOption = improvedOption.substring(1, improvedOption.length - 1);
+        }
+        
+        // Ensure the improved option isn't too long compared to others
+        const avgLength = otherOptions.reduce((sum, opt) => sum + opt.length, 0) / Math.max(1, otherOptions.length);
+        if (improvedOption.length > avgLength * 2) {
+          improvedOption = improvedOption.substring(0, Math.floor(avgLength * 1.5)) + '...';
+        }
+        
+        return improvedOption;
+      });
+    } catch (error) {
+      logger.error('Error generating improved option with AI:', error);
+      // Fallback
+      if (!option || option.trim() === '') {
+        return isCorrect ? 
+          'The correct answer to this question' : 
+          'An incorrect but plausible answer';
+      }
+      return option;
+    }
+  },
+  
+  // Generate rationales for all options in a question
+  async generateOptionRationales(question, options, correctIndex) {
+    try {
+      // Apply throttling
+      await throttleIfNeeded();
+      
+      return await retryWithBackoff(async () => {
+        // Create the model
+        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        
+        // Build the prompt
+        let optionsText = '';
+        for (let i = 0; i < options.length; i++) {
+          const isCorrect = i === correctIndex;
+          optionsText += `Option ${String.fromCharCode(65 + i)} (${isCorrect ? 'CORRECT' : 'INCORRECT'}): ${options[i]}\n`;
+        }
+        
+        const prompt = `For this multiple-choice question, provide a concise explanation for why each option is correct or incorrect.
+The question is: "${question}"
+
+${optionsText}
+
+For each option, write a brief explanation. Format your response as a JSON array of rationales, one per option:
+
+[
+  "Rationale for Option A goes here",
+  "Rationale for Option B goes here",
+  ...
+]
+
+Keep each rationale concise and educational.`;
+        
+        // Generate content
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
+        
+        // Parse the JSON response
+        try {
+          // Extract JSON if it's wrapped in markdown code blocks
+          const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || 
+                           text.match(/```\n([\s\S]*?)\n```/) || 
+                           [null, text];
+          
+          const jsonContent = jsonMatch[1].trim();
+          const rationales = JSON.parse(jsonContent);
+          
+          if (!Array.isArray(rationales) || rationales.length !== options.length) {
+            throw new Error(`Expected ${options.length} rationales, received ${rationales ? rationales.length : 0}`);
+          }
+          
+          return rationales;
+        } catch (parseError) {
+          logger.error('Error parsing option rationales:', parseError);
+          
+          // Fallback: generate a single rationale for the correct answer
+          const correctOption = options[correctIndex];
+          const mainRationale = await this.generateRationale(
+            question, 
+            correctOption, 
+            options.filter((_, i) => i !== correctIndex)
+          );
+          
+          // Create simple rationales for each option
+          return options.map((_, idx) => {
+            if (idx === correctIndex) {
+              return `This is correct. ${mainRationale}`;
+            } else {
+              return `This is incorrect. The correct answer is: ${correctOption}. ${mainRationale}`;
+            }
+          });
+        }
+      });
+    } catch (error) {
+      logger.error('Error generating option rationales with AI:', error);
+      
+      // Basic fallback
+      return options.map((_, idx) => 
+        idx === correctIndex ? 
+          'This is the correct answer.' : 
+          'This answer is incorrect.'
+      );
+    }
+  },
+  
+  // Generate a diverse batch of questions with automatic similarity checking
+  async generateDiverseQuestionBatch(topic, count, config = {}) {
+    try {
+      logger.info(`Generating diverse batch of ${count} questions for topic: "${topic}"`);
+      
+      const {
+        difficulty = 'medium',
+        tone = 'educational',
+        ensureDiversity = true,
+        maxSimilarityScore = 0.7,
+        progressCallback = () => {}
+      } = config;
+      
+      // Initial batch - generate more questions than needed to allow for filtering
+      const initialBatchSize = Math.min(count * 1.5, count + 5);
+      
+      logger.info(`Starting with initial batch of ${initialBatchSize} questions`);
+      
+      const initialResult = await this.generateQuestionBatch(topic, initialBatchSize, {
+        difficulty,
+        tone,
+        progressCallback: (progress) => {
+          // Report adjusted progress (max 70% for the initial generation phase)
+          const adjustedProgress = {
+            ...progress,
+            percentComplete: Math.round((progress.percentComplete * 0.7))
+          };
+          progressCallback(adjustedProgress);
+        }
+      });
+      
+      let finalQuestions = initialResult.questions;
+      
+      // If we need to ensure diversity and have enough questions to filter
+      if (ensureDiversity && finalQuestions.length > count) {
+        logger.info('Checking for similar questions to filter');
+        progressCallback({
+          percentComplete: 75,
+          status: 'Analyzing question similarity',
+          completed: finalQuestions.length,
+          total: initialBatchSize
+        });
+        
+        // Get just the question texts for similarity checking
+        const questionTexts = finalQuestions.map(q => q.text);
+        
+        // Check for similar questions
+        const similarityResults = await aiSimilarityService.checkBatchSimilarity(questionTexts);
+        
+        // Map of questions that should be filtered out (similar to others)
+        const filterOutIndices = new Set();
+        
+        // First, just count how many questions have similarities
+        const similarQuestionCount = similarityResults.filter(r => r.hasSimilar).length;
+        logger.info(`Found ${similarQuestionCount} questions with similarity concerns`);
+        
+        // Process similarity groups to filter out redundant questions
+        // Start with the most similar pairs and work down
+        const allPairs = [];
+        
+        // Collect all pairs with their similarity scores
+        similarityResults.forEach(result => {
+          if (result.hasSimilar) {
+            result.matches.forEach(match => {
+              allPairs.push({
+                index1: result.index,
+                index2: match.index,
+                similarity: match.similarity
+              });
+            });
+          }
+        });
+        
+        // Sort by similarity (highest first)
+        allPairs.sort((a, b) => b.similarity - a.similarity);
+        
+        // Process pairs from most similar to least
+        for (const pair of allPairs) {
+          // If this pair is very similar and we haven't already filtered both
+          if (pair.similarity >= maxSimilarityScore && 
+              !filterOutIndices.has(pair.index1) && 
+              !filterOutIndices.has(pair.index2)) {
+            
+            // Decide which one to keep - prefer to keep the one that isn't similar to others
+            const idx1HasOtherSimilar = similarityResults[pair.index1].matches.length > 1;
+            const idx2HasOtherSimilar = similarityResults[pair.index2].matches.length > 1;
+            
+            if (idx1HasOtherSimilar && !idx2HasOtherSimilar) {
+              filterOutIndices.add(pair.index1);
+            } else if (!idx1HasOtherSimilar && idx2HasOtherSimilar) {
+              filterOutIndices.add(pair.index2);
+            } else {
+              // If both or neither have other similarities, keep the more complex one
+              // (usually the longer question is more nuanced)
+              const q1Length = finalQuestions[pair.index1].text.length;
+              const q2Length = finalQuestions[pair.index2].text.length;
+              
+              if (q1Length > q2Length) {
+                filterOutIndices.add(pair.index2);
+              } else {
+                filterOutIndices.add(pair.index1);
+              }
+            }
+          }
+        }
+        
+        logger.info(`Filtering out ${filterOutIndices.size} similar questions`);
+        
+        // Filter out similar questions
+        finalQuestions = finalQuestions.filter((_, index) => !filterOutIndices.has(index));
+        
+        progressCallback({
+          percentComplete: 85,
+          status: 'Filtered similar questions',
+          completed: finalQuestions.length,
+          total: count
+        });
+        
+        // If we've filtered too many, generate a few more
+        if (finalQuestions.length < count) {
+          const additionalNeeded = count - finalQuestions.length;
+          logger.info(`Generating ${additionalNeeded} additional questions to reach target count`);
+          
+          const additionalResult = await this.generateQuestionBatch(topic, additionalNeeded, {
+            difficulty,
+            tone,
+            progressCallback: (progress) => {
+              // Report adjusted progress for the additional generation phase
+              const adjustedProgress = {
+                ...progress,
+                percentComplete: 85 + Math.round((progress.percentComplete * 0.15))
+              };
+              progressCallback(adjustedProgress);
+            }
+          });
+          
+          finalQuestions = [...finalQuestions, ...additionalResult.questions];
+        }
+      }
+      
+      // Trim to the requested count
+      finalQuestions = finalQuestions.slice(0, count);
+      
+      // Final progress update
+      progressCallback({
+        percentComplete: 100,
+        status: 'Complete',
+        completed: finalQuestions.length,
+        total: count,
+        isComplete: true
+      });
+      
+      return {
+        success: finalQuestions.length > 0,
+        questions: finalQuestions,
+        count: finalQuestions.length,
+        requestedCount: count
+      };
+    } catch (error) {
+      logger.error('Error generating diverse question batch:', error);
+      throw error;
+    }
   }
 };
 

@@ -1,132 +1,203 @@
-// server-side/server-api/api-ai.js
+/**
+ * AI API Endpoints
+ * Handles API routes for AI-powered features
+ */
+
 const express = require('express');
 const router = express.Router();
-const { authService, aiGenerationService } = require('../service-registry');
-const logger = require('../../logger');
+const aiGenerationService = require('../server-services/ai-generation-service');
+const aiSimilarityService = require('../server-services/ai-similarity-service');
+const authMiddleware = require('../middleware/auth-middleware');
 
-// Middleware to verify JWT token
-const verifyToken = (req, res, next) => {
-  const token = req.headers['authorization']?.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
-  }
-  
-  const decoded = authService.verifyToken(token);
-  if (!decoded) {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-  
-  req.userId = decoded.id;
-  next();
-};
+// Protect all AI endpoints with authentication
+router.use(authMiddleware.requireAuth);
 
-// Generate a quiz question
-router.post('/generate-question', verifyToken, async (req, res) => {
+/**
+ * Generate quiz questions
+ * POST /api/ai/generate-questions
+ */
+router.post('/generate-questions', async (req, res) => {
   try {
-    const { topic, difficulty, rationaleTone, optionsCount, specificFocus } = req.body;
+    const { topic, numQuestions, difficulty, tone } = req.body;
     
-    if (!topic) {
-      return res.status(400).json({ error: 'Topic is required' });
+    // Validate required fields
+    if (!topic || !numQuestions) {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    // Check for Gemini API key before attempting to generate
-    if (!process.env.GEMINI_API_KEY) {
-      logger.error('GEMINI_API_KEY environment variable is missing, API request will fail');
-      return res.status(500).json({ 
-        error: 'Server configuration error: GEMINI_API_KEY is missing',
-        details: 'The server is missing the Gemini API key in its environment configuration'
-      });
-    }
+    // Generate questions
+    const questions = await aiGenerationService.generateQuestions(
+      topic, 
+      numQuestions,
+      difficulty,
+      tone
+    );
     
-    logger.info(`Generating question for topic: "${topic}", difficulty: ${difficulty || 'medium'}`);
-    
-    try {
-      const question = await aiGenerationService.generateQuestion(
-        topic,
-        difficulty || 'medium',
-        optionsCount || 4,
-        rationaleTone || 'educational',
-        specificFocus
-      );
-      
-      logger.info('Question generated successfully');
-      res.json(question);
-    } catch (aiError) {
-      logger.error('AI generation failed:', aiError);
-      
-      // Return more detailed error information to help diagnose the issue
-      let errorDetails = {};
-      
-      if (aiError.message && aiError.message.includes('API key')) {
-        errorDetails = {
-          type: 'api_key_error',
-          message: 'There was an issue with the Gemini API key',
-          suggestion: 'Verify that the GEMINI_API_KEY in the server environment is valid and has not expired'
-        };
-      } else if (aiError.message && aiError.message.includes('rate limit')) {
-        errorDetails = {
-          type: 'rate_limit_error',
-          message: 'The server is being rate-limited by the Gemini API',
-          suggestion: 'Try again later when rate limits have reset'
-        };
-      } else if (aiError.message && aiError.message.includes('parse')) {
-        errorDetails = {
-          type: 'parsing_error',
-          message: 'The server received a response from Gemini but could not parse it correctly',
-          suggestion: 'This is a server-side issue, please report it to the administrator'
-        };
-      }
-      
-      res.status(500).json({ 
-        error: 'Failed to generate question', 
-        details: errorDetails
-      });
-    }
+    res.json({ success: true, questions });
   } catch (error) {
-    logger.error('Error in generate-question endpoint:', error);
-    res.status(500).json({ error: 'Failed to process question generation request' });
+    console.error('Error generating questions:', error);
+    // Enhanced error reporting
+    res.status(500).json({ 
+      error: 'Failed to generate questions',
+      message: error.message,
+      details: error.stack ? { stack: error.stack, cause: error.cause || null } : undefined,
+      suggestion: error.message && error.message.includes('API key')
+        ? 'Check that your AI API key is set and valid on the server.'
+        : undefined
+    });
   }
 });
 
-// Generate a rationale
-router.post('/generate-rationale', verifyToken, async (req, res) => {
+/**
+ * Generate a single question
+ * POST /api/ai/generate-question
+ */
+router.post('/generate-question', async (req, res) => {
   try {
-    const { question, correctAnswer, incorrectAnswers, tone } = req.body;
+    const { topic, difficulty, tone, previousQuestions } = req.body;
     
-    if (!question || !correctAnswer) {
-      return res.status(400).json({ error: 'Question and correct answer are required' });
+    // Validate required fields
+    if (!topic) {
+      return res.status(400).json({ error: 'Missing topic' });
     }
     
+    // Generate a single question
+    const question = await aiGenerationService.generateQuizQuestion(
+      topic, 
+      difficulty,
+      tone,
+      previousQuestions
+    );
+    
+    res.json({ success: true, question });
+  } catch (error) {
+    console.error('Error generating question:', error);
+    // Enhanced error reporting
+    res.status(500).json({ 
+      error: 'Failed to generate question',
+      message: error.message,
+      details: error.stack ? { stack: error.stack, cause: error.cause || null } : undefined,
+      suggestion: error.message && error.message.includes('API key')
+        ? 'Check that your AI API key is set and valid on the server.'
+        : undefined
+    });
+  }
+});
+
+/**
+ * Regenerate a specific question
+ * POST /api/ai/regenerate-question
+ */
+router.post('/regenerate-question', async (req, res) => {
+  try {
+    const { questionId, topic, difficulty, tone, previousQuestions } = req.body;
+    
+    // Validate required fields
+    if (!questionId || !topic) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Regenerate the question
+    const question = await aiGenerationService.regenerateQuestion(
+      questionId,
+      topic, 
+      difficulty,
+      tone,
+      previousQuestions
+    );
+    
+    res.json({ success: true, question });
+  } catch (error) {
+    console.error('Error regenerating question:', error);
+    res.status(500).json({ 
+      error: 'Failed to regenerate question',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Generate rationale for an answer
+ * POST /api/ai/generate-rationale
+ */
+router.post('/generate-rationale', async (req, res) => {
+  try {
+    const { question, correctAnswer, tone } = req.body;
+    
+    // Validate required fields
+    if (!question || !correctAnswer) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    // Generate rationale
     const rationale = await aiGenerationService.generateRationale(
       question,
       correctAnswer,
-      incorrectAnswers || [],
-      tone || 'educational'
+      tone
     );
     
-    res.json({ rationale });
+    res.json({ success: true, rationale });
   } catch (error) {
     console.error('Error generating rationale:', error);
-    res.status(500).json({ error: 'Failed to generate rationale' });
+    res.status(500).json({ 
+      error: 'Failed to generate rationale',
+      message: error.message
+    });
   }
 });
 
-// Check similarity between questions
-router.post('/check-similarity', verifyToken, async (req, res) => {
+/**
+ * Check similarity between questions
+ * POST /api/ai/similarity/check
+ */
+router.post('/similarity/check', async (req, res) => {
+  try {
+    const { mainQuestion, compareQuestions } = req.body;
+    
+    // Validate required fields
+    if (!mainQuestion || !compareQuestions || !Array.isArray(compareQuestions)) {
+      return res.status(400).json({ error: 'Missing or invalid required fields' });
+    }
+    
+    // Check similarity
+    const similarityResults = await aiSimilarityService.checkSimilarity(
+      mainQuestion,
+      compareQuestions
+    );
+    
+    res.json(similarityResults);
+  } catch (error) {
+    console.error('Error checking similarity:', error);
+    res.status(500).json({ 
+      error: 'Failed to check similarity',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * Check similarity across a batch of questions
+ * POST /api/ai/similarity/batch-check
+ */
+router.post('/similarity/batch-check', async (req, res) => {
   try {
     const { questions } = req.body;
     
-    if (!questions || !Array.isArray(questions) || questions.length < 2) {
-      return res.status(400).json({ error: 'At least two questions are required' });
+    // Validate required fields
+    if (!questions || !Array.isArray(questions)) {
+      return res.status(400).json({ error: 'Missing or invalid questions array' });
     }
     
-    const similarityGroups = await aiGenerationService.checkSimilarity(questions);
+    // Check batch similarity
+    const batchResults = await aiSimilarityService.checkBatchSimilarity(questions);
     
-    res.json(similarityGroups);
+    res.json(batchResults);
   } catch (error) {
-    console.error('Error checking similarity:', error);
-    res.status(500).json({ error: 'Failed to check similarity' });
+    console.error('Error checking batch similarity:', error);
+    res.status(500).json({ 
+      error: 'Failed to check batch similarity',
+      message: error.message 
+    });
   }
 });
 

@@ -192,21 +192,48 @@ function initModernQuizUI() {
       const card = document.createElement('div');
       card.className = 'va-question-card';
       card.innerHTML = `
-        <label>Q${i+1}: <input type="text" value="${q.text || ''}" data-qidx="${i}" class="va-qtext" placeholder="Question text"></label>
-        <div>
-          ${q.options.map((opt, j) => `
-            <label>
-              <input type="radio" name="correct${i}" ${q.correct===j?'checked':''} data-qidx="${i}" data-oidx="${j}" class="va-qcorrect">
-              <input type="text" value="${opt || ''}" data-qidx="${i}" data-oidx="${j}" class="va-qopt" placeholder="Option ${j+1}">
-            </label>
-          `).join('<br>')}
+        <div class="va-question-header">
+          <span class="va-question-number">Q${i+1}</span>
+          <input type="text" value="${q.text || ''}" data-qidx="${i}" class="va-qtext" placeholder="Question text">
+          <div class="va-question-controls">
+            <button type="button" class="va-icon-btn va-edit-btn" data-qidx="${i}" title="Edit question"><i class="fas fa-edit"></i></button>
+            <button type="button" class="va-icon-btn va-ai-btn" data-qidx="${i}" title="Regenerate with AI"><i class="fas fa-magic"></i></button>
+            <button type="button" class="va-icon-btn va-sim-btn" data-qidx="${i}" title="Check similarity"><i class="fas fa-balance-scale"></i></button>
+            <button type="button" class="va-icon-btn va-del-btn" data-qidx="${i}" title="Delete question"><i class="fas fa-trash"></i></button>
+          </div>
         </div>
-        <label>Rationale: <input type="text" value="${q.rationale || ''}" data-qidx="${i}" class="va-qrationale"></label>
+        <div class="va-options-container">
+          ${q.options.map((opt, j) => `
+            <div class="va-option-row">
+              <input type="radio" name="correct${i}" id="opt${i}_${j}" ${q.correct===j?'checked':''} data-qidx="${i}" data-oidx="${j}" class="va-qcorrect">
+              <label for="opt${i}_${j}" class="va-option-letter">${String.fromCharCode(65+j)}</label>
+              <input type="text" value="${opt || ''}" data-qidx="${i}" data-oidx="${j}" class="va-qopt" placeholder="Option ${j+1}">
+              <button type="button" class="va-icon-btn va-opt-ai-btn" data-qidx="${i}" data-oidx="${j}" title="Improve this option with AI"><i class="fas fa-bolt"></i></button>
+              ${q.options.length > 2 ? `<button type="button" class="va-icon-btn va-opt-del-btn" data-qidx="${i}" data-oidx="${j}" title="Remove option"><i class="fas fa-times"></i></button>` : ''}
+            </div>
+          `).join('')}
+          <button type="button" class="va-btn va-sm va-add-option-btn" data-qidx="${i}">Add Option</button>
+        </div>
+        <div class="va-rationale-container">
+          <label>Rationale: 
+            <button type="button" class="va-icon-btn va-generate-rationale-btn" data-qidx="${i}" title="Generate rationale with AI"><i class="fas fa-lightbulb"></i></button>
+          </label>
+          <textarea data-qidx="${i}" class="va-qrationale" placeholder="Explanation for why the correct answer is right">${q.rationale || ''}</textarea>
+        </div>
         <div class="va-question-actions">
-          <button type="button" class="va-btn va-primary va-edit-btn" data-qidx="${i}">Edit</button>
-          <button type="button" class="va-btn va-success va-ai-btn" data-qidx="${i}">AI Generate</button>
-          <button type="button" class="va-btn va-warning va-sim-btn" data-qidx="${i}">Similarity</button>
-          <button type="button" class="va-btn va-secondary va-del-btn" data-qidx="${i}">Delete</button>
+          <div class="va-difficulty-selector">
+            <label>Difficulty:</label>
+            <select class="va-qdiff" data-qidx="${i}">
+              <option value="easy" ${q.difficulty === 'easy' ? 'selected' : ''}>Easy</option>
+              <option value="medium" ${!q.difficulty || q.difficulty === 'medium' ? 'selected' : ''}>Medium</option>
+              <option value="hard" ${q.difficulty === 'hard' ? 'selected' : ''}>Hard</option>
+            </select>
+          </div>
+          <div class="va-action-buttons">
+            <button type="button" class="va-btn va-primary va-ai-btn" data-qidx="${i}">Regenerate</button>
+            <button type="button" class="va-btn va-warning va-sim-btn" data-qidx="${i}">Check Similarity</button>
+            <button type="button" class="va-btn va-danger va-del-btn" data-qidx="${i}">Delete</button>
+          </div>
         </div>
       `;
       list.appendChild(card);
@@ -229,16 +256,55 @@ function initModernQuizUI() {
       quiz.questions[inp.dataset.qidx].rationale = inp.value;
     });
     
-    list.querySelectorAll('.va-del-btn').forEach(btn => btn.onclick = e => {
-      quiz.questions.splice(btn.dataset.qidx, 1);
-      renderQuestions();
+    list.querySelectorAll('.va-qdiff').forEach(sel => sel.onchange = e => {
+      quiz.questions[sel.dataset.qidx].difficulty = sel.value;
     });
     
+    list.querySelectorAll('.va-del-btn').forEach(btn => btn.onclick = e => {
+      if (confirm('Are you sure you want to delete this question?')) {
+        quiz.questions.splice(btn.dataset.qidx, 1);
+        renderQuestions();
+      }
+    });
+    
+    list.querySelectorAll('.va-add-option-btn').forEach(btn => btn.onclick = e => {
+      const idx = parseInt(btn.dataset.qidx, 10);
+      if (quiz.questions[idx].options.length < 6) {
+        quiz.questions[idx].options.push('');
+        renderQuestions();
+      } else {
+        showToast('Maximum 6 options per question');
+      }
+    });
+    
+    list.querySelectorAll('.va-opt-del-btn').forEach(btn => btn.onclick = e => {
+      const qIdx = parseInt(btn.dataset.qidx, 10);
+      const oIdx = parseInt(btn.dataset.oidx, 10);
+      
+      if (quiz.questions[qIdx].options.length > 2) {
+        quiz.questions[qIdx].options.splice(oIdx, 1);
+        
+        // Adjust the correct answer index if needed
+        if (quiz.questions[qIdx].correct === oIdx) {
+          quiz.questions[qIdx].correct = 0;
+        } else if (quiz.questions[qIdx].correct > oIdx) {
+          quiz.questions[qIdx].correct--;
+        }
+        
+        renderQuestions();
+      } else {
+        showToast('Minimum 2 options required');
+      }
+    });
+    
+    // AI regenerate for a specific question
     list.querySelectorAll('.va-ai-btn').forEach(btn => btn.onclick = async e => {
       // AI generate for this question
       try {
         const idx = parseInt(btn.dataset.qidx, 10);
         const questionText = quiz.questions[idx].text || "General knowledge question";
+        const difficulty = quiz.questions[idx].difficulty || "medium";
+        const optionsCount = quiz.questions[idx].options.length;
         
         showToast('Generating new question...');
         
@@ -249,8 +315,8 @@ function initModernQuizUI() {
           aiOptions: {
             topic: questionText,
             numQuestions: 1,
-            difficulty: 'medium',
-            optionsPerQuestion: 4
+            difficulty: difficulty,
+            optionsPerQuestion: optionsCount
           }
         }, {
           onComplete: (questions) => {
@@ -265,7 +331,8 @@ function initModernQuizUI() {
               text: newQ.text,
               options: Array.isArray(newQ.options) ? newQ.options.map(o => typeof o === 'string' ? o : o.text) : [],
               correct: newQ.correctIndex || 0,
-              rationale: newQ.rationale || ''
+              rationale: newQ.rationale || '',
+              difficulty: difficulty
             };
             
             renderQuestions();
@@ -280,6 +347,82 @@ function initModernQuizUI() {
       }
     });
     
+    // Generate rationale for a question
+    list.querySelectorAll('.va-generate-rationale-btn').forEach(btn => btn.onclick = async e => {
+      try {
+        const idx = parseInt(btn.dataset.qidx, 10);
+        const question = quiz.questions[idx];
+        
+        if (!question.text || question.options.filter(o => o.trim()).length < 2) {
+          showToast('Question text and at least 2 options are required');
+          return;
+        }
+        
+        showToast('Generating rationale...');
+        
+        // Use the aiService to generate a rationale
+        const correctAnswer = question.options[question.correct];
+        const incorrectAnswers = question.options.filter((_, i) => i !== question.correct);
+        
+        aiService.generateRationale(
+          question.text,
+          correctAnswer,
+          incorrectAnswers,
+          'educational'
+        ).then(rationale => {
+          if (rationale) {
+            quiz.questions[idx].rationale = rationale;
+            renderQuestions();
+            showToast('Rationale generated!');
+          } else {
+            showToast('Failed to generate rationale');
+          }
+        }).catch(error => {
+          showToast('Failed to generate rationale: ' + error.message);
+        });
+      } catch (e) {
+        showToast('Failed to generate rationale: ' + e.message);
+      }
+    });
+    
+    // Improve an option with AI
+    list.querySelectorAll('.va-opt-ai-btn').forEach(btn => btn.onclick = async e => {
+      try {
+        const qIdx = parseInt(btn.dataset.qidx, 10);
+        const oIdx = parseInt(btn.dataset.oidx, 10);
+        const question = quiz.questions[qIdx];
+        const option = question.options[oIdx];
+        
+        if (!question.text) {
+          showToast('Question text is required');
+          return;
+        }
+        
+        showToast('Improving option...');
+        
+        // Generate an improved option
+        aiService.generateImprovedOption(
+          question.text,
+          option,
+          oIdx === question.correct,
+          question.options
+        ).then(improvedOption => {
+          if (improvedOption) {
+            quiz.questions[qIdx].options[oIdx] = improvedOption;
+            renderQuestions();
+            showToast('Option improved!');
+          } else {
+            showToast('Failed to improve option');
+          }
+        }).catch(error => {
+          showToast('Failed to improve option: ' + error.message);
+        });
+      } catch (e) {
+        showToast('Failed to improve option: ' + e.message);
+      }
+    });
+    
+    // Enhanced similarity check
     list.querySelectorAll('.va-sim-btn').forEach(btn => btn.onclick = async e => {
       // Similarity check for this question
       try {
@@ -297,22 +440,84 @@ function initModernQuizUI() {
         similarityService.checkSimilarity(
           questionText, 
           quiz.questions.map(q => q.text).filter((q, i) => i !== idx && q)
-        ).then(result => {
-          if (!result || !result.matches || result.matches.length === 0) {
+        ).then((results) => {
+          if (!results || !results.matches || results.matches.length === 0) {
             showToast('No similar questions found');
           } else {
-            showToast(`Found ${result.matches.length} similar questions`);
+            showToast(`Found ${results.matches.length} similar questions`);
             
-            // Highlight similar questions (could enhance this UI further)
-            result.matches.forEach(match => {
+            // Enhanced similarity visualization
+            results.matches.forEach(match => {
               const matchIdx = quiz.questions.findIndex(q => q.text === match.text);
               if (matchIdx >= 0) {
-                const element = list.querySelector(`.va-question-card:nth-child(${matchIdx + 1})`);
-                if (element) {
-                  element.style.borderLeft = '3px solid red';
+                const similarCard = list.querySelector(`.va-question-card:nth-child(${matchIdx + 1})`);
+                const currentCard = list.querySelector(`.va-question-card:nth-child(${idx + 1})`);
+                
+                if (similarCard && currentCard) {
+                  // Highlight both cards
+                  similarCard.style.borderLeft = '5px solid #ffc107';
+                  similarCard.style.background = 'rgba(255, 193, 7, 0.1)';
+                  currentCard.style.borderLeft = '5px solid #ffc107';
+                  currentCard.style.background = 'rgba(255, 193, 7, 0.1)';
+                  
+                  // Add similarity badge
+                  const similarityScore = Math.round(match.similarity * 100);
+                  const badge = document.createElement('div');
+                  badge.className = 'va-similarity-badge';
+                  badge.innerHTML = `<strong>${similarityScore}%</strong> similar to Q${matchIdx + 1}`;
+                  badge.style.position = 'absolute';
+                  badge.style.top = '0';
+                  badge.style.right = '0';
+                  badge.style.background = '#ffc107';
+                  badge.style.color = '#000';
+                  badge.style.padding = '2px 8px';
+                  badge.style.borderRadius = '0 0 0 8px';
+                  badge.style.fontSize = '12px';
+                  
+                  // Remove any existing badges
+                  const existingBadge = currentCard.querySelector('.va-similarity-badge');
+                  if (existingBadge) {
+                    existingBadge.remove();
+                  }
+                  
+                  currentCard.style.position = 'relative';
+                  currentCard.appendChild(badge);
+                  
+                  // Scroll to the similar question
+                  similarCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  
+                  // Add regenerate suggestion
+                  if (similarityScore > 80) {
+                    const suggestion = document.createElement('div');
+                    suggestion.className = 'va-similarity-suggestion';
+                    suggestion.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Questions are very similar. Consider regenerating one.`;
+                    suggestion.style.background = '#f8d7da';
+                    suggestion.style.color = '#721c24';
+                    suggestion.style.padding = '8px';
+                    suggestion.style.margin = '8px 0';
+                    suggestion.style.borderRadius = '4px';
+                    suggestion.style.fontSize = '14px';
+                    
+                    // Remove any existing suggestions
+                    const existingSuggestion = currentCard.querySelector('.va-similarity-suggestion');
+                    if (existingSuggestion) {
+                      existingSuggestion.remove();
+                    }
+                    
+                    currentCard.appendChild(suggestion);
+                  }
+                  
+                  // Auto-clear after 8 seconds
                   setTimeout(() => {
-                    element.style.borderLeft = '';
-                  }, 3000);
+                    similarCard.style.borderLeft = '';
+                    similarCard.style.background = '';
+                    currentCard.style.borderLeft = '';
+                    currentCard.style.background = '';
+                    const badge = currentCard.querySelector('.va-similarity-badge');
+                    const suggestion = currentCard.querySelector('.va-similarity-suggestion');
+                    if (badge) badge.remove();
+                    if (suggestion) suggestion.remove();
+                  }, 8000);
                 }
               }
             });
@@ -322,14 +527,6 @@ function initModernQuizUI() {
         });
       } catch (e) {
         showToast('Similarity check failed: ' + e.message);
-      }
-    });
-    
-    list.querySelectorAll('.va-edit-btn').forEach(btn => btn.onclick = e => {
-      const idx = parseInt(btn.dataset.qidx, 10);
-      const qText = document.querySelector(`.va-qtext[data-qidx="${idx}"]`);
-      if (qText) {
-        qText.focus();
       }
     });
   }

@@ -281,6 +281,267 @@ export const aiService = {
       }
       
       return question;
+    },
+    
+    // Generate an improved answer option for a specific question
+    async generateImprovedOption(questionText, currentOption, isCorrect, allOptions) {
+      try {
+        const token = getToken();
+        
+        const response = await fetch('/interac/api/ai/improve-option', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            question: questionText,
+            option: currentOption,
+            isCorrect,
+            otherOptions: allOptions.filter(opt => opt !== currentOption)
+          })
+        });
+        
+        if (!response.ok) {
+          // If server endpoint doesn't exist yet, generate locally
+          if (response.status === 404) {
+            return this.generateImprovedOptionLocally(questionText, currentOption, isCorrect, allOptions);
+          }
+          throw new Error('Failed to improve option');
+        }
+        
+        const data = await response.json();
+        return data.improvedOption;
+      } catch (error) {
+        console.error('Error improving option:', error);
+        // Fallback to local generation
+        return this.generateImprovedOptionLocally(questionText, currentOption, isCorrect, allOptions);
+      }
+    },
+    
+    // Fallback method to generate improved options client-side when server method unavailable
+    generateImprovedOptionLocally(questionText, currentOption, isCorrect, allOptions) {
+      // If the option is empty, create a basic one
+      if (!currentOption.trim()) {
+        if (isCorrect) {
+          return `The correct answer regarding ${questionText.split(' ').slice(0, 3).join(' ')}...`;
+        } else {
+          return `A plausible but incorrect answer about ${questionText.split(' ').slice(0, 3).join(' ')}...`;
+        }
+      }
+      
+      // Otherwise enhance the existing option
+      let improved = currentOption;
+      
+      // Make the option more clear and specific
+      if (improved.length < 15) {
+        improved = `${improved} - ${isCorrect ? 'this is the correct choice because...' : 'this is incorrect because...'}`;
+      }
+      
+      // Ensure it's distinct from other options
+      const similarOptions = allOptions.filter(opt => 
+        opt !== currentOption && 
+        opt.toLowerCase().includes(currentOption.toLowerCase())
+      );
+      
+      if (similarOptions.length > 0) {
+        improved = `${improved} (distinct from other options)`;
+      }
+      
+      return improved;
+    },
+    
+    // Check for similar questions with improved visualization
+    async checkBatchSimilarity(questions) {
+      try {
+        const token = getToken();
+        
+        const response = await fetch('/interac/api/ai/check-similarity', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ questions })
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to check similarity');
+        }
+        
+        return await response.json();
+      } catch (error) {
+        console.error('Error checking batch similarity:', error);
+        // Fallback to basic similarity check
+        return this.generateBasicSimilarityCheck(questions);
+      }
+    },
+    
+    // Generate a basic similarity check when the server fails
+    generateBasicSimilarityCheck(questions) {
+      const results = [];
+      
+      // Simple local similarity algorithm (basic word overlap)
+      for (let i = 0; i < questions.length; i++) {
+        const q1 = questions[i].toLowerCase();
+        const words1 = new Set(q1.split(/\W+/).filter(w => w.length > 3));
+        
+        let hasSimilar = false;
+        const matches = [];
+        
+        for (let j = 0; j < questions.length; j++) {
+          if (i === j) continue;
+          
+          const q2 = questions[j].toLowerCase();
+          const words2 = new Set(q2.split(/\W+/).filter(w => w.length > 3));
+          
+          // Count word overlap
+          let overlapCount = 0;
+          for (const word of words1) {
+            if (words2.has(word)) overlapCount++;
+          }
+          
+          // Calculate similarity
+          const similarity = overlapCount / Math.max(words1.size, words2.size);
+          
+          if (similarity > 0.4) {
+            hasSimilar = true;
+            matches.push({
+              index: j,
+              text: questions[j],
+              similarity: similarity
+            });
+          }
+        }
+        
+        results.push({
+          index: i,
+          text: questions[i],
+          hasSimilar,
+          matches
+        });
+      }
+      
+      return results;
+    },
+    
+    // Bulk generate questions for a quiz
+    async bulkGenerateQuestions(topic, count, config = {}, callbacks = {}) {
+      const {
+        onStart = () => {},
+        onProgress = () => {},
+        onComplete = () => {},
+        onError = () => {}
+      } = callbacks;
+      
+      try {
+        onStart();
+        
+        // Use existing batch generation function
+        const questions = await this.generateQuizQuestions(
+          {
+            topic,
+            numQuestions: count,
+            difficulty: config.difficulty || 'medium',
+            optionsPerQuestion: config.optionsPerQuestion || 4,
+            rationaleTone: config.tone || 'educational',
+            specificFocuses: config.specificFocuses || '',
+            batchSize: config.batchSize || 5
+          },
+          {
+            onProgress,
+            onBatchComplete: (batch, current, total) => {
+              if (callbacks.onBatchComplete) {
+                callbacks.onBatchComplete(batch, current, total);
+              }
+            },
+            onComplete: (allQuestions) => {
+              // Check for potential similar questions before completing
+              this.checkBatchSimilarity(allQuestions.map(q => q.text))
+                .then(similarityResult => {
+                  // Tag questions with similarity data
+                  const taggedQuestions = allQuestions.map((q, idx) => {
+                    const similarityData = similarityResult.find(r => r.index === idx);
+                    return {
+                      ...q,
+                      similarityData: similarityData || { hasSimilar: false }
+                    };
+                  });
+                  
+                  // Count similar questions
+                  const similarCount = similarityResult.filter(r => r.hasSimilar).length;
+                  
+                  onComplete(taggedQuestions, { 
+                    similarCount, 
+                    totalCount: allQuestions.length 
+                  });
+                })
+                .catch(error => {
+                  // If similarity check fails, still return the questions
+                  console.error('Similarity check failed but returning questions anyway:', error);
+                  onComplete(allQuestions, { similarCount: 0, totalCount: allQuestions.length });
+                });
+            },
+            onError
+          }
+        );
+        
+        return questions;
+      } catch (error) {
+        console.error('Bulk generation error:', error);
+        onError(error);
+        throw error;
+      }
+    },
+    
+    // Generate comprehensive rationales for all options in a question
+    async generateOptionRationales(question, options, correctIndex) {
+      try {
+        const token = getToken();
+        
+        const response = await fetch('/interac/api/ai/generate-option-rationales', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            question,
+            options,
+            correctIndex
+          })
+        });
+        
+        if (!response.ok) {
+          // If server endpoint doesn't exist, fall back to regular rationale generation
+          if (response.status === 404) {
+            const correctOption = options[correctIndex];
+            const otherOptions = options.filter((_, i) => i !== correctIndex);
+            const mainRationale = await this.generateRationale(question, correctOption, otherOptions);
+            
+            // Create simple rationales for each option
+            return options.map((opt, idx) => {
+              if (idx === correctIndex) {
+                return mainRationale;
+              } else {
+                return `This is incorrect. ${mainRationale}`;
+              }
+            });
+          }
+          throw new Error('Failed to generate option rationales');
+        }
+        
+        const data = await response.json();
+        return data.rationales;
+      } catch (error) {
+        console.error('Error generating option rationales:', error);
+        // Basic fallback
+        return options.map((_, idx) => 
+          idx === correctIndex ? 
+            'This is the correct answer.' : 
+            'This answer is incorrect.'
+        );
+      }
     }
   };
   
