@@ -5,6 +5,8 @@
  * Communicates with the server-side similarity service to analyze quiz questions
  */
 
+import { showToast } from '../../client-utils/ui-utils.js';
+
 class AiSimilarityService {
   /**
    * Check similarity between a specific question and others
@@ -91,20 +93,15 @@ class AiSimilarityService {
    * @private
    */
   _showLoadingToast(message) {
-    return toastr.info(
+    return showToast(
       `<div class="d-flex align-items-center">
         <div class="spinner-border spinner-border-sm me-2" role="status">
           <span class="visually-hidden">Loading...</span>
         </div>
         <span>${message}</span>
       </div>`,
-      null,
-      { 
-        timeOut: 0, 
-        extendedTimeOut: 0,
-        closeButton: false,
-        tapToDismiss: false
-      }
+      'info',
+      0
     );
   }
   
@@ -113,7 +110,7 @@ class AiSimilarityService {
    * @private
    */
   _hideLoadingToast(toast) {
-    toastr.clear(toast);
+    if (toast && toast.parentNode) toast.parentNode.removeChild(toast);
   }
   
   /**
@@ -121,7 +118,7 @@ class AiSimilarityService {
    * @private
    */
   _showSuccessToast(message) {
-    toastr.success(message, null, { timeOut: 3000 });
+    showToast(message, 'success', 3000);
   }
   
   /**
@@ -129,7 +126,7 @@ class AiSimilarityService {
    * @private
    */
   _showErrorToast(message) {
-    toastr.error(message, 'Error', { timeOut: 5000 });
+    showToast(message, 'error', 5000);
   }
 }
 

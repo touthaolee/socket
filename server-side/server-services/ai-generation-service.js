@@ -105,18 +105,21 @@ function similarity(str1, str2) {
   return matches / Math.max(s1.length, s2.length);
 }
 
+// Enhanced logging for AI generation service
 const aiGenerationService = {
   // Generate a quiz question
   async generateQuestion(topic, difficulty = 'medium', optionsCount = 4, tone = 'educational', specificFocus = null) {
+    logger.info(`[AI] [generateQuestion] Called with topic="${topic}", difficulty="${difficulty}", optionsCount=${optionsCount}, tone="${tone}", specificFocus="${specificFocus}", timestamp=${new Date().toISOString()}`);
     // Apply throttling
     await throttleIfNeeded();
     
     return await retryWithBackoff(async () => {
         try {
+            logger.info(`[AI] [generateQuestion] Building prompt for topic="${topic}"`);
             // Enhanced debug logging
             logger.info(`Starting question generation for topic: "${topic}", difficulty: ${difficulty}, options: ${optionsCount}`);
             if (!process.env.GEMINI_API_KEY) {
-              logger.error('GEMINI_API_KEY is missing. Cannot generate question.');
+              logger.error('[AI] [generateQuestion] GEMINI_API_KEY is missing. Cannot generate question.');
               throw new Error('API key configuration error: GEMINI_API_KEY is missing');
             }
             
@@ -150,13 +153,11 @@ const aiGenerationService = {
 }`;
             
             // Generate content
-            logger.info('Sending request to Gemini API');
+            logger.info('[AI] [generateQuestion] Sending request to Gemini API');
             const result = await model.generateContent(prompt);
             const response = result.response;
             const text = response.text();
-            
-            logger.info('Successfully received response from Gemini API');
-            logger.info(`Received response of length: ${text.length} characters`);
+            logger.info(`[AI] [generateQuestion] Received response from Gemini API, length=${text.length}`);
             
             // Enhanced parsing logic with better error handling
             let questionObject;
@@ -189,11 +190,11 @@ const aiGenerationService = {
                     questionObject.rationale = `This is the correct answer: ${questionObject.options[questionObject.correctIndex]}`;
                 }
                 
-                logger.info('Successfully generated and validated question');
+                logger.info(`[AI] [generateQuestion] Successfully generated and validated question for topic="${topic}"`);
                 return questionObject;
             } catch (parseError) {
-                logger.error('Error parsing AI response:', parseError);
-                logger.error('Response content:', text.substring(0, 500)); // Log first 500 chars of response
+                logger.error('[AI] [generateQuestion] Error parsing AI response:', parseError);
+                logger.error('[AI] [generateQuestion] Response content:', text ? text.substring(0, 500) : 'No response text');
                 throw new Error(`Failed to parse AI response: ${parseError.message}`);
             }
         } catch (error) {
@@ -253,6 +254,7 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
   
   // Generate a batch of questions with progress tracking and duplicate checking
   async generateQuestionBatch(topic, count, config = {}) {
+    logger.info(`[AI] [generateQuestionBatch] Called with topic="${topic}", count=${count}, config=${JSON.stringify(config)}, timestamp=${new Date().toISOString()}`);
     const questions = [];
     const errors = [];
     let progress = 0;
@@ -271,6 +273,7 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
     
     for (let i = 0; i < count; i++) {
       try {
+        logger.info(`[AI] [generateQuestionBatch] Generating question ${i+1}/${count} for topic="${topic}"`);
         // Progress estimation
         const elapsedMs = Date.now() - startTime;
         const averageTimePerQuestion = i > 0 ? elapsedMs / i : 0;
@@ -318,7 +321,7 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
         // Small delay between questions to avoid hitting rate limits
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (error) {
-        logger.error(`Error generating question ${i+1}/${count}:`, error);
+        logger.error(`[AI] [generateQuestionBatch] Error generating question ${i+1}/${count}:`, error);
         
         errors.push({
           index: i,
@@ -333,7 +336,7 @@ Use a ${tone} tone. Keep the explanation under 100 words.`;
         }
       }
     }
-    
+    logger.info(`[AI] [generateQuestionBatch] Finished batch generation. Total questions: ${questions.length}, Errors: ${errors.length}`);
     // Final progress update
     progressCallback({
       completed: questions.length,
@@ -503,6 +506,7 @@ Keep each rationale concise and educational.`;
   
   // Generate a diverse batch of questions with automatic similarity checking
   async generateDiverseQuestionBatch(topic, count, config = {}) {
+    logger.info(`[AI] [generateDiverseQuestionBatch] Called with topic="${topic}", count=${count}, config=${JSON.stringify(config)}, timestamp=${new Date().toISOString()}`);
     try {
       logger.info(`Generating diverse batch of ${count} questions for topic: "${topic}"`);
       
@@ -653,6 +657,7 @@ Keep each rationale concise and educational.`;
         isComplete: true
       });
       
+      logger.info(`[AI] [generateDiverseQuestionBatch] Finished. Final question count: ${finalQuestions.length}`);
       return {
         success: finalQuestions.length > 0,
         questions: finalQuestions,
