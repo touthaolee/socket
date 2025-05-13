@@ -3,6 +3,7 @@ import { getTokenFromStorage } from '../client-utils/client-helpers.js';
 import { aiService } from './service/ai-service.js';
 import { similarityService } from './service/ai-similarity-service.js';
 import adminChatService from './service/admin-chat-service.js';
+import { viewQuiz, editQuiz, deleteQuiz, publishQuiz, updateQuizzes } from './quiz-functions.js';
 
 /**
  * Utility function for debouncing
@@ -225,13 +226,31 @@ window.loadQuizzes = async function() {
         return;
       }
       throw new Error('Failed to load quizzes');
-    }
-    
-    const data = await response.json();
+    }    const data = await response.json();
     console.log('Loaded quizzes data:', data);
-    quizzes = data.quizzes || [];
-    console.log('Parsed quizzes array:', quizzes);
+    
+    // Normalize the quizzes data
+    const loadedQuizzes = data.quizzes || [];
+    
+    // Ensure each quiz has an ID and required properties
+    quizzes = loadedQuizzes.map(quiz => {
+      return {
+        id: quiz.id || quiz._id,
+        name: quiz.name || quiz.title || 'Untitled Quiz',
+        title: quiz.title || quiz.name || 'Untitled Quiz',
+        description: quiz.description || '',
+        questions: quiz.questions || [],
+        timePerQuestion: quiz.timePerQuestion || 30,
+        status: quiz.status || 'draft',
+        createdAt: quiz.createdAt || new Date().toISOString()
+      };
+    });
+    
+    console.log('Normalized quizzes array:', quizzes);
     totalPages = data.totalPages || 1;
+    
+    // Update quizzes reference in quiz-functions.js
+    updateQuizzes(quizzes);
     
     renderQuizzes();
     updatePagination();
@@ -743,6 +762,260 @@ async function saveQuiz(quizData) {
   }
 }
 
+// View quiz function
+function viewQuiz(quizId) {
+  console.log('Viewing quiz:', quizId);
+  
+  // Find the quiz by ID
+  const quiz = quizzes.find(q => q.id === quizId);
+  if (!quiz) {
+    console.error('Quiz not found:', quizId);
+    return;
+  }
+  
+  // Get the preview modal and its components
+  const previewModal = document.getElementById('quiz-preview-modal');
+  const previewTitle = document.getElementById('preview-quiz-title');
+  const previewDescription = document.getElementById('preview-quiz-description');
+  const previewMeta = document.getElementById('preview-quiz-meta');
+  const previewContainer = document.getElementById('preview-questions-container');
+  const publishButton = document.getElementById('publish-quiz-btn');
+  const editPreviewButton = document.getElementById('edit-preview-btn');
+
+  // Populate the modal with quiz data
+  previewTitle.textContent = quiz.name || quiz.title || 'Untitled Quiz';
+  previewDescription.textContent = quiz.description || 'No description provided.';
+  
+  // Show quiz metadata
+  const questionCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0;
+  previewMeta.innerHTML = `
+    <span>${questionCount} Questions</span> | 
+    <span>${quiz.timePerQuestion || 30}s per Question</span>
+  `;
+  
+  // Populate questions
+  previewContainer.innerHTML = '';
+  
+  if (Array.isArray(quiz.questions) && quiz.questions.length > 0) {
+    quiz.questions.forEach((question, qIndex) => {
+      const options = Array.isArray(question.options) ? question.options : [];
+      
+      // Create question element
+      const questionElem = document.createElement('div');
+      questionElem.className = 'preview-question';
+      
+      let questionHTML = `
+        <div class="preview-question-header">
+          <span class="preview-question-number">Question ${qIndex + 1}</span>
+        </div>
+        <div class="preview-question-text">${question.text}</div>
+        <div class="preview-options">
+      `;
+      
+      // Add options
+      options.forEach((option, optIndex) => {
+        const optionText = typeof option === 'string' ? option : (option.text || '');
+        const isCorrect = typeof option === 'object' && option.isCorrect === true;
+        
+        questionHTML += `
+          <div class="preview-option ${isCorrect ? 'correct' : ''}">
+            <span class="preview-option-marker">${String.fromCharCode(65 + optIndex)}</span>
+            <span class="preview-option-text">${optionText}</span>
+          </div>
+        `;
+      });
+      
+      questionHTML += `</div>`;
+      questionElem.innerHTML = questionHTML;
+      previewContainer.appendChild(questionElem);
+    });
+  } else {
+    previewContainer.innerHTML = '<div class="empty-state">No questions found in this quiz.</div>';
+  }
+  
+  // Update button states and handlers
+  if (publishButton) {
+    // Show/hide publish button based on current status
+    const isPublished = quiz.status === 'published' || quiz.status === 'active';
+    publishButton.style.display = isPublished ? 'none' : 'inline-block';
+    publishButton.textContent = isPublished ? 'Already Published' : 'Publish Quiz';
+    
+    // Clear previous event listeners
+    publishButton.replaceWith(publishButton.cloneNode(true));
+    const newPublishButton = document.getElementById('publish-quiz-btn');
+    
+    // Add new event listener
+    if (newPublishButton) {
+      newPublishButton.addEventListener('click', () => {
+        publishQuiz(quizId);
+      });
+    }
+  }
+  
+  if (editPreviewButton) {
+    // Clear previous event listeners
+    editPreviewButton.replaceWith(editPreviewButton.cloneNode(true));
+    const newEditButton = document.getElementById('edit-preview-btn');
+    
+    // Add new event listener
+    if (newEditButton) {
+      newEditButton.addEventListener('click', () => {
+        // Hide the preview modal first
+        if (previewModal) {
+          previewModal.style.display = 'none';
+        }
+        // Then edit the quiz
+        editQuiz(quizId);
+      });
+    }
+  }
+  
+  // Show the modal
+  if (previewModal) {
+    previewModal.style.display = 'flex';
+  }
+}
+
+// Edit quiz function
+function editQuiz(quizId) {
+  console.log('Editing quiz:', quizId);
+  
+  // Find the quiz by ID
+  const quiz = quizzes.find(q => q.id === quizId);
+  if (!quiz) {
+    console.error('Quiz not found:', quizId);
+    return;
+  }
+  
+  // Check if the QuizDesigner is available
+  if (!window.quizDesigner) {
+    console.error('Quiz Designer not available');
+    alert('Quiz Designer not available. Please refresh the page and try again.');
+    return;
+  }
+  
+  try {
+    // Open the quiz designer with the quiz data
+    window.quizDesigner.openWithQuiz(quiz);
+  } catch (error) {
+    console.error('Error opening quiz in designer:', error);
+    alert('Error opening quiz in designer: ' + error.message);
+  }
+}
+
+// Delete quiz function
+function deleteQuiz(quizId) {
+  console.log('Deleting quiz:', quizId);
+  
+  // Ask for confirmation
+  if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
+    return;
+  }
+  
+  // Find the quiz by ID to show name in confirmation
+  const quiz = quizzes.find(q => q.id === quizId);
+  const quizName = quiz ? (quiz.name || quiz.title || 'this quiz') : 'this quiz';
+  
+  // Double-check with name
+  if (!confirm(`Please confirm you want to delete "${quizName}"`)) {
+    return;
+  }
+  
+  // Get auth token
+  const token = getTokenFromStorage();
+  if (!token) {
+    console.error('No auth token found!');
+    alert('Your session has expired. Please log in again.');
+    showAdminLogin();
+    return;
+  }
+  
+  // Send delete request
+  fetch(`/interac/api/quiz/quizzes/${quizId}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    }
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Failed to delete quiz');
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Quiz deleted successfully:', data);
+    alert('Quiz deleted successfully');
+    
+    // Reload quizzes to update the list
+    loadQuizzes();
+  })
+  .catch(error => {
+    console.error('Error deleting quiz:', error);
+    alert('Error deleting quiz: ' + error.message);
+  });
+}
+
+// Publish quiz function
+function publishQuiz(quizId) {
+  console.log('Publishing quiz:', quizId);
+  
+  // Find the quiz by ID
+  const quiz = quizzes.find(q => q.id === quizId);
+  if (!quiz) {
+    console.error('Quiz not found:', quizId);
+    return;
+  }
+  
+  // Confirm publish
+  if (!confirm(`Are you sure you want to publish "${quiz.name || quiz.title}"? Published quizzes will be available for all users.`)) {
+    return;
+  }
+  
+  // Get auth token
+  const token = getTokenFromStorage();
+  if (!token) {
+    console.error('No auth token found!');
+    alert('Your session has expired. Please log in again.');
+    showAdminLogin();
+    return;
+  }
+  
+  // Send update request to change status
+  fetch(`/interac/api/quiz/quizzes/${quizId}/publish`, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ status: 'published' })
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Failed to publish quiz');
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log('Quiz published successfully:', data);
+    alert('Quiz published successfully');
+    
+    // Reload quizzes to update the list
+    loadQuizzes();
+    
+    // Close the preview modal
+    const previewModal = document.getElementById('quiz-preview-modal');
+    if (previewModal) {
+      previewModal.style.display = 'none';
+    }
+  })
+  .catch(error => {
+    console.error('Error publishing quiz:', error);
+    alert('Error publishing quiz: ' + error.message);
+  });
+}
+
 // Function to directly fetch quizzes from the server by reading the JSON file
 async function fetchQuizzesDirectlyFromServer() {
   try {
@@ -762,278 +1035,26 @@ async function fetchQuizzesDirectlyFromServer() {
         'Expires': '0'
       }
     });
-    
-    if (!response.ok) {
+      if (!response.ok) {
       throw new Error(`API responded with status: ${response.status}`);
     }
     
     const data = await response.json();
     console.log('Direct fetch response:', data);
     
-    if (data && data.quizzes && data.quizzes.length > 0) {
-      totalPages = data.totalPages || 1;
-      currentPage = data.currentPage || 1;
-      return data.quizzes;
-    } else {
-      console.warn('No quizzes found in direct fetch');
-      return [];
-    }
-  } catch (error) {
-    console.error('Error directly fetching quizzes:', error);
-    return [];
-  }
-}
-
-// View quiz preview
-function viewQuiz(quizId) {
-  try {
-    console.log('Viewing quiz with ID:', quizId);
+    // Normalize the quizzes data
+    const loadedQuizzes = data.quizzes || [];
     
-    // Find the quiz in our loaded data
-    const quiz = quizzes.find(q => q.id == quizId);
-    if (!quiz) {
-      console.error('Quiz not found with ID:', quizId);
-      alert('Quiz not found');
-      return;
-    }
-      // Fill the preview modal with quiz data
-    const previewModal = document.getElementById('quiz-preview-modal');
-    const previewTitle = document.getElementById('preview-quiz-name');
-    const previewDescription = document.getElementById('preview-quiz-description');
-    const previewQuestions = document.getElementById('preview-questions-container');
-    const previewQuestionCount = document.getElementById('preview-quiz-questions');
-    const previewTime = document.getElementById('preview-quiz-time');
-    
-    if (previewTitle) previewTitle.textContent = quiz.name || quiz.title || 'Untitled Quiz';
-    if (previewDescription) previewDescription.textContent = quiz.description || 'No description available';
-    if (previewQuestionCount) previewQuestionCount.textContent = `${quiz.questions?.length || 0} Questions`;
-    if (previewTime) previewTime.textContent = `${quiz.timePerQuestion || 30}s per question`;
-    
-    // Render questions
-    if (previewQuestions) {
-      previewQuestions.innerHTML = '';
-      
-      if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) {
-        previewQuestions.innerHTML = '<div class="empty-state">No questions available</div>';
-      } else {
-        quiz.questions.forEach((question, index) => {
-          const questionElement = document.createElement('div');
-          questionElement.className = 'preview-question';
-          
-          const options = Array.isArray(question.options) 
-            ? question.options.map((opt, i) => {
-                const optionText = typeof opt === 'string' ? opt : (opt.text || '');
-                const isCorrect = typeof opt === 'string' 
-                  ? (i === question.correctIndex) 
-                  : (opt.isCorrect || false);
-                
-                return `
-                  <div class="preview-option ${isCorrect ? 'correct' : ''}">
-                    <span class="option-marker">${String.fromCharCode(65 + i)}</span>
-                    <span class="option-text">${optionText}</span>
-                    ${isCorrect ? '<span class="correct-indicator">✓</span>' : ''}
-                  </div>
-                `;
-              }).join('')
-            : '<div class="empty-state">No options available</div>';
-          
-          questionElement.innerHTML = `
-            <div class="preview-question-header">
-              <span class="question-number">Question ${index + 1}</span>
-              <span class="question-time">${quiz.timePerQuestion || 30}s</span>
-            </div>
-            <div class="preview-question-text">${question.text || 'No question text'}</div>
-            <div class="preview-options">
-              ${options}
-            </div>
-          `;
-          
-          previewQuestions.appendChild(questionElement);
-        });
-      }
-    }
-    
-    // Display the modal
-    if (previewModal) {
-      previewModal.style.display = 'block';
-    }
-  } catch (error) {
-    console.error('Error viewing quiz:', error);
-    alert('Error viewing quiz: ' + error.message);
-  }
-}
-
-// Edit quiz
-function editQuiz(quizId) {
-  try {
-    console.log('Editing quiz with ID:', quizId);
-    
-    // Find the quiz to edit
-    const quiz = quizzes.find(q => q.id == quizId);
-    if (!quiz) {
-      console.error('Quiz not found with ID:', quizId);
-      alert('Quiz not found');
-      return;
-    }
-    
-    // Open the quiz designer with the selected quiz
-    if (window.quizDesigner) {
-      window.quizDesigner.openWithQuiz(quiz);
-    } else {
-      console.error('Quiz designer not available');
-      alert('Quiz editor not available. Please refresh the page and try again.');
-    }
-  } catch (error) {
-    console.error('Error editing quiz:', error);
-    alert('Error editing quiz: ' + error.message);
-  }
-}
-
-// Delete quiz
-function deleteQuiz(quizId) {
-  try {
-    if (!confirm('Are you sure you want to delete this quiz? This action cannot be undone.')) {
-      return;
-    }
-    
-    console.log('Deleting quiz with ID:', quizId);
-    
-    // Get auth token
-    const token = getTokenFromStorage();
-    if (!token) {
-      console.error('No auth token found!');
-      alert('You must be logged in to delete a quiz');
-      return;
-    }
-    
-    // Send delete request to server
-    fetch(`/interac/api/quiz/quizzes/${quizId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        return response.text().then(text => {
-          throw new Error('Failed to delete quiz: ' + text);
-        });
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log('Quiz deleted successfully:', data);
-      alert('Quiz deleted successfully');
-      loadQuizzes(); // Reload quiz list
-    })
-    .catch(error => {
-      console.error('Error deleting quiz:', error);
-      alert('Error deleting quiz: ' + error.message);
+    // Ensure each quiz has an ID and required properties
+    return loadedQuizzes.map(quiz => {
+      return {
+        id: quiz.id || quiz._id,
+        name: quiz.name || quiz.title || 'Untitled Quiz',
+        title: quiz.title || quiz.name || 'Untitled Quiz',
+        description: quiz.description || '',
+        questions: quiz.questions || [],
+        timePerQuestion: quiz.timePerQuestion || 30,
+        status: quiz.status || 'draft',
+        createdAt: quiz.createdAt || new Date().toISOString()
+      };
     });
-  } catch (error) {
-    console.error('Error initiating quiz deletion:', error);
-    alert('Error: ' + error.message);
-  }
-}
-
-// Publish quiz function
-function publishQuiz(quizId) {
-  try {
-    console.log('Publishing quiz with ID:', quizId);
-    
-    // Find the quiz to publish
-    const quiz = quizzes.find(q => q.id == quizId);
-    if (!quiz) {
-      console.error('Quiz not found with ID:', quizId);
-      alert('Quiz not found');
-      return;
-    }
-    
-    // Get auth token
-    const token = getTokenFromStorage();
-    if (!token) {
-      console.error('No auth token found!');
-      alert('You must be logged in to publish a quiz');
-      return;
-    }
-    
-    // Update quiz status and send to server
-    const publishData = {
-      id: quizId,
-      status: 'published'
-    };
-    
-    fetch(`/interac/api/quiz/quizzes/${quizId}`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify(publishData)
-    })
-    .then(response => {
-      if (!response.ok) {
-        return response.text().then(text => {
-          throw new Error('Failed to publish quiz: ' + text);
-        });
-      }
-      return response.json();
-    })
-    .then(data => {
-      console.log('Quiz published successfully:', data);
-      alert('Quiz published successfully');
-      loadQuizzes(); // Reload quiz list
-    })
-    .catch(error => {
-      console.error('Error publishing quiz:', error);
-      alert('Error publishing quiz: ' + error.message);
-    });
-  } catch (error) {
-    console.error('Error initiating quiz publication:', error);
-    alert('Error: ' + error.message);
-  }
-}
-
-// Add event handlers for quiz preview modal buttons
-const editQuizBtn = document.getElementById('edit-quiz-btn');
-const publishQuizBtn = document.getElementById('publish-quiz-btn');
-
-if (editQuizBtn) {
-  editQuizBtn.addEventListener('click', () => {
-    // Get the currently displayed quiz ID from the modal
-    const previewTitle = document.getElementById('preview-quiz-name');
-    const currentQuizTitle = previewTitle?.textContent;
-    const currentQuiz = quizzes.find(q => (q.name === currentQuizTitle || q.title === currentQuizTitle));
-    
-    if (currentQuiz) {
-      // Hide preview modal
-      const previewModal = document.getElementById('quiz-preview-modal');
-      if (previewModal) previewModal.style.display = 'none';
-      
-      // Call editQuiz with this quiz's ID
-      editQuiz(currentQuiz.id);
-    } else {
-      console.error('Could not find quiz for editing');
-    }
-  });
-}
-
-if (publishQuizBtn) {
-  publishQuizBtn.addEventListener('click', () => {
-    // Get the currently displayed quiz ID from the modal
-    const previewTitle = document.getElementById('preview-quiz-name');
-    const currentQuizTitle = previewTitle?.textContent;
-    const currentQuiz = quizzes.find(q => (q.name === currentQuizTitle || q.title === currentQuizTitle));
-    
-    if (currentQuiz) {
-      // Hide preview modal
-      const previewModal = document.getElementById('quiz-preview-modal');
-      if (previewModal) previewModal.style.display = 'none';
-      
-      // Call function to publish quiz
-      publishQuiz(currentQuiz.id);
-    } else {
-      console.error('Could not find quiz for publishing');
-    }
-  });
-}

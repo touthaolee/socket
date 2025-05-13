@@ -143,15 +143,20 @@ class QuizDesigner {
     this.decreaseBtn = document.querySelector('.number-btn.decrease');
     this.increaseBtn = document.querySelector('.number-btn.increase');
   }
-  
-  /**
+    /**
    * Set up event listeners
    */
   setupEventListeners() {
     // Show designer modal button
     const newQuizDesignerBtn = document.getElementById('new-quiz-designer-btn');
     if (newQuizDesignerBtn) {
-      newQuizDesignerBtn.addEventListener('click', () => this.showDesignerModal());
+      console.log('Setting up click handler for new quiz designer button');
+      newQuizDesignerBtn.addEventListener('click', () => {
+        console.log('New quiz designer button clicked');
+        this.showDesignerModal();
+      });
+    } else {
+      console.warn('New quiz designer button not found in the DOM');
     }
     
     // Close designer modal button
@@ -281,13 +286,15 @@ class QuizDesigner {
       });
     }
   }
-  
-  /**
+    /**
    * Show the designer modal
+   * @param {boolean} skipReset - If true, skip resetting the designer (used when editing existing quiz)
    */
-  showDesignerModal() {
-    // Reset the form
-    this.resetDesigner();
+  showDesignerModal(skipReset = false) {
+    // Reset the form if not skipped (we skip when editing an existing quiz)
+    if (!skipReset) {
+      this.resetDesigner();
+    }
     
     // Show the modal
     if (this.designerModal) {
@@ -320,14 +327,12 @@ class QuizDesigner {
    * Reset the designer state
    */
   resetDesigner() {
-    // Clear questions
-    this.questions = [];
-    this.currentEditingQuestionIndex = null;
-    
-    // Reset form inputs
+    // Reset the form
     if (this.quizNameInput) this.quizNameInput.value = '';
     if (this.quizDescriptionInput) this.quizDescriptionInput.value = '';
     if (this.timePerQuestionInput) this.timePerQuestionInput.value = '30';
+    
+    // Reset AI options
     if (this.aiTopicInput) this.aiTopicInput.value = '';
     if (this.questionCountInput) this.questionCountInput.value = '10';
     if (this.difficultySelect) this.difficultySelect.value = 'medium';
@@ -335,11 +340,9 @@ class QuizDesigner {
     if (this.toneSelect) this.toneSelect.value = 'educational';
     if (this.specificFocusesInput) this.specificFocusesInput.value = '';
     
-    // Reset UI
-    this.setGenerationMethod('ai');
-    this.switchDesignerTab('editor');
-    this.updateQuestionsList();
-    this.updatePreviewMeta();
+    // Reset questions
+    this.questions = [];
+    this.currentEditingQuestionIndex = null;
     
     // Reset quiz data
     this.quizData = {
@@ -357,6 +360,15 @@ class QuizDesigner {
       },
       questions: []
     };
+    
+    // Reset question list
+    this.updateQuestionList();
+    
+    // Set generation method to AI (default)
+    this.setGenerationMethod('ai');
+    
+    // Activate editor tab
+    this.activateTab('editor');
   }
   
   /**
@@ -821,7 +833,10 @@ class QuizDesigner {
    * Update the questions list in the editor
    */
   updateQuestionsList() {
-    if (!this.questionsContainer) return;
+    if (!this.questionsContainer) {
+      console.warn('Questions container element not found');
+      return;
+    }
     
     // Clear container
     this.questionsContainer.innerHTML = '';
@@ -954,6 +969,13 @@ class QuizDesigner {
     if (this.questionCountDisplay) {
       this.questionCountDisplay.textContent = `${this.questions.length} questions`;
     }
+  }
+  
+  /**
+   * Alternative name for updateQuestionCount to maintain compatibility
+   */
+  updateQuestionCountDisplay() {
+    this.updateQuestionCount();
   }
   
   /**
@@ -1276,11 +1298,24 @@ class QuizDesigner {
         }
         throw new Error('No authentication token found');
       }
+        // Determine if this is a new quiz or an update to an existing one
+      const isUpdate = this.editingQuizId !== undefined && this.editingQuizId !== null;
+      const url = isUpdate 
+        ? `/interac/api/quiz/quizzes/${this.editingQuizId}`
+        : '/interac/api/quiz/quizzes';
+      const method = isUpdate ? 'PATCH' : 'POST';
+      
+      console.log(`${isUpdate ? 'Updating' : 'Creating'} quiz with ${method} to ${url}`);
+      
+      // If we're updating an existing quiz, include the ID in the data
+      if (isUpdate) {
+        serverQuizData.id = this.editingQuizId;
+      }
       
       // Save quiz
       console.log('Saving quiz data to server with token:', token.substring(0, 10) + '...');
-      const response = await fetch('/interac/api/quiz/quizzes', {
-        method: 'POST',
+      const response = await fetch(url, {
+        method: method,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
@@ -1320,10 +1355,173 @@ class QuizDesigner {
       alert('Error saving quiz: ' + error.message);
     }
   }
+    /**
+   * Open the designer with an existing quiz for editing
+   * @param {Object} quiz - The quiz object to edit
+   */
+  openWithQuiz(quiz) {
+    console.log('Opening quiz designer with existing quiz:', quiz);
+    
+    if (!quiz || typeof quiz !== 'object') {
+      console.error('Invalid quiz object:', quiz);
+      alert('Cannot edit quiz: Invalid quiz data');
+      return;
+    }
+    
+    try {
+      // Store the quiz ID for later (used when saving updates)
+      this.editingQuizId = quiz.id;
+      
+      // Reset the designer first
+      this.resetDesigner();
+      
+      // Populate the form with quiz data
+      this.quizNameInput.value = quiz.name || quiz.title || '';
+      this.quizDescriptionInput.value = quiz.description || '';
+      this.timePerQuestionInput.value = quiz.timePerQuestion || 30;
+      
+      // Set the generation method to manual since we're editing an existing quiz
+      this.setGenerationMethod('manual');
+      
+      // Convert questions to our internal format if needed
+      this.questions = [];
+      if (Array.isArray(quiz.questions)) {
+        quiz.questions.forEach(question => {
+          // Handle different question formats
+          if (question.options) {
+            const options = Array.isArray(question.options) 
+              ? question.options.map(opt => typeof opt === 'string' ? opt : opt.text || '')
+              : [];
+            
+            // Find the correct option
+            let correctIndex = 0;
+            if (Array.isArray(question.options)) {
+              correctIndex = question.options.findIndex(opt => 
+                typeof opt === 'object' && opt !== null && opt.isCorrect === true
+              );
+              if (correctIndex === -1) correctIndex = 0;
+            }
+            
+            this.questions.push({
+              text: question.text || '',
+              options: options,
+              correctIndex: correctIndex,
+              rationale: question.rationale || ''
+            });
+          }
+        });
+      }
+      
+      // Update the display
+      this.updateQuestionCount();
+      this.renderQuestionsEditor();
+      this.renderQuizPreview();
+        // Switch to the editor tab
+      this.switchDesignerTab('editor');
+      
+      // Show the modal, but skip reset since we already populated the form
+      this.showDesignerModal(true);
+      
+      console.log('Quiz loaded successfully into designer');
+    } catch (error) {
+      console.error('Error opening quiz in designer:', error);
+      alert(`Error opening quiz in designer: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Reset the designer to its initial state
+   */
+  resetDesigner() {
+    // Clear form fields
+    this.quizNameInput.value = '';
+    this.quizDescriptionInput.value = '';
+    this.timePerQuestionInput.value = 30;
+    
+    // Reset to AI generation method by default for new quizzes
+    this.setGenerationMethod('ai');
+    
+    // Reset AI options
+    this.aiTopicInput.value = '';
+    this.questionCountInput.value = 10;
+    this.difficultySelect.value = 'medium';
+    this.optionsPerQuestionSelect.value = 4;
+    this.toneSelect.value = 'educational';
+    this.specificFocusesInput.value = '';
+    
+    // Clear questions
+    this.questions = [];
+    this.updateQuestionCountDisplay();
+    this.renderQuestionsEditor();
+    this.renderQuizPreview();
+      // Clear editing ID
+    this.editingQuizId = null;
+    
+    // Log that the designer has been reset
+    console.log('Designer has been reset');
+  }
+  
+  /**
+   * Render the questions editor (alias for updateQuestionsList)
+   */
+  renderQuestionsEditor() {
+    this.updateQuestionsList();
+  }
+  
+  /**
+   * Render the quiz preview (alias for updateQuizPreview)
+   */
+  renderQuizPreview() {
+    this.updateQuizPreview();
+  }
 }
 
-// Initialize the quiz designer
-const quizDesigner = new QuizDesigner();
+// Create an instance of the QuizDesigner and make it globally available
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('Creating QuizDesigner instance');
+  try {
+    // Initialize the quiz designer
+    window.quizDesigner = new QuizDesigner();
+    console.log('QuizDesigner instance created and assigned to window.quizDesigner');
+  } catch (error) {
+    console.error('Error initializing QuizDesigner:', error);
+  }
+});
 
-// Export for accessibility from window object
-window.quizDesigner = quizDesigner;
+// Add console warning for quizDesigner access
+const originalGetProperty = Object.getOwnPropertyDescriptor(Object.prototype, 'get');
+
+// Helper function to check if quizDesigner has been accessed
+function checkQuizDesignerAccess() {
+  if (!window.quizDesigner) {
+    console.warn('⚠️ window.quizDesigner is being accessed but is not defined! This may cause errors with quiz functionality.');
+    console.trace('Stack trace for quizDesigner access:');
+  }
+  return window.quizDesigner;
+}
+
+// Set up property interceptor for quizDesigner
+try {
+  Object.defineProperty(window, 'quizDesigner', {
+    configurable: true,
+    get: function() {
+      return checkQuizDesignerAccess();
+    },
+    set: function(value) {
+      console.log('✅ quizDesigner has been initialized:', value);
+      // Remove the interceptor once it's properly set
+      Object.defineProperty(window, 'quizDesigner', {
+        configurable: true,
+        writable: true,
+        value: value
+      });
+    }
+  });
+  
+  console.log('Quiz designer property interceptor set up for debugging');
+} catch (error) {
+  console.error('Failed to set up quizDesigner property interceptor:', error);
+}
+
+// Export the QuizDesigner class
+export { QuizDesigner };

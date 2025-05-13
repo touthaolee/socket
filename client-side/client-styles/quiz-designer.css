@@ -373,6 +373,80 @@
   font-size: 15px;
 }
 
+/* Preview Question Styling */
+.preview-question {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+}
+
+.preview-question-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.preview-question-text {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  color: #111827;
+}
+
+.preview-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.preview-option {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-radius: 6px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  position: relative;
+}
+
+.preview-option.correct {
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.preview-option-marker {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background-color: #f3f4f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+.preview-option.correct .preview-option-marker {
+  background-color: #10b981;
+  color: white;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.correct-indicator {
+  position: absolute;
+  right: 10px;
+  color: #10b981;
+}
+
 /* Question Editor Modal */
 .edit-options-container {
   margin-bottom: 15px;
@@ -563,4 +637,68 @@
     border-bottom: 1px solid #e5e7eb;
     max-height: 300px;
   }
+}
+
+/* Enhanced styling for quiz designer */
+
+/* Sticky footer for the designer */
+.designer-footer {
+  display: flex;
+  justify-content: flex-end;
+  position: sticky;
+  bottom: 0;
+  background-color: #fff;
+  padding: 15px;
+  box-shadow: 0 -5px 10px rgba(0,0,0,0.05);
+  z-index: 10;
+  width: 100%;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* Better transitions for modal */
+.modal {
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.modal.active {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Better styling for questions */
+.question-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.question-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Improve styling of correct answers */
+.preview-option.correct {
+  border-color: #10b981;
+  background-color: rgba(16, 185, 129, 0.1);
+}
+
+.preview-option.correct .preview-option-marker {
+  background-color: #10b981;
+  color: white;
+}
+
+/* Styling for the edit quiz button */
+#edit-preview-btn {
+  background-color: #4f46e5;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+  margin-right: 10px;
+}
+
+#edit-preview-btn:hover {
+  background-color: #4338ca;
 }
