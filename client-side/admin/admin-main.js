@@ -1046,15 +1046,20 @@ async function fetchQuizzesDirectlyFromServer() {
     const loadedQuizzes = data.quizzes || [];
     
     // Ensure each quiz has an ID and required properties
-    return loadedQuizzes.map(quiz => {
-      return {
-        id: quiz.id || quiz._id,
-        name: quiz.name || quiz.title || 'Untitled Quiz',
-        title: quiz.title || quiz.name || 'Untitled Quiz',
-        description: quiz.description || '',
-        questions: quiz.questions || [],
-        timePerQuestion: quiz.timePerQuestion || 30,
-        status: quiz.status || 'draft',
-        createdAt: quiz.createdAt || new Date().toISOString()
-      };
-    });
+        return loadedQuizzes.map(quiz => {
+          return {
+            id: quiz.id || quiz._id,
+            name: quiz.name || quiz.title || 'Untitled Quiz',
+            title: quiz.title || quiz.name || 'Untitled Quiz',
+            description: quiz.description || '',
+            questions: quiz.questions || [],
+            timePerQuestion: quiz.timePerQuestion || 30,
+            status: quiz.status || 'draft',
+            createdAt: quiz.createdAt || new Date().toISOString()
+          };
+        });
+      } catch (error) {
+        console.error('Error directly fetching quizzes:', error);
+        throw error;
+      }
+    }
