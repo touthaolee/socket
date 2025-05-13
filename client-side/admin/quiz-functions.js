@@ -7,13 +7,30 @@ let quizzes = [];
 // Update the quizzes reference
 export function updateQuizzes(newQuizzes) {
   quizzes = newQuizzes;
+  
+  // Debug log quiz IDs and their types
+  if (Array.isArray(quizzes) && quizzes.length > 0) {
+    console.log('Quiz IDs loaded:');
+    quizzes.forEach(quiz => {
+      console.log(`Quiz ID: ${quiz.id} (${typeof quiz.id}), Title: "${quiz.name || quiz.title}"`);
+    });
+  }
+}
+
+// Helper function to debug ID type issues
+function debugQuizId(functionName, originalId, convertedId) {
+  console.log(`[${functionName}] ID type conversion: original=${originalId} (${typeof originalId}) → converted=${convertedId} (${typeof convertedId})`);
 }
 
 export function viewQuiz(quizId) {
   console.log('Viewing quiz:', quizId);
   
+  // Convert quizId to number if it's a string (from HTML dataset)
+  const id = typeof quizId === 'string' ? parseInt(quizId, 10) : quizId;
+  debugQuizId('viewQuiz', quizId, id);
+  
   // Find the quiz by ID
-  const quiz = quizzes.find(q => q.id === quizId);
+  const quiz = quizzes.find(q => q.id === id);
   if (!quiz) {
     console.error('Quiz not found:', quizId);
     return;
@@ -126,8 +143,12 @@ export function viewQuiz(quizId) {
 export function editQuiz(quizId) {
   console.log('Editing quiz:', quizId);
   
+  // Convert quizId to number if it's a string (from HTML dataset)
+  const id = typeof quizId === 'string' ? parseInt(quizId, 10) : quizId;
+  debugQuizId('editQuiz', quizId, id);
+  
   // Find the quiz by ID
-  const quiz = quizzes.find(q => q.id === quizId);
+  const quiz = quizzes.find(q => q.id === id);
   if (!quiz) {
     console.error('Quiz not found:', quizId);
     return;
@@ -165,8 +186,12 @@ export function deleteQuiz(quizId) {
     return;
   }
   
+  // Convert quizId to number if it's a string (from HTML dataset)
+  const id = typeof quizId === 'string' ? parseInt(quizId, 10) : quizId;
+  debugQuizId('deleteQuiz', quizId, id);
+  
   // Find the quiz by ID to show name in confirmation
-  const quiz = quizzes.find(q => q.id === quizId);
+  const quiz = quizzes.find(q => q.id === id);
   const quizName = quiz ? (quiz.name || quiz.title || 'this quiz') : 'this quiz';
   
   // Double-check with name
@@ -182,9 +207,8 @@ export function deleteQuiz(quizId) {
     showAdminLogin();
     return;
   }
-  
-  // Send delete request
-  fetch(`/interac/api/quiz/quizzes/${quizId}`, {
+    // Send delete request
+  fetch(`/interac/api/quiz/quizzes/${id}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -214,8 +238,12 @@ export function deleteQuiz(quizId) {
 export function publishQuiz(quizId) {
   console.log('Publishing quiz:', quizId);
   
+  // Convert quizId to number if it's a string (from HTML dataset)
+  const id = typeof quizId === 'string' ? parseInt(quizId, 10) : quizId;
+  debugQuizId('publishQuiz', quizId, id);
+  
   // Find the quiz by ID
-  const quiz = quizzes.find(q => q.id === quizId);
+  const quiz = quizzes.find(q => q.id === id);
   if (!quiz) {
     console.error('Quiz not found:', quizId);
     return;
@@ -234,9 +262,8 @@ export function publishQuiz(quizId) {
     showAdminLogin();
     return;
   }
-  
-  // Send update request to change status
-  fetch(`/interac/api/quiz/quizzes/${quizId}/publish`, {
+    // Send update request to change status
+  fetch(`/interac/api/quiz/quizzes/${id}/publish`, {
     method: 'PATCH',
     headers: {
       'Authorization': `Bearer ${token}`,
