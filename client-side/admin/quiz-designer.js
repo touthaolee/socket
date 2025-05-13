@@ -104,11 +104,11 @@ class QuizDesigner {
     this.designerTabButtons = document.querySelectorAll('.designer-tab-btn');
     this.editorTabContent = document.getElementById('question-editor-tab');
     this.previewTabContent = document.getElementById('quiz-preview-tab');
-    
-    // Question container and controls
+      // Question container and controls
     this.questionsContainer = document.getElementById('questions-editor-container');
     this.questionCountDisplay = document.getElementById('question-count-display');
     this.generateQuestionsBtn = document.getElementById('generate-questions-btn');
+    this.addAiQuestionBtn = document.getElementById('add-ai-question-btn');
     this.addNewQuestionBtn = document.getElementById('add-new-question-btn');
     
     // Preview elements
@@ -205,10 +205,14 @@ class QuizDesigner {
         this.questionCountInput.value = value;
       });
     }
-    
-    // Generate questions button
+      // Generate questions button
     if (this.generateQuestionsBtn) {
       this.generateQuestionsBtn.addEventListener('click', () => this.generateQuestions());
+    }
+    
+    // Add AI Question button
+    if (this.addAiQuestionBtn) {
+      this.addAiQuestionBtn.addEventListener('click', () => this.generateSingleQuestion());
     }
     
     // Add new question button
@@ -562,6 +566,117 @@ class QuizDesigner {
       }, 3000);
     }
   }  /**
+   * Generate a single question with AI
+   */
+  async generateSingleQuestion() {
+    if (this.isGenerating) {
+      console.log('Already generating questions, please wait...');
+      return;
+    }
+    
+    // Get form data
+    this.quizData.aiOptions.topic = this.aiTopicInput ? this.aiTopicInput.value.trim() : '';
+    this.quizData.aiOptions.difficulty = this.difficultySelect ? this.difficultySelect.value : 'medium';
+    this.quizData.aiOptions.optionsPerQuestion = this.optionsPerQuestionSelect ? parseInt(this.optionsPerQuestionSelect.value) : 4;
+    this.quizData.aiOptions.rationaleTone = this.toneSelect ? this.toneSelect.value : 'educational';
+    this.quizData.aiOptions.specificFocuses = this.specificFocusesInput ? this.specificFocusesInput.value.trim() : '';
+    
+    // Validate topic
+    if (!this.quizData.aiOptions.topic) {
+      alert('Please enter a topic for the question');
+      if (this.aiTopicInput) {
+        this.aiTopicInput.focus();
+      }
+      return;
+    }
+    
+    // Show generation progress modal
+    this.showGenerationProgress();
+    
+    // Reset for new generation
+    this.isGenerating = true;
+    const startTime = Date.now();
+    
+    // Start timer update
+    const timerInterval = setInterval(() => {
+      if (!this.isGenerating) {
+        clearInterval(timerInterval);
+        return;
+      }
+      
+      const elapsedMs = Date.now() - startTime;
+      this.updateGenerationTimer(elapsedMs);
+    }, 1000);
+    
+    try {
+      // Add log entry
+      this.addGenerationLogEntry('Generating a single question for topic: ' + this.quizData.aiOptions.topic);
+      this.addGenerationLogEntry('Connecting to AI service...');
+      
+      // Use the AI service to generate a single question
+      const question = await aiService.generateQuizQuestion(
+        this.quizData.aiOptions.topic, 
+        {
+          difficulty: this.quizData.aiOptions.difficulty,
+          optionsCount: parseInt(this.quizData.aiOptions.optionsPerQuestion),
+          format: 'json',
+          tone: this.quizData.aiOptions.rationaleTone,
+          specificFocuses: this.quizData.aiOptions.specificFocuses
+        }
+      );
+      
+      // Clear interval
+      clearInterval(timerInterval);
+      
+      if (!this.isGenerating) {
+        this.hideGenerationProgress();
+        return;
+      }      // Process the generated question
+      if (question) {
+        this.addGenerationLogEntry('Question generated successfully!', 'success');
+        
+        // Process the question to ensure it's in the right format
+        const processedQuestion = this.processGeneratedQuestion(question);
+        
+        if (processedQuestion) {
+          // Add the question to our questions array
+          this.questions.push(processedQuestion);
+          
+          // Update the question count display
+          this.updateQuestionCount();
+          
+          // Render the questions
+          this.renderQuestionsEditor();
+        } else {
+          this.addGenerationLogEntry('Failed to process generated question', 'error');
+        }
+      } else {
+        this.addGenerationLogEntry('Failed to generate question (no data returned)', 'error');
+      }
+      
+      // Hide progress modal
+      setTimeout(() => {
+        this.hideGenerationProgress();
+      }, 1000);
+      
+    } catch (error) {
+      // Clear interval
+      clearInterval(timerInterval);
+      
+      // Log error
+      console.error('Error generating question:', error);
+      this.addGenerationLogEntry('Error generating question: ' + error.message, 'error');
+      
+      // Hide progress modal after delay
+      setTimeout(() => {
+        this.hideGenerationProgress();
+      }, 3000);
+    } finally {
+      this.isGenerating = false;
+    }
+  }
+  
+  /**
    * Process generated questions
    */
   processGeneratedQuestions(generatedQuestions) {
@@ -1473,6 +1588,103 @@ class QuizDesigner {
    */
   renderQuizPreview() {
     this.updateQuizPreview();
+  }
+  
+  /**
+   * Process a single generated question
+   * @param {Object} question - The question object to process
+   * @returns {Object|null} - The processed question or null if invalid
+   */
+  processGeneratedQuestion(question) {
+    console.log('[QuizDesigner] Processing single generated question:', question);
+    
+    if (!question) {
+      console.error('[QuizDesigner] Generated question is null or undefined');
+      return null;
+    }
+    
+    try {
+      // Handle different question formats
+      let questionText = '';
+      let options = [];
+      let correctIndex = 0;
+      let rationale = '';
+      
+      // Extract question text
+      if (typeof question.text === 'string') {
+        questionText = question.text;
+      } else if (typeof question.question === 'string') {
+        questionText = question.question;
+      } else if (typeof question === 'string') {
+        questionText = question;
+      } else {
+        console.warn('[QuizDesigner] Question has no valid text property:', question);
+        return null;
+      }
+      
+      // Extract options
+      if (Array.isArray(question.options) && question.options.length >= 2) {
+        options = question.options.map((opt, i) => {
+          if (typeof opt === 'string') return opt;
+          if (opt && typeof opt === 'object' && opt.text) return opt.text;
+          return String(opt || `Option ${i+1}`);
+        });
+      } else if (Array.isArray(question.answers) && question.answers.length >= 2) {
+        options = question.answers.map((ans, i) => {
+          if (typeof ans === 'string') return ans;
+          if (ans && typeof ans === 'object' && ans.text) return ans.text;
+          return String(ans || `Option ${i+1}`);
+        });
+      } else if (question.option1 && question.option2) {
+        // Handle numbered option properties
+        for (let i = 1; i <= 10; i++) {
+          const optKey = `option${i}`;
+          if (question[optKey]) options.push(question[optKey]);
+          else break;
+        }
+      } else {
+        console.warn('[QuizDesigner] Question has invalid options:', question);
+        return null;
+      }
+      
+      // Extract correct index
+      if (typeof question.correctIndex === 'number') {
+        correctIndex = question.correctIndex;
+      } else if (typeof question.correctAnswer === 'number') {
+        correctIndex = question.correctAnswer;
+      } else if (typeof question.answer === 'number') {
+        correctIndex = question.answer;
+      } else if (question.correct !== undefined) {
+        correctIndex = question.correct;
+      }
+      
+      // Validate correctIndex
+      if (typeof correctIndex !== 'number' || correctIndex < 0 || correctIndex >= options.length) {
+        console.warn(`[QuizDesigner] Question has invalid correctIndex (${correctIndex}), defaulting to 0`);
+        correctIndex = 0;
+      }
+      
+      // Extract rationale
+      if (typeof question.rationale === 'string') {
+        rationale = question.rationale;
+      } else if (typeof question.explanation === 'string') {
+        rationale = question.explanation;
+      } else if (typeof question.feedback === 'string') {
+        rationale = question.feedback;
+      } else {
+        rationale = 'Explanation not provided for this question.';
+      }
+      
+      return {
+        text: questionText,
+        options: options,
+        correctIndex: correctIndex,
+        rationale: rationale
+      };
+    } catch (err) {
+      console.error('[QuizDesigner] Error processing question:', err);
+      return null;
+    }
   }
 }
 
