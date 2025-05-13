@@ -144,6 +144,33 @@ const path = require('path');
 const quizzesPath = path.join(__dirname, '../data/quizzes.json');
 console.log(`Writing sample quizzes to: ${quizzesPath}`);
 
+// Add timestamps and ensure we have createdBy
+quizData.quizzes.forEach(quiz => {
+  quiz.createdAt = quiz.createdAt || new Date().toISOString();
+  quiz.updatedAt = quiz.updatedAt || quiz.createdAt;
+  quiz.createdBy = quiz.createdBy || 1;
+  
+  // Ensure all questions have proper structures
+  if (quiz.questions && Array.isArray(quiz.questions)) {
+    quiz.questions.forEach(question => {
+      if (question.options && Array.isArray(question.options)) {
+        // Make sure at least one option is marked as correct
+        const hasCorrectOption = question.options.some(opt => opt.isCorrect);
+        if (!hasCorrectOption && question.options.length > 0) {
+          question.options[0].isCorrect = true;
+        }
+      }
+    });
+  }
+});
+
+// Check if file exists and ask for confirmation before overwriting
+if (fs.existsSync(quizzesPath)) {
+  console.log('WARNING: quizzes.json already exists. This will overwrite existing quizzes.');
+  console.log('Proceeding with overwrite...');
+}
+
 fs.writeFileSync(quizzesPath, JSON.stringify(quizData, null, 2), 'utf8');
 
 console.log('Sample quizzes created successfully! You should now see them in the quiz management UI.');
+console.log('To view them, go to the admin page and log in with your admin credentials.');

@@ -261,4 +261,37 @@ router.post('/quizzes/check-similarity', verifyToken, async (req, res) => {
         res.status(500).json({ error: 'Failed to check similarity' });
     }
 });
+
+// Update quiz (full update or partial update)
+router.patch('/quizzes/:id', verifyToken, async (req, res) => {
+  try {
+    const quizId = parseInt(req.params.id, 10);
+    
+    if (isNaN(quizId)) {
+      return res.status(400).json({ error: 'Invalid quiz ID' });
+    }
+    
+    const quiz = await quizService.getQuizById(quizId);
+    
+    if (!quiz) {
+      return res.status(404).json({ error: 'Quiz not found' });
+    }
+    
+    // Check if user is authorized (must be creator or admin)
+    if (quiz.createdBy !== req.userId) {
+      return res.status(403).json({ error: 'Not authorized to update this quiz' });
+    }
+    
+    console.log(`Updating quiz ${quizId}:`, req.body);
+    
+    // Handle the update
+    const updatedQuiz = await quizService.updateQuiz(quizId, req.body);
+    
+    res.json(updatedQuiz);
+  } catch (error) {
+    console.error('Error updating quiz:', error);
+    res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
+
 module.exports = router;

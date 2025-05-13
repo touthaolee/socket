@@ -1265,15 +1265,20 @@ class QuizDesigner {
         status: this.quizData.status
       };
         console.log('Mapped questions from:', this.questions);
-      console.log('Saving quiz data to server:', serverQuizData);
-          // Get token
+      console.log('Saving quiz data to server:', serverQuizData);      // Get token
       const token = getTokenFromStorage();
       if (!token) {
+        console.error('No authentication token found, redirecting to login');
+        alert('Your session has expired. Please log in again.');
+        // Try redirecting to login
+        if (typeof showAdminLogin === 'function') {
+          showAdminLogin();
+        }
         throw new Error('No authentication token found');
       }
-        
+      
       // Save quiz
-      console.log('Saving quiz data to server:', serverQuizData);
+      console.log('Saving quiz data to server with token:', token.substring(0, 10) + '...');
       const response = await fetch('/interac/api/quiz/quizzes', {
         method: 'POST',
         headers: {

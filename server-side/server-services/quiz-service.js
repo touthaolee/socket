@@ -36,6 +36,17 @@ const quizService = {  // Get all quizzes
         console.log('DB file content preview:', fileContent.substring(0, 150) + '...');
         data = JSON.parse(fileContent);
         console.log('DB file parsed successfully, quiz count:', data.quizzes?.length || 0);
+        
+        // If there are no quizzes, create sample quizzes
+        if (!data.quizzes || data.quizzes.length === 0) {
+          console.log('No quizzes found. Creating sample quizzes...');
+          const sampleQuizzes = await this.createSampleQuizzes();
+          if (sampleQuizzes) {
+            console.log('Sample quizzes created successfully');
+            // Re-read the file to get the newly created quizzes
+            data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+          }
+        }
       } catch (readError) {
         console.error('Error reading/parsing DB file:', readError);
         // Recover by creating a new DB structure
@@ -254,7 +265,165 @@ async createQuiz(quizData) {
       console.error('Error deleting quiz:', error);
       throw error;
     }
-  }
+  },
+
+  // Create sample quizzes if none exist
+  async createSampleQuizzes() {
+    try {
+      console.log('Creating sample quizzes');
+      
+      // Sample quizzes data
+      const sampleQuizzes = [
+        {
+          "title": "80's Music",
+          "name": "80's Music",
+          "description": "Common knowledge about 80's music for every fan",
+          "timePerQuestion": 30,
+          "status": "draft",
+          "questions": [
+            {
+              "text": "Which Michael Jackson album featured 'Billie Jean' and 'Beat It'?",
+              "options": [
+                { "text": "Thriller", "isCorrect": true },
+                { "text": "Bad", "isCorrect": false },
+                { "text": "Off the Wall", "isCorrect": false },
+                { "text": "Dangerous", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "Which band had a hit with 'Sweet Child O' Mine' in 1988?",
+              "options": [
+                { "text": "Aerosmith", "isCorrect": false },
+                { "text": "Guns N' Roses", "isCorrect": true },
+                { "text": "Bon Jovi", "isCorrect": false },
+                { "text": "Def Leppard", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "Who sang 'Like a Virgin'?",
+              "options": [
+                { "text": "Cyndi Lauper", "isCorrect": false },
+                { "text": "Madonna", "isCorrect": true },
+                { "text": "Whitney Houston", "isCorrect": false },
+                { "text": "Janet Jackson", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "Which band had hit singles with 'Rio' and 'Hungry Like the Wolf'?",
+              "options": [
+                { "text": "The Cure", "isCorrect": false },
+                { "text": "Duran Duran", "isCorrect": true },
+                { "text": "INXS", "isCorrect": false },
+                { "text": "Depeche Mode", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "Which song was NOT a hit by Queen in the 80s?",
+              "options": [
+                { "text": "Radio Ga Ga", "isCorrect": false },
+                { "text": "Another One Bites the Dust", "isCorrect": false },
+                { "text": "Bohemian Rhapsody", "isCorrect": true },
+                { "text": "I Want to Break Free", "isCorrect": false }
+              ]
+            }
+          ],
+          "createdBy": 1,
+          "createdAt": new Date().toISOString()
+        },
+        {
+          "title": "80's Music Facts",
+          "name": "80's Music Facts",
+          "description": "Popular 80's music facts",
+          "timePerQuestion": 30,
+          "status": "draft",
+          "questions": [
+            {
+              "text": "Which 80s song holds the record for best-selling single of all time?",
+              "options": [
+                { "text": "Thriller", "isCorrect": false },
+                { "text": "Like a Prayer", "isCorrect": false },
+                { "text": "White Wedding", "isCorrect": false },
+                { "text": "Candle in the Wind", "isCorrect": true }
+              ]
+            },
+            {
+              "text": "Which artist released 'Purple Rain' in 1984?",
+              "options": [
+                { "text": "Michael Jackson", "isCorrect": false },
+                { "text": "Prince", "isCorrect": true },
+                { "text": "David Bowie", "isCorrect": false },
+                { "text": "Bruce Springsteen", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "What was the name of Madonna's first UK number 1 single?",
+              "options": [
+                { "text": "Holiday", "isCorrect": false },
+                { "text": "Into the Groove", "isCorrect": true },
+                { "text": "Like a Virgin", "isCorrect": false },
+                { "text": "Material Girl", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "What year was Live Aid, featuring Queen, U2, and David Bowie?",
+              "options": [
+                { "text": "1984", "isCorrect": false },
+                { "text": "1985", "isCorrect": true },
+                { "text": "1986", "isCorrect": false },
+                { "text": "1987", "isCorrect": false }
+              ]
+            },
+            {
+              "text": "Which of these songs was NOT released in the 1980s?",
+              "options": [
+                { "text": "Smells Like Teen Spirit", "isCorrect": true },
+                { "text": "Every Breath You Take", "isCorrect": false },
+                { "text": "Sweet Dreams (Are Made of This)", "isCorrect": false },
+                { "text": "Take On Me", "isCorrect": false }
+              ]
+            }
+          ],
+          "createdBy": 1,
+          "createdAt": new Date().toISOString()
+        }
+      ];
+      
+      console.log('Reading current data');
+      
+      // Read the current quiz file
+      let data;
+      try {
+        data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      } catch (error) {
+        console.error('Error reading DB file:', error);
+        data = { quizzes: [], nextId: 1 };
+      }
+      
+      let nextId = data.nextId || 1;
+      
+      // Add sample quizzes with proper IDs
+      for (const quiz of sampleQuizzes) {
+        quiz.id = nextId++;
+      }
+      
+      // Update the quiz data
+      data.quizzes = sampleQuizzes;
+      data.nextId = nextId;
+      
+      // Write back to the file
+      try {
+        fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2), 'utf8');
+        console.log('Sample quizzes saved to', DB_FILE);
+        return true;
+      } catch (saveError) {
+        console.error('Error saving sample quizzes:', saveError);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error creating sample quizzes:', error);
+      return false;
+    }
+  },
 };
 
 module.exports = quizService;

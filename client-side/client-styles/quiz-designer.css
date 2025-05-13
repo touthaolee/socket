@@ -529,6 +529,11 @@
   border-top: 1px solid #e5e7eb;
 }
 
+.designer-footer .btn,
+.designer-footer .btn-outline {
+  margin-left: 10px;
+}
+
 .designer-actions {
   display: flex;
   gap: 10px;
