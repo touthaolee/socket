@@ -35,21 +35,32 @@ export function viewQuiz(quizId) {
     console.error('Quiz not found:', quizId);
     return;
   }
-  
   // Get the preview modal and its components
   const previewModal = document.getElementById('quiz-preview-modal');
-  const previewTitle = document.getElementById('preview-quiz-title');
+  const previewTitle = document.getElementById('preview-quiz-name');
   const previewDescription = document.getElementById('preview-quiz-description');
-  const previewMeta = document.getElementById('preview-quiz-meta');
+  const previewMeta = document.getElementById('preview-quiz-questions');
   const previewContainer = document.getElementById('preview-questions-container');
   const publishButton = document.getElementById('publish-quiz-btn');
-  const editPreviewButton = document.getElementById('edit-preview-btn');
+  const editPreviewButton = document.getElementById('edit-quiz-btn');
+
+  // Check if the required DOM elements exist
+  if (!previewModal || !previewTitle || !previewDescription || !previewMeta || !previewContainer) {
+    console.error('Required preview modal elements not found in the DOM');
+    console.log('Missing elements:', {
+      modal: !previewModal,
+      title: !previewTitle,
+      description: !previewDescription,
+      meta: !previewMeta,
+      container: !previewContainer
+    });
+    return;
+  }
 
   // Populate the modal with quiz data
   previewTitle.textContent = quiz.name || quiz.title || 'Untitled Quiz';
   previewDescription.textContent = quiz.description || 'No description provided.';
-  
-  // Show quiz metadata
+    // Show quiz metadata
   const questionCount = Array.isArray(quiz.questions) ? quiz.questions.length : 0;
   previewMeta.innerHTML = `
     <span>${questionCount} Questions</span> | 
@@ -95,8 +106,7 @@ export function viewQuiz(quizId) {
   } else {
     previewContainer.innerHTML = '<div class="empty-state">No questions found in this quiz.</div>';
   }
-  
-  // Update button states and handlers
+    // Update button states and handlers
   if (publishButton) {
     // Show/hide publish button based on current status
     const isPublished = quiz.status === 'published' || quiz.status === 'active';
@@ -114,11 +124,10 @@ export function viewQuiz(quizId) {
       });
     }
   }
-  
-  if (editPreviewButton) {
+    if (editPreviewButton) {
     // Clear previous event listeners
     editPreviewButton.replaceWith(editPreviewButton.cloneNode(true));
-    const newEditButton = document.getElementById('edit-preview-btn');
+    const newEditButton = document.getElementById('edit-quiz-btn');
     
     // Add new event listener
     if (newEditButton) {
