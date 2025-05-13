@@ -564,13 +564,32 @@ function renderQuizzes() {
   console.log('Rendering quizzes:', quizzes);
   quizzesTable.innerHTML = '';
   
-  if (quizzes.length === 0) {
-    console.log('No quizzes to display');
-    quizzesTable.innerHTML = `
-      <tr>
-        <td colspan="5" class="empty-state">No quizzes found</td>
-      </tr>
-    `;
+  if (!quizzes || quizzes.length === 0) {
+    console.log('No quizzes to display, checking if we need to load from server');
+    
+    // Try to directly load from server if we're not showing any quizzes
+    fetchQuizzesDirectlyFromServer().then(loadedQuizzes => {
+      if (loadedQuizzes && loadedQuizzes.length > 0) {
+        console.log('Successfully loaded quizzes directly from server:', loadedQuizzes);
+        quizzes = loadedQuizzes;
+        renderQuizzes(); // Recursive call, but with loaded quizzes
+        return;
+      } else {
+        console.log('No quizzes found even from direct server fetch');
+        quizzesTable.innerHTML = `
+          <tr>
+            <td colspan="5" class="empty-state">No quizzes found. Click "Create Quiz" to add one.</td>
+          </tr>
+        `;
+      }
+    }).catch(err => {
+      console.error('Error loading quizzes directly:', err);
+      quizzesTable.innerHTML = `
+        <tr>
+          <td colspan="5" class="empty-state">No quizzes found. Click "Create Quiz" to add one.</td>
+        </tr>
+      `;
+    });
     return;
   }
   quizzes.forEach(quiz => {
@@ -721,5 +740,46 @@ async function saveQuiz(quizData) {
     console.error('Failed to save quiz:', error);
     alert('Failed to save quiz: ' + error.message);
     throw error;
+  }
+}
+
+// Function to directly fetch quizzes from the server by reading the JSON file
+async function fetchQuizzesDirectlyFromServer() {
+  try {
+    console.log('Attempting to directly fetch quizzes from server');
+    const token = getTokenFromStorage();
+    if (!token) {
+      throw new Error('No authentication token found');
+    }
+    
+    // Try with a direct URL path to the quizzes API without pagination
+    const response = await fetch('/interac/api/quiz/quizzes?limit=50', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API responded with status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log('Direct fetch response:', data);
+    
+    if (data && data.quizzes && data.quizzes.length > 0) {
+      totalPages = data.totalPages || 1;
+      currentPage = data.currentPage || 1;
+      return data.quizzes;
+    } else {
+      console.warn('No quizzes found in direct fetch');
+      return [];
+    }
+  } catch (error) {
+    console.error('Error directly fetching quizzes:', error);
+    return [];
   }
 }

@@ -21,14 +21,39 @@ const quizService = {  // Get all quizzes
   async getAllQuizzes(page = 1, limit = 10) {
     try {
       console.log('Getting all quizzes, page:', page, 'limit:', limit);
-      const data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+      
+      // Make sure DB_FILE exists
+      if (!fs.existsSync(DB_FILE)) {
+        console.error('DB file does not exist:', DB_FILE);
+        fs.writeFileSync(DB_FILE, JSON.stringify({ quizzes: [], nextId: 1 }, null, 2), 'utf8');
+        console.log('Created new DB file');
+      }
+      
+      let data;
+      try {
+        const fileContent = fs.readFileSync(DB_FILE, 'utf8');
+        console.log('DB file read successfully, content length:', fileContent.length);
+        console.log('DB file content preview:', fileContent.substring(0, 150) + '...');
+        data = JSON.parse(fileContent);
+        console.log('DB file parsed successfully, quiz count:', data.quizzes?.length || 0);
+      } catch (readError) {
+        console.error('Error reading/parsing DB file:', readError);
+        // Recover by creating a new DB structure
+        data = { quizzes: [], nextId: 1 };
+      }
+      
+      // Validate data structure
+      if (!data.quizzes || !Array.isArray(data.quizzes)) {
+        console.error('Invalid data structure in quizzes.json, quizzes property is not an array');
+        data = { quizzes: [], nextId: 1 };
+      }
       
       // Add pagination support
       const startIndex = (page - 1) * limit;
       const endIndex = page * limit;
       const paginatedQuizzes = data.quizzes.slice(startIndex, endIndex);
       
-      const totalPages = Math.ceil(data.quizzes.length / limit);
+      const totalPages = Math.ceil(data.quizzes.length / limit) || 1;
       console.log('Total quizzes:', data.quizzes.length, 'Total pages:', totalPages);
       
       return {

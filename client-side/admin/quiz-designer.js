@@ -1266,8 +1266,7 @@ class QuizDesigner {
       };
         console.log('Mapped questions from:', this.questions);
       console.log('Saving quiz data to server:', serverQuizData);
-        
-      // Get token
+          // Get token
       const token = getTokenFromStorage();
       if (!token) {
         throw new Error('No authentication token found');
@@ -1279,7 +1278,10 @@ class QuizDesigner {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify(serverQuizData)
       });

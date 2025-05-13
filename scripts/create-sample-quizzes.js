@@ -1,0 +1,149 @@
+// This script will create some sample quizzes to test the quiz management UI
+
+// Sample quiz data for 80's music
+const quizData = {
+  "quizzes": [
+    {
+      "id": 1,
+      "name": "80's Music Trivia",
+      "title": "80's Music Trivia",
+      "description": "Test your knowledge of 1980s music, artists, and songs!",
+      "questions": [
+        {
+          "text": "Which Michael Jackson album featured 'Billie Jean' and 'Beat It'?",
+          "options": [
+            {
+              "text": "Thriller",
+              "isCorrect": true
+            },
+            {
+              "text": "Bad",
+              "isCorrect": false
+            },
+            {
+              "text": "Off the Wall",
+              "isCorrect": false
+            },
+            {
+              "text": "Dangerous",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Which band had a hit with 'Sweet Child O' Mine' in 1988?",
+          "options": [
+            {
+              "text": "Aerosmith",
+              "isCorrect": false
+            },
+            {
+              "text": "Guns N' Roses",
+              "isCorrect": true
+            },
+            {
+              "text": "Bon Jovi",
+              "isCorrect": false
+            },
+            {
+              "text": "Def Leppard",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "Which singer released 'Like a Virgin' in 1984?",
+          "options": [
+            {
+              "text": "Cyndi Lauper",
+              "isCorrect": false
+            },
+            {
+              "text": "Whitney Houston",
+              "isCorrect": false
+            },
+            {
+              "text": "Madonna",
+              "isCorrect": true
+            },
+            {
+              "text": "Janet Jackson",
+              "isCorrect": false
+            }
+          ]
+        }
+      ],
+      "timePerQuestion": 30,
+      "status": "published",
+      "createdBy": "admin",
+      "createdAt": "2023-05-10T18:30:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "80's Movie Trivia",
+      "title": "80's Movie Trivia",
+      "description": "How well do you remember the iconic films of the 1980s?",
+      "questions": [
+        {
+          "text": "Which 1980s movie features a character named Ferris Bueller?",
+          "options": [
+            {
+              "text": "The Breakfast Club",
+              "isCorrect": false
+            },
+            {
+              "text": "Ferris Bueller's Day Off",
+              "isCorrect": true
+            },
+            {
+              "text": "Sixteen Candles",
+              "isCorrect": false
+            },
+            {
+              "text": "Pretty in Pink",
+              "isCorrect": false
+            }
+          ]
+        },
+        {
+          "text": "In 'The Empire Strikes Back', what does Darth Vader reveal to Luke Skywalker?",
+          "options": [
+            {
+              "text": "He is Luke's uncle",
+              "isCorrect": false
+            },
+            {
+              "text": "He killed Luke's father",
+              "isCorrect": false
+            },
+            {
+              "text": "He is Luke's father",
+              "isCorrect": true
+            },
+            {
+              "text": "He is Obi-Wan's brother",
+              "isCorrect": false
+            }
+          ]
+        }
+      ],
+      "timePerQuestion": 30,
+      "status": "published",
+      "createdBy": "admin",
+      "createdAt": "2023-05-11T14:20:00.000Z"
+    }
+  ],
+  "nextId": 3
+}
+
+// Write to the quizzes.json file
+const fs = require('fs');
+const path = require('path');
+
+// Make sure we're in the correct directory
+const quizzesPath = path.join(__dirname, '../data/quizzes.json');
+console.log(`Writing sample quizzes to: ${quizzesPath}`);
+
+fs.writeFileSync(quizzesPath, JSON.stringify(quizData, null, 2), 'utf8');
+
+console.log('Sample quizzes created successfully! You should now see them in the quiz management UI.');
