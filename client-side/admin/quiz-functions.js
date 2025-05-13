@@ -211,7 +211,7 @@ export function deleteQuiz(quizId) {
 }
 
 // Publish quiz function
-function publishQuiz(quizId) {
+export function publishQuiz(quizId) {
   console.log('Publishing quiz:', quizId);
   
   // Find the quiz by ID
